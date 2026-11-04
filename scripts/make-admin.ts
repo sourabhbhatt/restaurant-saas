@@ -17,7 +17,8 @@ async function main() {
   const handle = pglite
     ? await connectPglite(process.env.PGLITE_DATA_DIR)
     : await connectPostgres(
-        process.env.DATABASE_URL ?? "postgres://restaurantos:restaurantos@localhost:5432/restaurantos_dev",
+        process.env.DATABASE_URL ??
+          "postgres://restaurantos:restaurantos@localhost:5432/restaurantos_dev",
         2,
       );
   try {

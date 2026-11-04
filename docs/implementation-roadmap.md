@@ -18,6 +18,12 @@ Module agents were stopped early at the owner's request (credit limit). Their se
 - [x] Notifications API + bell + `/app/notifications` + preferences; push plumbing (disabled by default)
 - [x] Docs: architecture, api-reference, provider-abstractions, provider-migration-guide, tenant-security, database-schema, environment-variables, offline-sync
 
+## Update (later session)
+
+- [x] Onboarding wizard rebuilt (`/app/onboarding`): workspace → restaurant+branch → first menu item → bulk tables → done; progress saved and resumable
+- [x] `pnpm db:seed` (demo owner/staff/admin, 2 branches, 6-category menu with variants and add-ons, 12 tables each with QR) and `pnpm db:make-admin <email>`
+- [x] **Verified end to end over HTTP against the running server:** QR scan → session → order → waiter accept → kitchen start/ready → serve → bill with GST → two partial payments (UPI + cash) → PAID → idempotent payment replay → session closed; role denials (cashier/waiter/kitchen) confirmed
+
 ## Built by stopped agents — needs review ⚠️
 
 - [ ] Tenancy APIs (restaurants, branches, settings, members, invitations, roles) — server + tests present; **UI pages removed**: onboarding wizard, members, workspace settings, branch settings, branch staff, account, invite acceptance. Restaurants list/detail pages present.
@@ -31,12 +37,11 @@ Module agents were stopped early at the owner's request (credit limit). Their se
 
 ## Next steps (in order)
 
-1. Run the app and click through each area; fix broken pages:
+1. Run the app and click through each area in a browser; fix broken pages (APIs are verified, screens are not):
    ```bash
-   pnpm install && cp .env.example .env.local && pnpm db:migrate && pnpm dev
+   pnpm install && cp .env.example .env.local && pnpm db:migrate && pnpm db:seed && pnpm dev
    ```
-2. Finish/verify the seed script (`pnpm db:seed`) for demo logins and data.
-3. Rebuild the removed tenancy UI pages (onboarding wizard first — it is the main entry flow).
+2. Rebuild the other removed tenancy pages: members + invitations, workspace settings, branch settings (tax/hours), branch staff, account, invite acceptance (their APIs exist).
 4. Mount `SyncStatusIndicator`/`OfflineBanner` in waiter, kitchen, cashier layouts; mount the announcement bar in shells.
 5. Playwright E2E workflows A–I (only site specs exist).
 6. Hardening: Postgres RLS, S3 storage adapter, multi-instance realtime (LISTEN/NOTIFY), Sentry adapter.
