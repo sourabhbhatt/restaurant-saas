@@ -67,7 +67,7 @@ export interface HandlerInput<
 export type HandlerResult =
   { status?: number; data: unknown; headers?: Record<string, string> } | Response;
 
-type RouteContext = { params: Promise<Record<string, string | string[] | undefined>> };
+type RouteContext = { params?: Promise<Record<string, string | string[] | undefined> | undefined> };
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -196,7 +196,8 @@ export function route<
         }
       }
 
-      const params = (config.params ?? empty).parse(await ctx.params) as z.infer<P>;
+      // Static routes receive no params (ctx.params resolves to undefined in Next 16).
+      const params = (config.params ?? empty).parse((await ctx?.params) ?? {}) as z.infer<P>;
       const query = (config.query ?? empty).parse(queryObject(new URL(req.url))) as z.infer<Q>;
       const rawBody = MUTATING.has(req.method) && config.body ? await parseBody(req) : {};
       const body = (config.body ?? empty).parse(rawBody) as z.infer<B>;

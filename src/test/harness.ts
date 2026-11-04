@@ -25,7 +25,7 @@ export async function createTestContainer(): Promise<Container> {
 
 type Handler = (
   req: Request,
-  ctx: { params: Promise<Record<string, string | string[] | undefined>> },
+  ctx: { params: Promise<Record<string, string | string[] | undefined> | undefined> },
 ) => Promise<Response>;
 
 export interface CallOptions {
@@ -63,7 +63,8 @@ export async function call<T = unknown>(
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
-  const res = await handler(req, { params: Promise.resolve(opts.params ?? {}) });
+  // Mirror Next.js: static routes get params resolving to undefined.
+  const res = await handler(req, { params: Promise.resolve(opts.params) });
   const text = await res.text();
   return {
     status: res.status,
