@@ -1,79 +1,57 @@
-# Restaurant SaaS
+# RestaurantOS
 
-A multi-tenant, offline-first restaurant management platform: QR dine-in ordering, waiter approvals, kitchen display, counter billing, subscriptions and a Super Admin console.
+Multi-tenant restaurant SaaS: workspaces with multiple restaurants and branches, QR dine-in ordering (no customer app or account), waiter approval, kitchen display, counter billing with partial payments, trials and subscriptions, Super Admin console, offline-tolerant staff devices.
 
-**Stage:** project foundation. No database, authentication, storage, realtime, email or hosting provider has been selected or configured yet.
+**Status:** server side is complete and verified by 349 automated tests plus a live order-to-payment run. Several UI screens have not been checked in a browser yet. See [docs/implementation-roadmap.md](docs/implementation-roadmap.md) for exactly what is done and what is not.
 
-## Stack
-
-| Concern              | Tool                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------ |
-| Framework            | Next.js 16 (App Router, Turbopack, Cache Components)                                 |
-| Language             | TypeScript, strict (+ `noUncheckedIndexedAccess`)                                    |
-| Styling / UI         | Tailwind CSS v4, shadcn/ui (Radix primitives, `new-york` theme), lucide icons        |
-| Client state         | Zustand                                                                              |
-| Server state         | TanStack Query (`networkMode: "offlineFirst"`)                                       |
-| Forms / validation   | React Hook Form + Zod                                                                |
-| Local persistence    | Dexie.js (IndexedDB)                                                                 |
-| PWA / service worker | Serwist (`@serwist/turbopack`), `public/manifest.json`, `/~offline` fallback         |
-| Quality              | ESLint (Next + TanStack Query + Prettier), Prettier (+ Tailwind class sorting)       |
-| Tests                | Vitest + Testing Library + fake-indexeddb (unit), Playwright (E2E, mobile + desktop) |
-
-## Getting started
+## Quick start (local)
 
 Requires Node 22+ and pnpm 10.
 
 ```bash
 pnpm install
-pnpm dev            # http://localhost:3000 (service worker disabled in dev)
+cp .env.example .env.local
 ```
 
-| Script                                                 | What it does                                                               |
-| ------------------------------------------------------ | -------------------------------------------------------------------------- |
-| `pnpm build` / `pnpm start`                            | Production build / serve (the service worker is active here)               |
-| `pnpm typecheck`                                       | Generate route types and run `tsc`                                         |
-| `pnpm lint` / `pnpm lint:fix`                          | ESLint, zero warnings allowed                                              |
-| `pnpm format` / `pnpm format:check`                    | Prettier                                                                   |
-| `pnpm test` / `pnpm test:watch` / `pnpm test:coverage` | Vitest unit tests                                                          |
-| `pnpm test:e2e`                                        | Playwright: builds, starts on port 3100, tests on Pixel 7 + Desktop Chrome |
-| `pnpm check`                                           | typecheck + lint + format check + unit tests                               |
+Pick a database in `.env.local`:
 
-First Playwright run on a new machine: `pnpm exec playwright install chromium`.
-
-## Structure
-
-```
-src/
-  app/                 routes only (App Router)
-    (public)/ (auth)/ (workspace)/   route groups (no URL segment)
-    waiter/ kitchen/ menu/ superadmin/
-    serwist/[path]/route.ts          serves the compiled service worker
-    sw.ts                            service worker source
-    ~offline/                        offline fallback page
-  components/
-    ui/                shadcn/ui primitives (generated/owned source)
-    shared/            app-wide components (providers, ...)
-    layouts/           role-specific shells
-  features/<feature>/  UI, hooks, stores and logic per business feature
-  infrastructure/<capability>/{interfaces,providers}/   see src/infrastructure/README.md
-  lib/                 framework-level helpers (cn, query client)
-tests/e2e/             Playwright specs
-docs/                  architecture and decision records
-```
-
-**Provider independence is enforced by lint:** `src/app`, `src/features` and `src/components` can't import from `@/infrastructure/*/providers`.
-
-## Adding shadcn/ui components
+- **Zero install:** `DATABASE_PROVIDER=pglite` and `PGLITE_DATA_DIR=.data/pglite` (embedded Postgres; one process at a time, so stop `pnpm dev` before running `db:*` scripts).
+- **Real Postgres 16:** keep `DATABASE_PROVIDER=postgres` and create the role and database from `DATABASE_URL`.
 
 ```bash
-pnpm dlx shadcn@latest add dialog input form
+pnpm db:migrate     # schema + roles, permissions, default plans
+pnpm db:seed        # demo data and logins (development only)
+pnpm dev            # http://localhost:3000
 ```
 
-`components.json` is already configured, so components land in `src/components/ui`. (The initial setup was done by hand because the build environment couldn't reach the shadcn registry. Nothing differs from a CLI init.)
+Demo logins after `db:seed`: `owner@demo.local` / `Demo-Owner-2026`; `manager|waiter|kitchen|cashier@demo.local` / `Demo-Staff-2026`; `admin@restaurantos.local` / `ChangeMe-Admin-2026` (Super Admin). The seed prints sample customer QR links. Or sign up at `/sign-up` and follow onboarding. Emails are not delivered in development; read them at `/dev/mailbox`.
 
-## Documents
+Make an existing account a Super Admin: `pnpm db:make-admin you@example.com`.
 
-- [Technology decisions](docs/technology-decisions.md), including a decision log
-- [Architecture overview](docs/architecture.md)
-- [Implementation roadmap](docs/implementation-roadmap.md)
-- [Account setup checklist](docs/setup-accounts.md)
+## Scripts
+
+| Script                                                          | Purpose                                                                          |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `pnpm dev` / `build` / `start`                                  | Next.js dev server / production build / serve                                    |
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`              | Static checks                                                                    |
+| `pnpm test`                                                     | Vitest: domain unit tests, UI unit tests, integration tests on embedded Postgres |
+| `pnpm test:e2e`                                                 | Playwright (public site specs)                                                   |
+| `pnpm db:generate` / `db:migrate` / `db:seed` / `db:make-admin` | Database tooling                                                                 |
+
+## Where things live
+
+```
+src/domain/          pure business rules (pricing, orders, billing, entitlements, permissions)
+src/contracts/       Zod schemas + DTOs shared by API and UI
+src/server/          application services, authorization, HTTP wrapper, composition root
+src/infrastructure/  all provider adapters (database, auth, email, storage, realtime, push, logging)
+src/features/        UI per feature      src/components/  design system and layouts
+src/app/             routes: /, (auth), /app, /waiter, /kitchen, /cashier, /t/<qr>, /admin, /api/v1
+tests/integration/   API-level tests on a real (embedded) Postgres
+```
+
+## Documentation
+
+[architecture](docs/architecture.md) · [API reference](docs/api-reference.md) · [technology decisions](docs/technology-decisions.md) · [provider abstractions](docs/provider-abstractions.md) · [provider migration](docs/provider-migration-guide.md) · [database schema](docs/database-schema.md) · [tenant security](docs/tenant-security.md) · [offline sync](docs/offline-sync.md) · [environment variables](docs/environment-variables.md) · [deployment](docs/deployment.md) · [testing](docs/testing.md) · [roadmap](docs/implementation-roadmap.md)
+
+This repo uses a Next.js version with breaking changes; read `node_modules/next/dist/docs/` before changing framework-level code (see `AGENTS.md`).

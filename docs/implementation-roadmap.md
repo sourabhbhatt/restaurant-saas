@@ -42,7 +42,7 @@ Module agents were stopped early at the owner's request (credit limit). Their se
    pnpm install && cp .env.example .env.local && pnpm db:migrate && pnpm db:seed && pnpm dev
    ```
 2. ~~Rebuild removed tenancy pages~~ — done (members/invitations/roles, workspace settings, branch settings incl. taxes & hours, branch staff, account, invite acceptance). Invite create → accept → re-accept rejected verified over HTTP.
-4. Mount `SyncStatusIndicator`/`OfflineBanner` in waiter, kitchen, cashier layouts; mount the announcement bar in shells.
-5. Playwright E2E workflows A–I (only site specs exist).
-6. Hardening: Postgres RLS, S3 storage adapter, multi-instance realtime (LISTEN/NOTIFY), Sentry adapter.
-7. Write `README.md` refresh, `deployment.md`, `testing.md`.
+3. Mount `SyncStatusIndicator`/`OfflineBanner` in waiter, kitchen, cashier layouts; mount the announcement bar in shells.
+4. Playwright E2E workflows A–I (only site specs exist).
+5. Hardening: Postgres RLS, S3 storage adapter, multi-instance realtime (LISTEN/NOTIFY), Sentry adapter.
+6. Write `README.md` refresh, `deployment.md`, `testing.md`.

@@ -54,8 +54,6 @@ const schema = z.object({
   CRON_SECRET: z.string().min(16).optional(),
   /** Enables the test clock endpoint and dev mailbox. Never enable in production. */
   ENABLE_TEST_HOOKS: booleanish.default(false),
-  SEED_SUPER_ADMIN_EMAIL: z.email().optional(),
-  SEED_SUPER_ADMIN_PASSWORD: z.string().min(12).optional(),
 });
 
 export type ServerEnv = z.infer<typeof schema>;

@@ -21,6 +21,7 @@ import { useAlertSound, useNewIds } from "@/features/realtime/alert-sound";
 import { ConnectionStatus } from "@/features/realtime/connection-status";
 import { SoundControl } from "@/features/realtime/sound-control";
 import { useBranchEvents } from "@/features/realtime/use-branch-events";
+import { OfflineBanner, SyncStatusIndicator } from "@/features/offline";
 import { AuthGate } from "@/features/session/auth-gate";
 import { permissionChecker, useBranchContext } from "@/features/session/queries";
 
@@ -105,6 +106,7 @@ function CompletedTicket({ order }: { order: KitchenOrderDto }) {
           </span>
         </div>
       </header>
+      <OfflineBanner />
       <OrderItemsList items={order.items} />
       {order.cancellationReason && (
         <p className="text-sm text-destructive">Reason: {order.cancellationReason}</p>
@@ -192,6 +194,7 @@ function KitchenScreen({ branchId, ctx }: { branchId: string; ctx: BranchContext
             </p>
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            <SyncStatusIndicator />
             <Clock />
             <ConnectionStatus status={realtime.status} lastSyncedAt={feed.dataUpdatedAt} />
             <ToggleGroup

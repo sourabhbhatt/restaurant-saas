@@ -1,6 +1,7 @@
 "use client";
 
 import type { Entitlements } from "@/domain/subscriptions/entitlements";
+import { AnnouncementBar } from "@/features/superadmin/announcement-bar";
 import { NotificationBell } from "@/features/notifications/notification-bell";
 import { TrialBanner } from "@/features/subscriptions/trial-banner";
 
@@ -13,6 +14,11 @@ export const ShellExtras = {
     return <NotificationBell workspaceId={workspaceId} />;
   },
   Banner({ workspaceId, entitlements }: { workspaceId: string; entitlements: Entitlements }) {
-    return <TrialBanner workspaceId={workspaceId} entitlements={entitlements} />;
+    return (
+      <>
+        <AnnouncementBar />
+        <TrialBanner workspaceId={workspaceId} entitlements={entitlements} />
+      </>
+    );
   },
 };

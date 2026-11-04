@@ -9,6 +9,7 @@ import { ErrorState, PageSkeleton } from "@/components/shared/feedback";
 import { Toaster } from "@/components/ui/sonner";
 import { errorMessage } from "@/lib/api-client";
 import { PaymentSummaryStrip } from "@/features/billing/components/payment-summary-strip";
+import { OfflineBanner, SyncStatusIndicator } from "@/features/offline";
 import { AuthGate } from "@/features/session/auth-gate";
 import { permissionChecker, useBranchContext } from "@/features/session/queries";
 
@@ -54,9 +55,13 @@ function Inner({ children }: { children: ReactNode }) {
               </p>
             </div>
           </div>
-          {can("payments.summary.view") && <PaymentSummaryStrip branchId={branchId} />}
+          <div className="flex flex-wrap items-center gap-3">
+            <SyncStatusIndicator />
+            {can("payments.summary.view") && <PaymentSummaryStrip branchId={branchId} />}
+          </div>
         </div>
       </header>
+      <OfflineBanner />
       <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-4">
         {children}
       </main>

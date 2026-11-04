@@ -13,22 +13,26 @@
 ## Controls
 
 **Authentication** — `src/infrastructure/auth/providers/local-identity.ts`
+
 - Passwords: scrypt (N=2^17, r=8, p=1, 16-byte salt), NFKC-normalized, constant-time compare. A real dummy hash is verified for unknown emails to equalize timing; one generic error for wrong email or password.
 - Sessions: 32-byte random tokens; only SHA-256 hashes stored; `HttpOnly; SameSite=Lax; Secure` (when HTTPS) cookie; sliding expiry; revocation on sign-out, password change (other sessions) and password reset (all sessions).
 - Reset / verification tokens: random, hashed, single-use (atomic `UPDATE … WHERE used_at IS NULL AND expires_at > now()`), 1 h / 48 h expiry, max 5 per hour per user; forgot-password always returns 200 (no enumeration).
 
 **Authorization** — `src/server/authz/access-service.ts`
-- Every protected handler calls `c.access.forWorkspace | forRestaurant | forBranch(actor, id)`. The ID is a *request*: the service loads the resource, finds its workspace, loads the actor's ACTIVE membership and grants **from the database**, and only then returns a scope. Not a member → **404** (same as non-existent), so IDs cannot be probed.
+
+- Every protected handler calls `c.access.forWorkspace | forRestaurant | forBranch(actor, id)`. The ID is a _request_: the service loads the resource, finds its workspace, loads the actor's ACTIVE membership and grants **from the database**, and only then returns a scope. Not a member → **404** (same as non-existent), so IDs cannot be probed.
 - `scope.require(permission)` checks the permission at the right level (workspace role; restaurant assignment covering all branches; branch assignment for that branch only) **and** the subscription access level for that permission (`operationKindFor`). Code never checks role names.
 - Repositories receive the scope's IDs and include `workspace_id` (and `branch_id`) in every filter, including updates and deletes.
 - Inputs are validated by Zod schemas with explicit fields (no mass assignment); patches are built from named fields.
 - Super Admin is a separate `platform_role` with separate `/api/v1/admin/*` endpoints (`route({ auth: "platform" })`); it does not grant tenant access through normal APIs. Every admin mutation is audited.
 
 **Guests (QR ordering)**
+
 - QR URL `/t/<token>`: 32 random bytes, no internal IDs. DB stores SHA-256 for lookup and AES-256-GCM ciphertext (key derived from `APP_SECRET`) so managers can re-download; regenerate revokes the previous token; revoked/unknown/inactive all return the same `QR_INVALID`.
 - Joining a session sets a `ros_guest` cookie bound to one table session (hash stored). Guests see only their own orders, the table status, and the table bill once issued. Prices from the client are ignored; the server reprices from the menu.
 
 **Request hygiene** — `src/server/http/route.ts`
+
 - CSRF: mutations require `Sec-Fetch-Site: same-origin` or a matching `Origin`; cookies are `SameSite=Lax`.
 - Rate limits (Postgres-backed, multi-instance safe) on sign-in, sign-up, forgot/reset, verify, public QR and order endpoints.
 - `Idempotency-Key` replay for payments, bills and orders, plus DB unique keys (`(branch_id, idempotency_key)`).
@@ -38,6 +42,7 @@
 - Uploads: images only (magic-byte sniffing, PNG/JPEG/WebP, no SVG), size limit, random keys, served with `nosniff`.
 
 **Data integrity**
+
 - Conditional updates with `version` and status predicates prevent double acceptance and lost updates (409 on conflict).
 - Partial unique indexes: one open session per table, one live bill per session, one active QR per table, one current subscription per workspace.
 - Order and bill snapshots: historical records never change when the menu or tax settings change.

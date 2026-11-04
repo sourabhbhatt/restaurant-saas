@@ -1,5 +1,6 @@
 "use client";
 
+import { OfflineBanner, SyncStatusIndicator } from "@/features/offline";
 import {
   ArrowLeft,
   BellRing,
@@ -267,6 +268,7 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
             <p className="truncate text-xs text-muted-foreground">{ctx.restaurantName} · Waiter</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <SyncStatusIndicator />
             {pendingTotal > 0 && (
               <StatusBadge tone="warning" dot pulse className="hidden sm:inline-flex">
                 {pendingTotal} to approve
@@ -277,6 +279,7 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
           </div>
         </div>
       </header>
+      <OfflineBanner />
 
       <Tabs
         value={tab}
