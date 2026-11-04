@@ -1,3 +1,4 @@
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
@@ -32,6 +33,9 @@ export async function connectPostgres(url: string, poolMax = 10): Promise<Databa
 export async function connectPglite(dataDir?: string): Promise<DatabaseHandle> {
   const { PGlite } = await import("@electric-sql/pglite");
   const { drizzle } = await import("drizzle-orm/pglite");
+  // PGlite does not create missing parent directories.
+  if (dataDir && !dataDir.startsWith("memory:"))
+    mkdirSync(path.dirname(path.resolve(dataDir)), { recursive: true });
   const client = dataDir ? new PGlite(dataDir) : new PGlite();
   const db = drizzle(client, { schema }) as unknown as Executor;
   return { db, close: () => client.close() };
