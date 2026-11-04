@@ -80,7 +80,10 @@ async function systemRoleId(key: string) {
 }
 
 async function members(workspaceId: string, user: TestUser) {
-  const res = await call<MemberDto[]>(listMembers, { params: { workspaceId }, cookie: user.cookie });
+  const res = await call<MemberDto[]>(listMembers, {
+    params: { workspaceId },
+    cookie: user.cookie,
+  });
   return res.body.data!;
 }
 
@@ -206,7 +209,9 @@ describe("invitations", () => {
       cookie: owner.cookie,
     });
     expect(revoked.status).toBe(200);
-    const preview = await call<InvitationPreviewDto>(previewInvite, { params: { token: newToken } });
+    const preview = await call<InvitationPreviewDto>(previewInvite, {
+      params: { token: newToken },
+    });
     expect(preview.body.data!.status).toBe("REVOKED");
 
     const target = await signUpUser("Target", email);
@@ -630,7 +635,11 @@ describe("custom roles", () => {
     expect(inUse.status).toBe(409);
     await call(removeAssignment, {
       method: "DELETE",
-      params: { workspaceId: ws.id, membershipId: m.membershipId, assignmentId: assigned.body.data!.id },
+      params: {
+        workspaceId: ws.id,
+        membershipId: m.membershipId,
+        assignmentId: assigned.body.data!.id,
+      },
       cookie: owner.cookie,
     });
     const deleted = await call(deleteRole, {

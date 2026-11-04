@@ -32,6 +32,7 @@ const ICONS: Partial<Record<NotificationType, ComponentType<SVGProps<SVGSVGEleme
   "trial.reminder": SparklesIcon,
   "trial.expired": SparklesIcon,
   "subscription.activated": SparklesIcon,
+  "subscription.upgrade_rejected": SparklesIcon,
   "subscription.expired": SparklesIcon,
   "platform.announcement": MegaphoneIcon,
 };

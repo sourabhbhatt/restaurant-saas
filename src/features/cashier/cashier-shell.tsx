@@ -10,6 +10,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { errorMessage } from "@/lib/api-client";
 import { PaymentSummaryStrip } from "@/features/billing/components/payment-summary-strip";
 import { OfflineBanner, SyncStatusIndicator } from "@/features/offline";
+import { ProfileMenu } from "@/features/navigation/profile-menu";
 import { AuthGate } from "@/features/session/auth-gate";
 import { permissionChecker, useBranchContext } from "@/features/session/queries";
 
@@ -57,6 +58,12 @@ function Inner({ children }: { children: ReactNode }) {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <SyncStatusIndicator />
+            <ProfileMenu
+              workspaceId={b.workspaceId}
+              workspaceName={b.workspaceName}
+              roleLabel={b.roleLabel}
+              branchLabel={`${b.restaurantName} · ${b.branchName}`}
+            />
             {can("payments.summary.view") && <PaymentSummaryStrip branchId={branchId} />}
           </div>
         </div>

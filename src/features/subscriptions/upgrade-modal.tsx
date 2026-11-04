@@ -2,13 +2,12 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Info, Sparkles } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { ErrorState, LoadingState } from "@/components/shared/feedback";
+import { ConfirmDialog, ErrorState, LoadingState } from "@/components/shared/feedback";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import {
@@ -23,17 +22,18 @@ import { FormField } from "@/components/ui/form-field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { createSupportRequestSchema, type PublicPlanDto } from "@/contracts/platform";
+import type { PublicPlanDto } from "@/contracts/platform";
 import { BILLING_CYCLES } from "@/domain/subscriptions/entitlements";
 import { applyFieldErrors, errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
-import { useRequestUpgrade, useSubscriptionOverview } from "./queries";
+import { useCancelUpgrade, useRequestUpgrade, useSubscriptionOverview } from "./queries";
 import { formatDate, formatPrice } from "./subscription-ui";
 
-const upgradeFormSchema = createSupportRequestSchema.pick({ message: true }).extend({
+const upgradeFormSchema = z.object({
   planKey: z.string().min(1, "Choose a plan"),
   billingCycle: z.enum(BILLING_CYCLES),
+  message: z.string().trim().max(500, "Keep the message under 500 characters"),
 });
 type UpgradeForm = z.infer<typeof upgradeFormSchema>;
 
@@ -70,6 +70,8 @@ function UpgradeBody({
 }) {
   const overview = useSubscriptionOverview(workspaceId);
   const request = useRequestUpgrade(workspaceId);
+  const cancel = useCancelUpgrade(workspaceId);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const plans = overview.data?.availablePlans ?? [];
   const defaultPlan =
     initialPlanKey ??
@@ -82,7 +84,7 @@ function UpgradeBody({
     values: {
       planKey: defaultPlan,
       billingCycle: "ANNUAL",
-      message: "We'd like to upgrade our workspace. Please get in touch to activate the plan.",
+      message: "",
     },
     resetOptions: { keepDirtyValues: true },
   });
@@ -104,20 +106,32 @@ function UpgradeBody({
       <div className="grid gap-4">
         <Alert variant="success">
           <CheckCircle2 aria-hidden />
-          <AlertTitle>Upgrade request sent</AlertTitle>
+          <AlertTitle>Upgrade request pending</AlertTitle>
           <AlertDescription>
-            You asked on {formatDate(d.pendingUpgrade.createdAt)}. Our team will contact you to
-            confirm payment and activate the plan.
+            You asked for the {d.pendingUpgrade.requestedPlanName} plan on{" "}
+            {formatDate(d.pendingUpgrade.createdAt)}. Our team will confirm payment and activate it;
+            you&apos;ll get a notification either way. Your current plan stays active until then.
           </AlertDescription>
         </Alert>
         <DialogFooter>
-          <Button variant="outline" asChild>
-            <Link href={`/app/w/${workspaceId}/support`} onClick={onDone}>
-              View request
-            </Link>
+          <Button variant="outline" onClick={() => setConfirmCancel(true)}>
+            Cancel request
           </Button>
           <Button onClick={onDone}>Done</Button>
         </DialogFooter>
+        <ConfirmDialog
+          open={confirmCancel}
+          onOpenChange={setConfirmCancel}
+          title="Cancel this upgrade request?"
+          description="Nothing is charged. You can send a new request at any time."
+          confirmLabel="Cancel request"
+          destructive
+          onConfirm={async () => {
+            await cancel.mutateAsync(d.pendingUpgrade!.id);
+            toast.success("Upgrade request cancelled");
+            setConfirmCancel(false);
+          }}
+        />
       </div>
     );
   }
@@ -148,14 +162,13 @@ function UpgradeBody({
     const plan = plans.find((p) => p.key === values.planKey);
     try {
       await request.mutateAsync({
-        category: "UPGRADE",
-        priority: "NORMAL",
-        subject: `Upgrade request: ${plan?.name ?? values.planKey} (${values.billingCycle === "ANNUAL" ? "annual" : "monthly"})`,
-        message: values.message,
         planKey: values.planKey,
         billingCycle: values.billingCycle,
+        message: values.message || undefined,
       });
-      toast.success("Upgrade request sent. We'll be in touch shortly.");
+      toast.success(
+        `Request for the ${plan?.name ?? "new"} plan sent. You'll be notified when it's decided.`,
+      );
       onDone();
     } catch (error) {
       if (applyFieldErrors(error, form.setError, ["planKey", "billingCycle", "message"])) return;
@@ -239,12 +252,11 @@ function UpgradeBody({
       />
 
       <FormField
-        label="Message to our team"
+        label="Message to our team (optional)"
         error={form.formState.errors.message?.message}
         description="Add anything we should know, e.g. GST details or a preferred contact time."
-        required
       >
-        <Textarea rows={3} maxLength={5000} {...form.register("message")} />
+        <Textarea rows={3} maxLength={500} {...form.register("message")} />
       </FormField>
 
       <DialogFooter>

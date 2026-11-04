@@ -155,15 +155,15 @@ describe("test clock", () => {
 
     c.env.ENABLE_TEST_HOOKS = false;
     expect((await call(getClock, { cookie: admin.cookie })).status).toBe(404);
-    expect(
-      (await call(setClock, { cookie: admin.cookie, body: { offsetDays: 5 } })).status,
-    ).toBe(404);
+    expect((await call(setClock, { cookie: admin.cookie, body: { offsetDays: 5 } })).status).toBe(
+      404,
+    );
     expect(c.clock.offsetMs()).toBe(2 * 86_400_000);
   });
 });
 
 describe("support requests", () => {
-  it("lets owners request an upgrade and Super Admins work the request", async () => {
+  it("lets owners open support requests and Super Admins work them", async () => {
     const owner = await signUpUser("Support Owner");
     const ws = await createWorkspaceAs(owner, "Support Spice");
     const { restaurantId, branchId } = await insertRestaurantWithBranch(c, ws.id);
@@ -176,34 +176,35 @@ describe("support requests", () => {
       branchId,
     });
 
-    const upgrade = {
-      subject: "Upgrade to Pro",
-      message: "Please activate Pro annual for our group.",
-      category: "UPGRADE",
-      planKey: "pro",
-      billingCycle: "ANNUAL",
-    };
+    // Plan changes are not support tickets: they use the upgrade-request flow.
+    const asUpgrade = await call(createSupport, {
+      params: { workspaceId: ws.id },
+      cookie: owner.cookie,
+      body: {
+        subject: "Upgrade to Pro",
+        message: "Please activate Pro annual.",
+        category: "UPGRADE",
+      },
+    });
+    expect(asUpgrade.status).toBe(422);
+
     const created = await call<SupportRequestDto>(createSupport, {
       params: { workspaceId: ws.id },
       cookie: owner.cookie,
-      body: upgrade,
+      body: {
+        subject: "Invoice question",
+        message: "Please resend our last invoice.",
+        category: "BILLING",
+      },
     });
     expect(created.status).toBe(201);
-    expect(created.body.data!.message).toMatch(/Requested plan: Pro/);
     expect(created.body.data!.contactEmail).toBe(owner.email);
-
-    const dup = await call(createSupport, {
-      params: { workspaceId: ws.id },
-      cookie: owner.cookie,
-      body: upgrade,
-    });
-    expect(dup.status).toBe(409);
 
     const overview = await call<SubscriptionOverviewDto>(getSubscription, {
       params: { workspaceId: ws.id },
       cookie: owner.cookie,
     });
-    expect(overview.body.data!.pendingUpgrade?.id).toBe(created.body.data!.id);
+    expect(overview.body.data!.pendingUpgrade).toBeNull();
 
     const invalid = await call(createSupport, {
       params: { workspaceId: ws.id },
@@ -216,7 +217,11 @@ describe("support requests", () => {
     const waiterCreate = await call(createSupport, {
       params: { workspaceId: ws.id },
       cookie: waiter.cookie,
-      body: { subject: "Printer broken", message: "Kitchen printer is offline.", category: "TECHNICAL" },
+      body: {
+        subject: "Printer broken",
+        message: "Kitchen printer is offline.",
+        category: "TECHNICAL",
+      },
     });
     expect(waiterCreate.status).toBe(403);
     const waiterList = await call<Paginated<SupportRequestDto>>(listSupport, {
@@ -242,12 +247,15 @@ describe("support requests", () => {
     // Super Admin.
     const list = await call<Paginated<SupportRequestDto>>(adminSupportList, {
       cookie: admin.cookie,
-      path: `/api/v1/admin/support?category=UPGRADE&workspaceId=${ws.id}`,
+      path: `/api/v1/admin/support?category=BILLING&workspaceId=${ws.id}`,
     });
     expect(list.body.data!.items.map((r) => r.id)).toEqual([created.body.data!.id]);
     const id = created.body.data!.id;
 
-    const asOwner = await call(adminSupportGet, { params: { requestId: id }, cookie: owner.cookie });
+    const asOwner = await call(adminSupportGet, {
+      params: { requestId: id },
+      cookie: owner.cookie,
+    });
     expect(asOwner.status).toBe(403);
 
     const patched = await call<SupportRequestDetailDto>(adminSupportPatch, {
@@ -301,9 +309,9 @@ describe("support requests", () => {
     expect(actions).toEqual(
       expect.arrayContaining(["support.request_created", "platform.support_updated"]),
     );
-    expect(audit.body.data!.items.find((a) => a.action === "platform.support_updated")?.actorType).toBe(
-      "PLATFORM_ADMIN",
-    );
+    expect(
+      audit.body.data!.items.find((a) => a.action === "platform.support_updated")?.actorType,
+    ).toBe("PLATFORM_ADMIN");
   });
 });
 
@@ -351,7 +359,8 @@ describe("workspace audit log", () => {
       branchId,
     });
     expect(
-      (await call(workspaceAudit, { params: { workspaceId: ws.id }, cookie: cashier.cookie })).status,
+      (await call(workspaceAudit, { params: { workspaceId: ws.id }, cookie: cashier.cookie }))
+        .status,
     ).toBe(403);
     const other = await signUpUser("Audit Stranger");
     expect(

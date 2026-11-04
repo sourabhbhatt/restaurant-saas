@@ -1,5 +1,12 @@
 import type { NotificationInput } from "@/contracts/notifications";
 import type {
+  CreateUpgradeRequestInput,
+  UpgradeRequestDetailDto,
+  UpgradeRequestDto,
+  UpgradeRequestListDto,
+} from "@/contracts/upgrades";
+import { nextUpgradeStatus } from "@/domain/subscriptions/upgrade-request";
+import type {
   ActivateSubscriptionInput,
   AdminAuditQuery,
   AdminPlanDto,
@@ -50,7 +57,13 @@ import type { WorkspaceScope } from "../../authz/access-service";
 import { auditActorFor, type AuditActor, type RequestMeta, type UserActor } from "../../context";
 import type { Clock, Logger } from "../../ports/observability";
 import type { EntitlementService } from "../../subscriptions/entitlement-service";
-import type { AuditFilter, PlatformMailer, PlatformRepos, SubscriptionRow } from "./ports";
+import type {
+  AuditFilter,
+  PlatformMailer,
+  PlatformRepos,
+  SubscriptionRow,
+  UpgradeRow,
+} from "./ports";
 
 export interface PlatformServiceDeps {
   tx: TransactionRunner<PlatformRepos>;
@@ -103,6 +116,31 @@ export function toPublicPlan(p: AdminPlanDto): PublicPlanDto {
     isTrialEligible: p.isTrialEligible,
     limits: p.limits,
     features: p.features.filter((f) => f in FEATURES).map((f) => ({ key: f, label: FEATURES[f] })),
+  };
+}
+
+export function toUpgradeDto(r: UpgradeRow): UpgradeRequestDto {
+  return {
+    id: r.id,
+    workspaceId: r.workspaceId,
+    workspaceName: r.workspaceName,
+    requestedBy: r.requestedById
+      ? { id: r.requestedById, name: r.requestedByName ?? "", email: r.requestedByEmail ?? "" }
+      : null,
+    currentPlan: r.currentPlanKey ? { key: r.currentPlanKey, name: r.currentPlanName ?? "" } : null,
+    requestedPlan: {
+      key: r.requestedPlanKey,
+      name: r.requestedPlanName,
+      monthlyPrice: r.requestedPlanMonthlyPrice,
+      currency: r.requestedPlanCurrency,
+    },
+    billingCycle: r.billingCycle,
+    message: r.message,
+    status: r.status,
+    decidedByName: r.decidedByName,
+    decidedAt: iso(r.decidedAt),
+    decisionReason: r.decisionReason,
+    createdAt: r.createdAt.toISOString(),
   };
 }
 
@@ -189,6 +227,85 @@ export function createPlatformService(deps: PlatformServiceDeps) {
     return ws;
   }
 
+  /**
+   * Retire the current subscription and activate `input.planKey` (single source
+   * of truth for manual activation and approved upgrade requests). Runs in the
+   * caller's transaction.
+   */
+  async function activateInTx(
+    r: PlatformRepos,
+    admin: UserActor,
+    meta: RequestMeta,
+    workspaceId: string,
+    input: ActivateSubscriptionInput,
+    now: Date,
+    periodEnd: Date,
+    outbox: Mail[],
+  ): Promise<{ subscriptionId: string }> {
+    const ws = await requireWorkspace(r, workspaceId);
+    const plan = await r.platform.findPlanByKey(input.planKey);
+    if (!plan || plan.status !== "ACTIVE") {
+      throw new DomainError("VALIDATION_FAILED", "Choose an active plan", {
+        fieldErrors: { planKey: ["Choose an active plan"] },
+      });
+    }
+    const old = await r.platform.findCurrentSubscription(workspaceId);
+    await r.platform.retireCurrentSubscription(workspaceId);
+    const subscriptionId = await r.platform.insertSubscription({
+      workspaceId,
+      planId: plan.id,
+      status: "ACTIVE",
+      billingCycle: input.billingCycle,
+      currentPeriodStart: now,
+      currentPeriodEnd: periodEnd,
+      notes: input.notes ?? null,
+      activatedBy: admin.userId,
+    });
+    await r.platform.insertSubscriptionEvent({
+      workspaceId,
+      subscriptionId,
+      type: "activated",
+      fromStatus: old?.status ?? null,
+      toStatus: "ACTIVE",
+      planKey: plan.key,
+      actorUserId: admin.userId,
+      metadata: {
+        billingCycle: input.billingCycle,
+        periodEnd: periodEnd.toISOString(),
+        previousPlanKey: old?.planKey ?? null,
+      },
+    });
+    await recordAudit(
+      r.audit,
+      adminActor(admin, meta),
+      "platform.subscription_activated",
+      { workspaceId, targetType: "subscription", targetId: subscriptionId },
+      {
+        planKey: plan.key,
+        billingCycle: input.billingCycle,
+        periodEnd: periodEnd.toISOString(),
+        previousSubscriptionId: old?.id ?? null,
+      },
+    );
+    await notifyOwners(
+      r,
+      workspaceId,
+      {
+        type: "subscription.activated",
+        title: `${plan.name} plan activated`,
+        body: `Your subscription is active until ${fmtDate(periodEnd)}.`,
+        data: { workspaceId, planKey: plan.key },
+      },
+      {
+        template: "subscription_activated",
+        subject: `${ws.name}: ${plan.name} plan activated`,
+        text: `Your ${plan.name} subscription for "${ws.name}" is now active (billed ${input.billingCycle.toLowerCase()}) until ${fmtDate(periodEnd)}.`,
+      },
+      outbox,
+    );
+    return { subscriptionId };
+  }
+
   async function requireSubscription(r: PlatformRepos, workspaceId: string) {
     const sub = await r.platform.findCurrentSubscription(workspaceId);
     if (!sub) throw conflict("This workspace has no subscription yet. Assign a plan first.");
@@ -240,7 +357,7 @@ export function createPlatformService(deps: PlatformServiceDeps) {
           pendingUpgrade,
           trialDays: s.trialDays,
           supportEmail: s.supportEmail,
-          canRequestUpgrade: scope.can("workspace.support.manage"),
+          canRequestUpgrade: scope.can("workspace.subscription.manage"),
         };
       });
     },
@@ -280,27 +397,22 @@ export function createPlatformService(deps: PlatformServiceDeps) {
       // or expired workspace must still be able to contact support.
       if (!scope.can("workspace.support.manage")) throw forbidden();
       const input = createSupportRequestSchema.parse(raw);
+      // Plan changes have their own request flow (approval, history, notifications).
+      if (input.category === "UPGRADE") {
+        throw new DomainError(
+          "VALIDATION_FAILED",
+          "Use Upgrade on the Subscription page to request a plan change",
+          {
+            fieldErrors: {
+              category: ["Use Upgrade on the Subscription page to request a plan change"],
+            },
+          },
+        );
+      }
       const s = await settings();
       const outbox: Mail[] = [];
       const created = await tx.run(async (r) => {
-        let message = input.message;
-        if (input.category === "UPGRADE") {
-          const open = await r.platform.findOpenUpgradeRequest(scope.workspaceId);
-          if (open) {
-            throw conflict("An upgrade request is already open. Our team will contact you soon.");
-          }
-          if (input.planKey) {
-            const plan = await r.platform.findPlanByKey(input.planKey);
-            if (!plan || plan.status !== "ACTIVE" || !plan.isPublic) {
-              throw new DomainError("VALIDATION_FAILED", "Choose an available plan", {
-                fieldErrors: { planKey: ["Choose an available plan"] },
-              });
-            }
-            message = `Requested plan: ${plan.name} (${plan.key})${
-              input.billingCycle ? `, billed ${input.billingCycle.toLowerCase()}` : ""
-            }\n\n${message}`;
-          }
-        }
+        const message = input.message;
         const req = await r.platform.insertSupportRequest({
           workspaceId: scope.workspaceId,
           createdBy: scope.actor.userId,
@@ -712,69 +824,309 @@ export function createPlatformService(deps: PlatformServiceDeps) {
       }
       const outbox: Mail[] = [];
       await tx.run(async (r) => {
-        const ws = await requireWorkspace(r, workspaceId);
+        await activateInTx(r, admin, meta, workspaceId, input, now, periodEnd, outbox);
+      });
+      await deliver(outbox);
+    },
+
+    // ------------------------------------------------------------ upgrade requests
+
+    /** Workspace owner asks for a plan change. One pending request per workspace. */
+    async createUpgradeRequest(
+      scope: WorkspaceScope,
+      input: CreateUpgradeRequestInput & { billingCycle: "MONTHLY" | "ANNUAL" },
+      meta: RequestMeta,
+    ): Promise<UpgradeRequestDto> {
+      scope.require("workspace.subscription.manage");
+      return tx.run(async (r) => {
         const plan = await r.platform.findPlanByKey(input.planKey);
-        if (!plan || plan.status !== "ACTIVE") {
-          throw new DomainError("VALIDATION_FAILED", "Choose an active plan", {
-            fieldErrors: { planKey: ["Choose an active plan"] },
+        if (!plan || plan.status !== "ACTIVE" || !plan.isPublic) {
+          throw new DomainError("VALIDATION_FAILED", "Choose one of the available plans", {
+            fieldErrors: { planKey: ["Choose one of the available plans"] },
           });
         }
-        const old = await r.platform.findCurrentSubscription(workspaceId);
-        await r.platform.retireCurrentSubscription(workspaceId);
-        const subscriptionId = await r.platform.insertSubscription({
-          workspaceId,
-          planId: plan.id,
-          status: "ACTIVE",
-          billingCycle: input.billingCycle,
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-          notes: input.notes ?? null,
-          activatedBy: admin.userId,
+        const current = await r.platform.findCurrentSubscription(scope.workspaceId);
+        if (current?.planKey === plan.key && current.status === "ACTIVE") {
+          throw new DomainError("VALIDATION_FAILED", "You are already on this plan", {
+            fieldErrors: { planKey: ["You are already on this plan"] },
+          });
+        }
+        const open = await r.platform.listUpgradeRequests({
+          workspaceId: scope.workspaceId,
+          status: "PENDING",
+          page: 1,
+          pageSize: 1,
         });
-        await r.platform.insertSubscriptionEvent({
-          workspaceId,
-          subscriptionId,
-          type: "activated",
-          fromStatus: old?.status ?? null,
-          toStatus: "ACTIVE",
-          planKey: plan.key,
-          actorUserId: admin.userId,
-          metadata: {
+        if (open.total > 0) {
+          throw conflict(
+            "You already have a pending upgrade request. Cancel it to send a new one.",
+          );
+        }
+        const id = await r.platform.insertUpgradeRequest({
+          workspaceId: scope.workspaceId,
+          requestedBy: scope.actor.userId,
+          currentPlanId: current?.planId ?? null,
+          requestedPlanId: plan.id,
+          billingCycle: input.billingCycle,
+          message: input.message?.trim() || null,
+        });
+        await r.platform.insertUpgradeEvent({
+          requestId: id,
+          type: "CREATED",
+          actorUserId: scope.actor.userId,
+          body: input.message?.trim() || null,
+        });
+        await recordAudit(
+          r.audit,
+          auditActorFor(scope.actor, meta),
+          "upgrade_request.created",
+          { workspaceId: scope.workspaceId, targetType: "upgrade_request", targetId: id },
+          { planKey: plan.key, billingCycle: input.billingCycle },
+        );
+        const row = await r.platform.findUpgradeRequest(id);
+        return toUpgradeDto(row!);
+      });
+    },
+
+    async listWorkspaceUpgradeRequests(scope: WorkspaceScope): Promise<UpgradeRequestDto[]> {
+      scope.require("workspace.subscription.view");
+      const { rows } = await tx.read((r) =>
+        r.platform.listUpgradeRequests({ workspaceId: scope.workspaceId, page: 1, pageSize: 50 }),
+      );
+      return rows.map(toUpgradeDto);
+    },
+
+    async cancelUpgradeRequest(
+      scope: WorkspaceScope,
+      requestId: string,
+      meta: RequestMeta,
+    ): Promise<UpgradeRequestDto> {
+      scope.require("workspace.subscription.manage");
+      return tx.run(async (r) => {
+        const row = await r.platform.findUpgradeRequest(requestId);
+        // A request of another workspace is reported as missing.
+        if (!row || row.workspaceId !== scope.workspaceId) throw notFound("Upgrade request");
+        const status = nextUpgradeStatus(row.status, "cancel");
+        const ok = await r.platform.decideUpgradeRequest({
+          requestId,
+          status: status as "CANCELLED",
+          decidedBy: scope.actor.userId,
+          decidedAt: clock.now(),
+          reason: null,
+          appliedSubscriptionId: null,
+        });
+        if (!ok) throw conflict("This request was already decided");
+        await r.platform.insertUpgradeEvent({
+          requestId,
+          type: "CANCELLED",
+          actorUserId: scope.actor.userId,
+          body: null,
+        });
+        await recordAudit(
+          r.audit,
+          auditActorFor(scope.actor, meta),
+          "upgrade_request.cancelled",
+          { workspaceId: scope.workspaceId, targetType: "upgrade_request", targetId: requestId },
+          {},
+        );
+        return toUpgradeDto((await r.platform.findUpgradeRequest(requestId))!);
+      });
+    },
+
+    async listUpgradeRequests(
+      admin: UserActor,
+      q: { status?: UpgradeRow["status"]; search?: string; page: number; pageSize: number },
+    ): Promise<UpgradeRequestListDto> {
+      assertAdmin(admin);
+      return tx.read(async (r) => {
+        const [{ rows, total }, pendingCount] = await Promise.all([
+          r.platform.listUpgradeRequests(q),
+          r.platform.countPendingUpgradeRequests(),
+        ]);
+        return {
+          items: rows.map(toUpgradeDto),
+          total,
+          page: q.page,
+          pageSize: q.pageSize,
+          pendingCount,
+        };
+      });
+    },
+
+    async getUpgradeRequest(admin: UserActor, requestId: string): Promise<UpgradeRequestDetailDto> {
+      assertAdmin(admin);
+      return tx.read(async (r) => {
+        const row = await r.platform.findUpgradeRequest(requestId);
+        if (!row) throw notFound("Upgrade request");
+        const [events, sub] = await Promise.all([
+          r.platform.listUpgradeEvents(requestId),
+          r.platform.findCurrentSubscription(row.workspaceId),
+        ]);
+        return {
+          ...toUpgradeDto(row),
+          events: events.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })),
+          currentSubscription: sub
+            ? {
+                planName: sub.planName,
+                status: sub.status,
+                currentPeriodEnd: iso(sub.currentPeriodEnd),
+                trialEndsAt: iso(sub.trialEndsAt),
+              }
+            : null,
+        };
+      });
+    },
+
+    /**
+     * Approve: activates the requested plan through the same path as manual
+     * activation, marks the request approved and notifies the owners, all in one
+     * transaction. A request can only be decided once.
+     */
+    async approveUpgradeRequest(
+      admin: UserActor,
+      requestId: string,
+      input: { billingCycle: "MONTHLY" | "ANNUAL"; periodEnd: string; note?: string },
+      meta: RequestMeta,
+    ): Promise<UpgradeRequestDto> {
+      assertAdmin(admin);
+      const now = clock.now();
+      const periodEnd = periodEndFromDate(input.periodEnd);
+      if (periodEnd.getTime() <= now.getTime()) {
+        throw new DomainError("VALIDATION_FAILED", "The period must end in the future", {
+          fieldErrors: { periodEnd: ["Choose a date in the future"] },
+        });
+      }
+      const outbox: Mail[] = [];
+      const dto = await tx.run(async (r) => {
+        const row = await r.platform.findUpgradeRequest(requestId);
+        if (!row) throw notFound("Upgrade request");
+        nextUpgradeStatus(row.status, "approve");
+        const { subscriptionId } = await activateInTx(
+          r,
+          admin,
+          meta,
+          row.workspaceId,
+          {
+            planKey: row.requestedPlanKey,
             billingCycle: input.billingCycle,
-            periodEnd: periodEnd.toISOString(),
-            previousPlanKey: old?.planKey ?? null,
+            periodEnd: input.periodEnd,
+            notes: input.note,
           },
+          now,
+          periodEnd,
+          outbox,
+        );
+        const ok = await r.platform.decideUpgradeRequest({
+          requestId,
+          status: "APPROVED",
+          decidedBy: admin.userId,
+          decidedAt: now,
+          reason: null,
+          appliedSubscriptionId: subscriptionId,
+        });
+        // Lost a race with another approval: throwing rolls the activation back too.
+        if (!ok) throw conflict("This request was already decided");
+        await r.platform.insertUpgradeEvent({
+          requestId,
+          type: "APPROVED",
+          actorUserId: admin.userId,
+          body: input.note?.trim() || null,
         });
         await recordAudit(
           r.audit,
           adminActor(admin, meta),
-          "platform.subscription_activated",
-          { workspaceId, targetType: "subscription", targetId: subscriptionId },
-          {
-            planKey: plan.key,
-            billingCycle: input.billingCycle,
-            periodEnd: periodEnd.toISOString(),
-            previousSubscriptionId: old?.id ?? null,
-          },
+          "platform.upgrade_approved",
+          { workspaceId: row.workspaceId, targetType: "upgrade_request", targetId: requestId },
+          { planKey: row.requestedPlanKey, billingCycle: input.billingCycle, subscriptionId },
+        );
+        return toUpgradeDto((await r.platform.findUpgradeRequest(requestId))!);
+      });
+      await deliver(outbox);
+      return dto;
+    },
+
+    /** Reject with a reason; the workspace's subscription is left untouched. */
+    async rejectUpgradeRequest(
+      admin: UserActor,
+      requestId: string,
+      reason: string,
+      meta: RequestMeta,
+    ): Promise<UpgradeRequestDto> {
+      assertAdmin(admin);
+      const outbox: Mail[] = [];
+      const dto = await tx.run(async (r) => {
+        const row = await r.platform.findUpgradeRequest(requestId);
+        if (!row) throw notFound("Upgrade request");
+        nextUpgradeStatus(row.status, "reject");
+        const ok = await r.platform.decideUpgradeRequest({
+          requestId,
+          status: "REJECTED",
+          decidedBy: admin.userId,
+          decidedAt: clock.now(),
+          reason,
+          appliedSubscriptionId: null,
+        });
+        if (!ok) throw conflict("This request was already decided");
+        await r.platform.insertUpgradeEvent({
+          requestId,
+          type: "REJECTED",
+          actorUserId: admin.userId,
+          body: reason,
+        });
+        await recordAudit(
+          r.audit,
+          adminActor(admin, meta),
+          "platform.upgrade_rejected",
+          { workspaceId: row.workspaceId, targetType: "upgrade_request", targetId: requestId },
+          { planKey: row.requestedPlanKey },
         );
         await notifyOwners(
           r,
-          workspaceId,
+          row.workspaceId,
           {
-            type: "subscription.activated",
-            title: `${plan.name} plan activated`,
-            body: `Your subscription is active until ${fmtDate(periodEnd)}.`,
-            data: { workspaceId, planKey: plan.key },
+            type: "subscription.upgrade_rejected",
+            title: `${row.requestedPlanName} upgrade request declined`,
+            body: reason,
+            data: { workspaceId: row.workspaceId, planKey: row.requestedPlanKey },
           },
           {
-            template: "subscription_activated",
-            subject: `${ws.name}: ${plan.name} plan activated`,
-            text: `Your ${plan.name} subscription for "${ws.name}" is now active (billed ${input.billingCycle.toLowerCase()}) until ${fmtDate(periodEnd)}.`,
+            template: "upgrade_rejected",
+            subject: `${row.workspaceName}: upgrade request declined`,
+            text: `Your request to move to the ${row.requestedPlanName} plan was not approved.\n\nReason: ${reason}\n\nYour current subscription is unchanged.`,
           },
           outbox,
         );
+        return toUpgradeDto((await r.platform.findUpgradeRequest(requestId))!);
       });
       await deliver(outbox);
+      return dto;
+    },
+
+    /** Internal note on a request (never visible to the workspace). */
+    async addUpgradeNote(
+      admin: UserActor,
+      requestId: string,
+      body: string,
+      meta: RequestMeta,
+    ): Promise<void> {
+      assertAdmin(admin);
+      await tx.run(async (r) => {
+        const row = await r.platform.findUpgradeRequest(requestId);
+        if (!row) throw notFound("Upgrade request");
+        await r.platform.insertUpgradeEvent({
+          requestId,
+          type: "NOTE",
+          actorUserId: admin.userId,
+          body,
+        });
+        await recordAudit(
+          r.audit,
+          adminActor(admin, meta),
+          "platform.upgrade_note_added",
+          { workspaceId: row.workspaceId, targetType: "upgrade_request", targetId: requestId },
+          {},
+        );
+      });
     },
 
     async extendTrial(

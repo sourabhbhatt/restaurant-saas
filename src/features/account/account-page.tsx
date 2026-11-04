@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { ProfileMenu } from "@/features/navigation/profile-menu";
 import { AuthGate } from "@/features/session/auth-gate";
 import { sessionKeys, useMe } from "@/features/session/queries";
 import { api } from "@/lib/api-client";
@@ -107,13 +108,22 @@ function Inner() {
   const me = useMe();
   const { pending, run } = useAction();
   if (!me.data) return <PageSkeleton variant="detail" />;
+  const activeId = me.data.activeWorkspaceId;
+  const active = me.data.workspaces.find((w) => w.id === activeId);
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-10">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Account</h1>
-        <Button asChild variant="ghost">
-          <Link href="/app">← Back to app</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost">
+            <Link href={activeId ? `/app/w/${activeId}` : "/app"}>← Back to dashboard</Link>
+          </Button>
+          <ProfileMenu
+            workspaceId={activeId ?? undefined}
+            workspaceName={active?.name}
+            roleLabel={active?.roleName}
+          />
+        </div>
       </div>
       <p className="text-sm text-muted-foreground">
         Signed in as {me.data.user.email}

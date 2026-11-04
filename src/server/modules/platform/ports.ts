@@ -125,7 +125,78 @@ export interface Recipient {
   name: string;
 }
 
-export interface PlatformRepository {
+export interface UpgradeRow {
+  id: string;
+  workspaceId: string;
+  workspaceName: string;
+  requestedById: string | null;
+  requestedByName: string | null;
+  requestedByEmail: string | null;
+  currentPlanId: string | null;
+  currentPlanKey: string | null;
+  currentPlanName: string | null;
+  requestedPlanId: string;
+  requestedPlanKey: string;
+  requestedPlanName: string;
+  requestedPlanMonthlyPrice: number | null;
+  requestedPlanCurrency: string;
+  billingCycle: BillingCycle;
+  message: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  decidedByName: string | null;
+  decidedAt: Date | null;
+  decisionReason: string | null;
+  createdAt: Date;
+}
+
+export interface UpgradeEventRow {
+  id: string;
+  type: "CREATED" | "NOTE" | "APPROVED" | "REJECTED" | "CANCELLED";
+  actorName: string | null;
+  body: string | null;
+  createdAt: Date;
+}
+
+export interface UpgradeRepository {
+  insertUpgradeRequest(input: {
+    workspaceId: string;
+    requestedBy: string;
+    currentPlanId: string | null;
+    requestedPlanId: string;
+    billingCycle: BillingCycle;
+    message: string | null;
+  }): Promise<string>;
+  findUpgradeRequest(requestId: string): Promise<UpgradeRow | null>;
+  listUpgradeRequests(filter: {
+    workspaceId?: string;
+    status?: UpgradeRow["status"];
+    search?: string;
+    page: number;
+    pageSize: number;
+  }): Promise<{ rows: UpgradeRow[]; total: number }>;
+  countPendingUpgradeRequests(): Promise<number>;
+  /**
+   * Atomically moves a PENDING request to `status`. Returns false when it is no
+   * longer PENDING (someone else decided it first), so a request is decided once.
+   */
+  decideUpgradeRequest(input: {
+    requestId: string;
+    status: "APPROVED" | "REJECTED" | "CANCELLED";
+    decidedBy: string;
+    decidedAt: Date;
+    reason: string | null;
+    appliedSubscriptionId: string | null;
+  }): Promise<boolean>;
+  insertUpgradeEvent(input: {
+    requestId: string;
+    type: UpgradeEventRow["type"];
+    actorUserId: string | null;
+    body: string | null;
+  }): Promise<void>;
+  listUpgradeEvents(requestId: string): Promise<UpgradeEventRow[]>;
+}
+
+export interface PlatformRepository extends UpgradeRepository {
   // plans
   listPlans(filter?: { publicActiveOnly?: boolean }): Promise<AdminPlanDto[]>;
   findPlanById(planId: string): Promise<AdminPlanDto | null>;
@@ -250,9 +321,13 @@ export interface PlatformRepository {
     authorId: string;
     body: string;
   }): Promise<SupportNoteDto>;
-  findOpenUpgradeRequest(
-    workspaceId: string,
-  ): Promise<{ id: string; subject: string; createdAt: string } | null>;
+  findOpenUpgradeRequest(workspaceId: string): Promise<{
+    id: string;
+    subject: string;
+    requestedPlanKey: string;
+    requestedPlanName: string;
+    createdAt: string;
+  } | null>;
 
   // audit
   listAudit(filter: AuditFilter, page: number, pageSize: number): Promise<Paginated<AuditLogDto>>;

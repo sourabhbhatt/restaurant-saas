@@ -21,6 +21,8 @@ export interface WorkspaceStructureDto {
   workspaceId: string;
   workspaceName: string;
   roleKey: string;
+  /** e.g. "Workspace Owner" or "Waiter"; for display only. */
+  roleLabel: string;
   permissions: string[];
   restaurants: StructureRestaurantDto[];
   entitlements: Entitlements;
@@ -36,6 +38,7 @@ export interface BranchContextDto {
   branchName: string;
   currency: string;
   timezone: string;
+  roleLabel: string;
   /** Effective permissions at this branch (display only; the server enforces). */
   permissions: string[];
   entitlements: Entitlements;

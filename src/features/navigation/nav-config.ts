@@ -1,4 +1,5 @@
 import {
+  ArrowUpCircle,
   BarChart3,
   Building2,
   ChefHat,
@@ -104,9 +105,26 @@ export function adminNav(): NavItem[] {
   return [
     { label: "Overview", href: "/admin", icon: Gauge, exact: true },
     { label: "Workspaces", href: "/admin/workspaces", icon: Building2 },
+    { label: "Upgrade requests", href: "/admin/upgrade-requests", icon: ArrowUpCircle },
     { label: "Plans", href: "/admin/plans", icon: CreditCard },
     { label: "Support", href: "/admin/support", icon: LifeBuoy },
     { label: "Audit log", href: "/admin/audit", icon: ShieldCheck },
     { label: "Settings", href: "/admin/settings", icon: Settings },
   ];
+}
+
+/**
+ * Permission required to open `pathname`: that of the nav item with the longest
+ * matching href. Pages outside the nav inherit from their parent section. This
+ * only decides what the UI shows; every API call is authorized on the server.
+ */
+export function requiredPermissionFor(pathname: string, nav: readonly NavItem[]): string | null {
+  let best: NavItem | null = null;
+  for (const item of nav) {
+    const matches = item.exact
+      ? pathname === item.href
+      : pathname === item.href || pathname.startsWith(`${item.href}/`);
+    if (matches && (!best || item.href.length > best.href.length)) best = item;
+  }
+  return best?.permission ?? null;
 }

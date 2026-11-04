@@ -116,7 +116,7 @@ function NewRequestDialog({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {SUPPORT_CATEGORIES.map((c) => (
+                        {SUPPORT_CATEGORIES.filter((c) => c !== "UPGRADE").map((c) => (
                           <SelectItem key={c} value={c}>
                             {SUPPORT_CATEGORY_LABELS[c]}
                           </SelectItem>

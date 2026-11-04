@@ -121,7 +121,9 @@ describe("plans", () => {
     const audit = await c.db
       .select()
       .from(auditLogs)
-      .where(and(eq(auditLogs.action, "platform.plan_updated"), eq(auditLogs.actorUserId, admin.userId)))
+      .where(
+        and(eq(auditLogs.action, "platform.plan_updated"), eq(auditLogs.actorUserId, admin.userId)),
+      )
       .orderBy(desc(auditLogs.createdAt))
       .limit(1);
     expect(audit[0]?.actorType).toBe("PLATFORM_ADMIN");

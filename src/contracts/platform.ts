@@ -204,7 +204,13 @@ export interface SubscriptionOverviewDto {
   availablePlans: PublicPlanDto[];
   history: SubscriptionEventDto[];
   /** Open upgrade request (support request of category UPGRADE), if any. */
-  pendingUpgrade: { id: string; subject: string; createdAt: string } | null;
+  pendingUpgrade: {
+    id: string;
+    subject: string;
+    requestedPlanKey: string;
+    requestedPlanName: string;
+    createdAt: string;
+  } | null;
   trialDays: number;
   supportEmail: string;
   canRequestUpgrade: boolean;

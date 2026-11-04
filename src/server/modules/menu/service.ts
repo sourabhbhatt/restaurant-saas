@@ -90,6 +90,30 @@ export function createMenuService(deps: MenuServiceDeps) {
       return scopeFor(actor, await tx.read((r) => r.menu.locateItem(itemId)), "Menu item");
     },
 
+    /**
+     * Read-only inspection for Super Admin. The caller (the admin route) has
+     * already checked the platform role and that the restaurant belongs to the
+     * workspace; this never creates or changes anything.
+     */
+    async getTreeForAdmin(
+      tenant: Tenant,
+    ): Promise<{ menu: MenuTreeDto; overrides: BranchOverrideDto[] }> {
+      return tx.read(async (r) => {
+        const [tree, overrides] = await Promise.all([
+          r.menu.peekTree(tenant),
+          r.menu.listRestaurantOverrides(tenant),
+        ]);
+        return {
+          menu: {
+            restaurantId: tenant.restaurantId,
+            menuId: tree.menuId,
+            categories: tree.categories.map((c) => ({ ...c, items: c.items.map(toDto) })),
+          },
+          overrides,
+        };
+      });
+    },
+
     async getTree(scope: RestaurantScope): Promise<MenuTreeDto> {
       scope.require("menu.view");
       const tree = await tx.run((r) => r.menu.loadTree(tenantOf(scope)));

@@ -1,5 +1,7 @@
 "use client";
 
+import { UtensilsCrossed } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 
@@ -166,11 +168,18 @@ export function AdminWorkspaceDetailPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-sm">
             {d.restaurants.map((r) => (
-              <div key={r.id}>
-                <p className="font-medium">{r.name}</p>
-                <p className="text-muted-foreground">
-                  {r.branches.map((b) => b.name).join(", ") || "No branches"}
-                </p>
+              <div key={r.id} className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium">{r.name}</p>
+                  <p className="text-muted-foreground">
+                    {r.branches.map((b) => b.name).join(", ") || "No branches"}
+                  </p>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/admin/workspaces/${workspaceId}/restaurants/${r.id}`}>
+                    <UtensilsCrossed aria-hidden /> View menu
+                  </Link>
+                </Button>
               </div>
             ))}
           </CardContent>

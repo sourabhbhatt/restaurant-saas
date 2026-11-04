@@ -9,6 +9,7 @@ export const NOTIFICATION_TYPES = [
   "trial.reminder",
   "trial.expired",
   "subscription.activated",
+  "subscription.upgrade_rejected",
   "subscription.expired",
   "platform.announcement",
 ] as const;

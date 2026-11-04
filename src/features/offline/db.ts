@@ -125,3 +125,16 @@ export async function switchUser(db: OfflineDatabase, userId: string): Promise<b
     return previous !== null;
   });
 }
+
+/**
+ * Explicit sign-out: forget every cached server response, draft and the stored
+ * user on this device. Unsynced outbox items are kept (never silently discarded);
+ * they stay unsent until their owner signs in again.
+ */
+export async function clearUserData(db: OfflineDatabase): Promise<void> {
+  await db.transaction("rw", [db.meta, db.queryCache, db.drafts], async () => {
+    await db.queryCache.clear();
+    await db.drafts.clear();
+    await db.meta.delete(CURRENT_USER_KEY);
+  });
+}

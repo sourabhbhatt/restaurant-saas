@@ -9,6 +9,7 @@ export { SyncStatusIndicator } from "./components/sync-status-indicator";
 export type { OutboxItem, OutboxMethod, OutboxStatus } from "./db";
 export { shouldPersistQuery } from "./persist-queries";
 export {
+  clearDeviceUserData,
   discardOutboxItem,
   enqueueMutation,
   probeConnectivity,

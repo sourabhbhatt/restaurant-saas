@@ -46,12 +46,14 @@ import {
   subscriptions,
   supportRequestNotes,
   supportRequests,
+  upgradeRequests,
   users,
   workspaceEntitlements,
   workspaceMemberships,
   workspaces,
 } from "../schema";
 import { notifyUsers } from "./notifications";
+import { upgradeRepository } from "./upgrades";
 
 const escapeLike = (v: string) => `%${v.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -178,6 +180,7 @@ export function platformRepository(db: Executor): PlatformRepository {
   }
 
   return {
+    ...upgradeRepository(db),
     // ---------------------------------------------------------------- plans
     async listPlans(filter = {}) {
       const rows = await db
@@ -844,21 +847,26 @@ export function platformRepository(db: Executor): PlatformRepository {
     async findOpenUpgradeRequest(workspaceId) {
       const [row] = await db
         .select({
-          id: supportRequests.id,
-          subject: supportRequests.subject,
-          createdAt: supportRequests.createdAt,
+          id: upgradeRequests.id,
+          createdAt: upgradeRequests.createdAt,
+          planKey: subscriptionPlans.key,
+          planName: subscriptionPlans.name,
         })
-        .from(supportRequests)
+        .from(upgradeRequests)
+        .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, upgradeRequests.requestedPlanId))
         .where(
-          and(
-            eq(supportRequests.workspaceId, workspaceId),
-            eq(supportRequests.category, "UPGRADE"),
-            inArray(supportRequests.status, ["OPEN", "IN_PROGRESS"]),
-          ),
+          and(eq(upgradeRequests.workspaceId, workspaceId), eq(upgradeRequests.status, "PENDING")),
         )
-        .orderBy(desc(supportRequests.createdAt))
         .limit(1);
-      return row ? { ...row, createdAt: row.createdAt.toISOString() } : null;
+      return row
+        ? {
+            id: row.id,
+            subject: `${row.planName} plan`,
+            requestedPlanKey: row.planKey,
+            requestedPlanName: row.planName,
+            createdAt: row.createdAt.toISOString(),
+          }
+        : null;
     },
 
     // ---------------------------------------------------------------- audit

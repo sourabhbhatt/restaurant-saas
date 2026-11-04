@@ -295,3 +295,70 @@ export const rateLimitBuckets = pgTable("rate_limit_buckets", {
   count: integer("count").notNull().default(0),
   resetAt: tstz("reset_at").notNull(),
 });
+
+export const UPGRADE_REQUEST_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const;
+
+/**
+ * A workspace owner's request to move to another plan. Super Admin decides it;
+ * approval activates the plan through the normal subscription path.
+ */
+export const upgradeRequests = pgTable(
+  "upgrade_requests",
+  {
+    id: id(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
+    /** Plan the workspace was on when it asked (null = none). */
+    currentPlanId: uuid("current_plan_id").references(() => subscriptionPlans.id),
+    requestedPlanId: uuid("requested_plan_id")
+      .notNull()
+      .references(() => subscriptionPlans.id),
+    billingCycle: text("billing_cycle").$type<BillingCycle>().notNull().default("MONTHLY"),
+    message: text("message"),
+    status: text("status")
+      .$type<(typeof UPGRADE_REQUEST_STATUSES)[number]>()
+      .notNull()
+      .default("PENDING"),
+    decidedBy: uuid("decided_by").references(() => users.id, { onDelete: "set null" }),
+    decidedAt: tstz("decided_at"),
+    /** Rejection reason (or cancellation note). */
+    decisionReason: text("decision_reason"),
+    /** Subscription created when approved. */
+    appliedSubscriptionId: uuid("applied_subscription_id").references(() => subscriptions.id, {
+      onDelete: "set null",
+    }),
+    ...timestamps,
+  },
+  (t) => [
+    // One open request per workspace.
+    uniqueIndex("upgrade_requests_one_pending_uq")
+      .on(t.workspaceId)
+      .where(sql`${t.status} = 'PENDING'`),
+    index("upgrade_requests_status_idx").on(t.status, t.createdAt),
+    index("upgrade_requests_workspace_idx").on(t.workspaceId, t.createdAt),
+    check(
+      "upgrade_requests_status_ck",
+      sql`${t.status} in ('PENDING','APPROVED','REJECTED','CANCELLED')`,
+    ),
+  ],
+);
+
+/** Request history and internal notes (notes are never shown to the workspace). */
+export const upgradeRequestEvents = pgTable(
+  "upgrade_request_events",
+  {
+    id: id(),
+    requestId: uuid("request_id")
+      .notNull()
+      .references(() => upgradeRequests.id, { onDelete: "cascade" }),
+    type: text("type")
+      .$type<"CREATED" | "NOTE" | "APPROVED" | "REJECTED" | "CANCELLED">()
+      .notNull(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    body: text("body"),
+    createdAt: tstz("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("upgrade_request_events_request_idx").on(t.requestId, t.createdAt)],
+);

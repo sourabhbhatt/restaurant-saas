@@ -121,6 +121,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   "trial.reminder": "Trial reminders",
   "trial.expired": "Trial expired",
   "subscription.activated": "Subscription activated",
+  "subscription.upgrade_rejected": "Upgrade request declined",
   "subscription.expired": "Subscription expired",
   "platform.announcement": "Platform announcements",
 };

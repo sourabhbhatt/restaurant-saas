@@ -14,7 +14,9 @@ import type {
   PlatformSettings,
   PublicAnnouncementDto,
 } from "@/contracts/platform";
+import type { UpgradeRequestDetailDto, UpgradeRequestListDto } from "@/contracts/upgrades";
 import type { SubscriptionPhase } from "@/domain/subscriptions/entitlements";
+import type { UpgradeStatus } from "@/domain/subscriptions/upgrade-request";
 import { api } from "@/lib/api-client";
 
 export const adminKeys = {
@@ -147,5 +149,53 @@ export function usePublicAnnouncements() {
     staleTime: 5 * 60_000,
     refetchInterval: 15 * 60_000,
     retry: 1,
+  });
+}
+
+// ------------------------------------------------------------------ upgrade requests
+
+export interface UpgradeListFilters {
+  status?: UpgradeStatus;
+  search?: string;
+  page: number;
+}
+
+export const upgradeKeys = {
+  list: (f: object) => ["admin", "upgrade-requests", "list", f] as const,
+  detail: (id: string) => ["admin", "upgrade-requests", "detail", id] as const,
+  all: ["admin", "upgrade-requests"] as const,
+};
+
+export function useUpgradeRequests(filters: UpgradeListFilters) {
+  return useQuery({
+    queryKey: upgradeKeys.list(filters),
+    queryFn: ({ signal }) =>
+      api.get<UpgradeRequestListDto>(
+        "/admin/upgrade-requests",
+        { ...filters, pageSize: 20 },
+        signal,
+      ),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useUpgradeRequest(id: string | null) {
+  return useQuery({
+    queryKey: upgradeKeys.detail(id ?? ""),
+    queryFn: ({ signal }) =>
+      api.get<UpgradeRequestDetailDto>(`/admin/upgrade-requests/${id}`, undefined, signal),
+    enabled: id !== null,
+  });
+}
+
+/** Approve / reject / note. Refreshes the list, the detail and the workspace views. */
+export function useUpgradeAction<TBody>(requestId: string, action: "approve" | "reject" | "notes") {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: TBody) => api.post(`/admin/upgrade-requests/${requestId}/${action}`, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: upgradeKeys.all });
+      void qc.invalidateQueries({ queryKey: ["admin", "workspaces"] });
+    },
   });
 }

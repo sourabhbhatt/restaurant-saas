@@ -16,6 +16,7 @@ export const GET = route(
       branchName: scope.branch.name,
       currency: scope.branch.currency,
       timezone: scope.branch.timezone,
+      roleLabel: scope.roleLabel({ restaurantId: scope.restaurantId, branchId: scope.branchId }),
       permissions: c.access.describe(scope),
       entitlements: scope.entitlements,
     };

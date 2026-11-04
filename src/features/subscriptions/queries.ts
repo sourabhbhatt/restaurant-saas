@@ -2,12 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type {
-  CreateSupportRequestInput,
-  PublicPlanDto,
-  SubscriptionOverviewDto,
-  SupportRequestDto,
-} from "@/contracts/platform";
+import type { PublicPlanDto, SubscriptionOverviewDto } from "@/contracts/platform";
+import type { CreateUpgradeRequestInput, UpgradeRequestDto } from "@/contracts/upgrades";
 import { api, ApiError } from "@/lib/api-client";
 
 export const subscriptionKeys = {
@@ -40,15 +36,39 @@ export function usePublicPlans() {
   });
 }
 
-/** Upgrade request = support request of category UPGRADE (no payment gateway yet). */
+/** Ask Super Admin to change the plan (no payment gateway yet: approved manually). */
 export function useRequestUpgrade(workspaceId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: CreateSupportRequestInput) =>
-      api.post<SupportRequestDto>(`/workspaces/${workspaceId}/support`, body),
+    mutationFn: (body: CreateUpgradeRequestInput) =>
+      api.post<UpgradeRequestDto>(`/workspaces/${workspaceId}/upgrade-requests`, body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: subscriptionKeys.overview(workspaceId) });
-      void qc.invalidateQueries({ queryKey: ["workspace", workspaceId, "support"] });
+      void qc.invalidateQueries({ queryKey: ["workspace", workspaceId, "upgrade-requests"] });
+    },
+  });
+}
+
+export function useMyUpgradeRequests(workspaceId: string) {
+  return useQuery({
+    queryKey: ["workspace", workspaceId, "upgrade-requests"],
+    queryFn: ({ signal }) =>
+      api.get<UpgradeRequestDto[]>(
+        `/workspaces/${workspaceId}/upgrade-requests`,
+        undefined,
+        signal,
+      ),
+  });
+}
+
+export function useCancelUpgrade(workspaceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (requestId: string) =>
+      api.delete<UpgradeRequestDto>(`/workspaces/${workspaceId}/upgrade-requests/${requestId}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: subscriptionKeys.overview(workspaceId) });
+      void qc.invalidateQueries({ queryKey: ["workspace", workspaceId, "upgrade-requests"] });
     },
   });
 }

@@ -3,7 +3,13 @@
 import { onlineManager, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { liveQuery } from "dexie";
 
-import { getOfflineDb, switchUser, type OfflineDatabase, type OutboxItem } from "./db";
+import {
+  clearUserData,
+  getOfflineDb,
+  switchUser,
+  type OfflineDatabase,
+  type OutboxItem,
+} from "./db";
 import { hydrateQueries, startQueryPersistence } from "./persist-queries";
 import { SyncEngine, type EnqueueInput } from "./sync-engine";
 import { countItems, setSyncState, useSyncStore } from "./sync-store";
@@ -163,6 +169,17 @@ function watchOutbox(db: OfflineDatabase): void {
     error: () => {
       // IndexedDB unavailable (private mode): the indicator just shows nothing queued.
     },
+  });
+}
+
+/** Called on explicit sign-out so the next account never sees this one's cached data. */
+export async function clearDeviceUserData(): Promise<void> {
+  const db = getOfflineDb();
+  hydratedKeys = [];
+  sessionUserId = null;
+  if (!db) return;
+  await clearUserData(db).catch(() => {
+    // IndexedDB unavailable: nothing cached to clear.
   });
 }
 

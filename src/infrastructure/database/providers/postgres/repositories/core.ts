@@ -145,6 +145,14 @@ export function accessRepository(db: Executor): AccessRepository {
         .limit(1);
       return row ?? null;
     },
+    async findWorkspaceName(workspaceId) {
+      const [row] = await db
+        .select({ name: workspaces.name })
+        .from(workspaces)
+        .where(and(eq(workspaces.id, workspaceId), isNull(workspaces.deletedAt)))
+        .limit(1);
+      return row?.name ?? null;
+    },
     async findRestaurantRef(restaurantId) {
       const [row] = await db
         .select({
@@ -189,6 +197,7 @@ export function accessRepository(db: Executor): AccessRepository {
           branchId: roleAssignments.branchId,
           roleId: roleAssignments.roleId,
           roleKey: roles.key,
+          roleName: roles.name,
         })
         .from(roleAssignments)
         .innerJoin(roles, eq(roles.id, roleAssignments.roleId))
@@ -223,6 +232,7 @@ export function accessRepository(db: Executor): AccessRepository {
           restaurantId: a.restaurantId,
           branchId: a.branchId,
           roleKey: a.roleKey,
+          roleName: a.roleName,
           permissions: byRole.get(a.roleId) ?? [],
         })),
       };

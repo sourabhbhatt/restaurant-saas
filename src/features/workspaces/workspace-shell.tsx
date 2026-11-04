@@ -1,7 +1,5 @@
 "use client";
 
-import { Store } from "lucide-react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -13,7 +11,7 @@ import { AuthGate } from "@/features/session/auth-gate";
 import { permissionChecker, useWorkspaceStructure } from "@/features/session/queries";
 import { ShellExtras } from "@/features/workspaces/shell-extras";
 
-import { WorkspaceSwitcher } from "./workspace-switcher";
+import { ContextSwitcher } from "@/features/navigation/context-switcher";
 
 function Inner({ children }: { children: ReactNode }) {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -37,35 +35,16 @@ function Inner({ children }: { children: ReactNode }) {
     <DashboardShell
       can={can}
       nav={workspaceNav(workspaceId)}
-      sidebarHeader={<WorkspaceSwitcher currentId={s.workspaceId} currentName={s.workspaceName} />}
+      profile={{
+        workspaceId: s.workspaceId,
+        workspaceName: s.workspaceName,
+        roleLabel: s.roleLabel,
+      }}
+      sidebarHeader={
+        <ContextSwitcher workspaceId={s.workspaceId} workspaceName={s.workspaceName} />
+      }
       topbarActions={<ShellExtras.TopbarActions workspaceId={s.workspaceId} />}
       banner={<ShellExtras.Banner workspaceId={s.workspaceId} entitlements={s.entitlements} />}
-      sidebarFooter={
-        s.restaurants.length ? (
-          <div>
-            <p className="px-3 pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Branches
-            </p>
-            <ul className="flex flex-col gap-0.5">
-              {s.restaurants.flatMap((r) =>
-                r.branches.map((b) => (
-                  <li key={b.id}>
-                    <Link
-                      href={`/app/b/${b.id}`}
-                      className="flex min-h-9 items-center gap-2 rounded-lg px-3 text-sm hover:bg-sidebar-accent/60"
-                    >
-                      <Store className="size-3.5 text-muted-foreground" aria-hidden />
-                      <span className="truncate">
-                        {r.name} · {b.name}
-                      </span>
-                    </Link>
-                  </li>
-                )),
-              )}
-            </ul>
-          </div>
-        ) : null
-      }
     >
       {children}
     </DashboardShell>

@@ -55,3 +55,8 @@ The application layer enforces isolation on every query (above), and every tenan
 
 - `tests/integration/auth-and-workspaces.test.ts` — IDOR on workspace read/update, CSRF block, stale version, enumeration-safe sign-in.
 - Module suites (`tests/integration/*`) include cross-workspace and cross-branch denial and role-restriction cases for every endpoint group (tenancy, menu, ordering, staff-ops, billing, platform, analytics, notifications).
+
+## Super Admin inspection and upgrade approval
+
+- Super Admin reads another tenant's menu only through the dedicated read-only endpoint `GET /api/v1/admin/workspaces/:workspaceId/restaurants/:restaurantId/menu`. It requires the platform role, verifies the restaurant belongs to the workspace in the URL (404 otherwise), never writes, and does not create a menu.
+- Upgrade approval and rejection are platform-role endpoints. Approval changes the subscription in the same transaction as the request status; the request can be decided once (conditional update), and every decision is audited with actor and time. Owners can only create, list and cancel requests of their own workspace; other tenants' ids return 404, and internal notes are never returned to workspaces.

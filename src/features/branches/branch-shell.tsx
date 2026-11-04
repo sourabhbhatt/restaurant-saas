@@ -1,6 +1,5 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
@@ -8,6 +7,7 @@ import type { ReactNode } from "react";
 import { DashboardShell } from "@/components/layouts/dashboard-shell";
 import { ErrorState, PageSkeleton } from "@/components/shared/feedback";
 import { errorMessage } from "@/lib/api-client";
+import { ContextSwitcher } from "@/features/navigation/context-switcher";
 import { branchConsoles, branchNav } from "@/features/navigation/nav-config";
 import { AuthGate } from "@/features/session/auth-gate";
 import { permissionChecker, useBranchContext } from "@/features/session/queries";
@@ -37,19 +37,18 @@ function Inner({ children }: { children: ReactNode }) {
       nav={branchNav(branchId)}
       topbarActions={<ShellExtras.TopbarActions workspaceId={b.workspaceId} />}
       banner={<ShellExtras.Banner workspaceId={b.workspaceId} entitlements={b.entitlements} />}
+      profile={{
+        workspaceId: b.workspaceId,
+        workspaceName: b.workspaceName,
+        roleLabel: b.roleLabel,
+        branchLabel: `${b.restaurantName} · ${b.branchName}`,
+      }}
       sidebarHeader={
-        <div className="flex flex-col gap-2">
-          <Link
-            href={`/app/w/${b.workspaceId}`}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="size-3" aria-hidden /> {b.workspaceName}
-          </Link>
-          <div className="px-1">
-            <p className="truncate text-sm font-semibold">{b.restaurantName}</p>
-            <p className="truncate text-xs text-muted-foreground">{b.branchName}</p>
-          </div>
-        </div>
+        <ContextSwitcher
+          workspaceId={b.workspaceId}
+          workspaceName={b.workspaceName}
+          currentBranchId={b.branchId}
+        />
       }
       sidebarFooter={
         consoles.length ? (

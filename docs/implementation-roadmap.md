@@ -28,6 +28,15 @@ Module agents were stopped early at the owner's request (credit limit). Their se
 
 Signed in as owner and Super Admin and opened every main screen: workspace (overview, restaurants, members, analytics, subscription, audit, support, settings), branch (overview, menu, tables, orders, bills, staff, settings, reports), waiter, kitchen, cashier, notifications, account, admin (overview, workspaces, plans, support, settings). All render with no 404s or server errors. Fixed in this pass: missing route files for subscription/support/audit/admin pages and the admin layout; added admin workspace detail, read-only plans page and platform settings form. Fixed: hydration mismatch (#418) caused by offline-cache restore racing hydration (AuthGate now renders the server skeleton until hydrated). admin plan editing and announcements UI are not built (APIs exist); screens were checked for loading/errors, not pixel-reviewed.
 
+## Navigation, upgrade requests and admin menu (verified)
+
+- [x] Profile menu on every layout; server-confirmed identity; sign-out clears memory + device cache
+- [x] Workspace → Restaurant → Branch sidebar hierarchy; branch switch keeps the section; workspace name never replaced by a branch
+- [x] Route permission guard for typed URLs (UI) on top of server-side API checks
+- [x] Upgrade requests: tables + migration `0001`, owner request/cancel, Super Admin list/detail/approve/reject/notes/history, notifications, audit
+- [x] Super Admin read-only restaurant menu inspection (search, category and availability filters, variants, add-ons, branch overrides)
+- Verified by 10 new integration tests (`tests/integration/upgrades-and-admin.test.ts`), navigation unit tests, and a 33-check headless-browser run on the production build (Super Admin, owner, waiter).
+
 ## Built by stopped agents — needs review ⚠️
 
 - [ ] Tenancy APIs (restaurants, branches, settings, members, invitations, roles) — server + tests present; UI pages rebuilt (see above); not browser-verified. Role create/edit UI not built (roles are listed read-only).

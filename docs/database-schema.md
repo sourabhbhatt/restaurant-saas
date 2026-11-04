@@ -52,6 +52,9 @@ erDiagram
   users ||--o{ notifications : receives
   workspaces ||--o{ audit_logs : records
   workspaces ||--o{ support_requests : opens
+  workspaces ||--o{ upgrade_requests : asks
+  subscription_plans ||--o{ upgrade_requests : "requested plan"
+  upgrade_requests ||--o{ upgrade_request_events : history
   support_requests ||--o{ support_request_notes : notes
 ```
 
@@ -82,3 +85,11 @@ Order placement (counter + order + lines + history + notifications), order trans
 ## Retention
 
 No automatic deletion. Expired workspaces keep all data (read-only access). Deletion on request is a separate, audited process (see `deployment.md` → Data retention).
+
+## Upgrade requests (migration `0001_upgrade_requests`)
+
+`upgrade_requests`: workspace, requester, current plan (at request time), requested plan, billing cycle, optional message, `status` (`PENDING` / `APPROVED` / `REJECTED` / `CANCELLED`, CHECK-constrained), decider, `decided_at`, `decision_reason` (rejection reason), `applied_subscription_id` (the subscription created on approval). The partial unique index `upgrade_requests_one_pending_uq` allows one `PENDING` request per workspace. The status is moved with a conditional `UPDATE … WHERE status = 'PENDING'`, so a request is decided exactly once even with two admins clicking at the same time.
+
+`upgrade_request_events`: append-only history (`CREATED`, `NOTE`, `APPROVED`, `REJECTED`, `CANCELLED`) with actor and text. `NOTE` rows are internal and are only returned by admin endpoints.
+
+This replaces the earlier approach of filing upgrades as support tickets; `support_requests` rows with category `UPGRADE` from before the migration remain readable by Super Admin but are no longer created.

@@ -1,7 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { PATCH as patchBranch, DELETE as archiveBranch, GET as getBranch } from "@/app/api/v1/branches/[branchId]/route";
+import {
+  PATCH as patchBranch,
+  DELETE as archiveBranch,
+  GET as getBranch,
+} from "@/app/api/v1/branches/[branchId]/route";
 import {
   GET as getSettings,
   PUT as putSettings,
@@ -36,7 +40,12 @@ import {
   rateLimitBuckets,
 } from "@/infrastructure/database/providers/postgres/schema";
 import type { Container } from "@/server/container";
-import { addStaffMember, createWorkspaceAs, insertRestaurantWithBranch, signUpUser } from "@/test/fixtures";
+import {
+  addStaffMember,
+  createWorkspaceAs,
+  insertRestaurantWithBranch,
+  signUpUser,
+} from "@/test/fixtures";
 import { call, createTestContainer } from "@/test/harness";
 
 let c: Container;

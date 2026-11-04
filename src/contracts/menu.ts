@@ -356,3 +356,14 @@ export const ALLERGEN_LABELS: Record<Allergen, string> = {
 };
 
 export const UPLOAD_PURPOSE_LIST = UPLOAD_PURPOSES;
+
+/** Read-only menu of one restaurant for Super Admin inspection. */
+export interface AdminRestaurantMenuDto {
+  workspace: { id: string; name: string };
+  restaurant: { id: string; name: string; status: "ACTIVE" | "ARCHIVED" };
+  branches: { id: string; name: string; code: string; city: string | null; status: string }[];
+  /** Currency of the restaurant's branches (prices are stored in minor units). */
+  currency: string;
+  menu: MenuTreeDto;
+  overrides: BranchOverrideDto[];
+}

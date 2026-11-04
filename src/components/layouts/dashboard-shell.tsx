@@ -1,24 +1,16 @@
 "use client";
 
-import { LogOut, Menu, UserRound } from "lucide-react";
+import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
-import { Avatar, AvatarFallback, getInitials } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import type { NavItem } from "@/features/navigation/nav-config";
+import { ErrorState } from "@/components/shared/feedback";
+import { requiredPermissionFor, type NavItem } from "@/features/navigation/nav-config";
+import { ProfileMenu, type ProfileContext } from "@/features/navigation/profile-menu";
 import { OfflineBanner, SyncStatusIndicator } from "@/features/offline";
-import { useMe, useSignOut } from "@/features/session/queries";
 import { cn } from "@/lib/utils";
 
 export interface DashboardShellProps {
@@ -32,6 +24,9 @@ export interface DashboardShellProps {
   /** Persistent banner above content (trial / announcements). */
   banner?: ReactNode;
   can?: (permission: string) => boolean;
+  /** Who/where, shown in the profile menu. */
+  profile?: ProfileContext;
+  area?: "app" | "admin";
   children: ReactNode;
 }
 
@@ -76,49 +71,6 @@ function NavLinks({
   );
 }
 
-function UserMenu() {
-  const me = useMe();
-  const signOut = useSignOut();
-  const name = me.data?.user.name ?? "";
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Account menu" className="rounded-full">
-          <Avatar className="size-8">
-            <AvatarFallback>
-              {name ? getInitials(name) : <UserRound className="size-4" />}
-            </AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="flex flex-col">
-          <span className="truncate">{name}</span>
-          <span className="truncate text-xs font-normal text-muted-foreground">
-            {me.data?.user.email}
-          </span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/app/account">Account settings</Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/app">Switch workspace</Link>
-        </DropdownMenuItem>
-        {me.data?.user.isPlatformAdmin ? (
-          <DropdownMenuItem asChild>
-            <Link href="/admin">Super Admin</Link>
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => void signOut()}>
-          <LogOut className="size-4" aria-hidden /> Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 /** Sidebar dashboard layout used by the workspace, branch-management and Super Admin areas. */
 export function DashboardShell({
   sidebarHeader,
@@ -127,9 +79,15 @@ export function DashboardShell({
   topbarActions,
   banner,
   can,
+  profile,
+  area = "app",
   children,
 }: DashboardShellProps) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  // Direct URL entry: show an explanation instead of a page the user cannot use.
+  const required = can ? requiredPermissionFor(pathname, nav) : null;
+  const denied = Boolean(required && can && !can(required));
   const sidebar = (onNavigate?: () => void) => (
     <div className="flex h-full flex-col gap-6 p-4">
       <div>{sidebarHeader}</div>
@@ -163,12 +121,19 @@ export function DashboardShell({
           <div className="flex-1" />
           <SyncStatusIndicator />
           {topbarActions}
-          <UserMenu />
+          <ProfileMenu {...profile} area={area} />
         </header>
         <OfflineBanner />
         {banner}
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          {children}
+          {denied ? (
+            <ErrorState
+              title="You don't have access to this section"
+              message="Your role doesn't include it. Ask a workspace owner if you need access."
+            />
+          ) : (
+            children
+          )}
         </main>
       </div>
     </div>

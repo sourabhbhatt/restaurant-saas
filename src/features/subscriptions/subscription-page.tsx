@@ -47,6 +47,7 @@ import {
   PHASE_TONE,
   toDate,
 } from "./subscription-ui";
+import { UpgradeRequestsCard } from "./upgrade-requests-card";
 import { UpgradeModal } from "./upgrade-modal";
 
 const USAGE_FIELD: Record<LimitKey, keyof SubscriptionOverviewDto["usage"]> = {
@@ -172,8 +173,8 @@ function CurrentPlanCard({ d, onUpgrade }: { d: SubscriptionOverviewDto; onUpgra
             </Button>
             {d.pendingUpgrade ? (
               <p className="self-center text-sm text-muted-foreground">
-                Upgrade requested {formatDate(d.pendingUpgrade.createdAt)} — our team will contact
-                you.
+                {d.pendingUpgrade.requestedPlanName} plan requested{" "}
+                {formatDate(d.pendingUpgrade.createdAt)} — waiting for approval.
               </p>
             ) : null}
           </div>
@@ -460,6 +461,7 @@ export function SubscriptionPage() {
         <TrialCard d={d} />
       </div>
       <UsageMeters d={d} />
+      <UpgradeRequestsCard workspaceId={workspaceId} />
       <PlanComparison
         plans={d.availablePlans}
         currentKey={d.currentPlan?.key ?? null}

@@ -363,6 +363,27 @@ export function menuRepository(db: Executor): MenuRepository {
 
     async loadTree(t) {
       const menuId = await repo.ensureMenu(t);
+      return repo.readTree(t, menuId);
+    },
+
+    /** Read-only: never creates a menu (used by Super Admin inspection). */
+    async peekTree(t) {
+      const [existing] = await db
+        .select({ id: menus.id })
+        .from(menus)
+        .where(
+          and(
+            eq(menus.workspaceId, t.workspaceId),
+            eq(menus.restaurantId, t.restaurantId),
+            isNull(menus.deletedAt),
+          ),
+        )
+        .orderBy(asc(menus.createdAt))
+        .limit(1);
+      return repo.readTree(t, existing?.id ?? "");
+    },
+
+    async readTree(t, menuId) {
       const cats = await db
         .select()
         .from(menuCategories)
@@ -721,6 +742,14 @@ export function menuRepository(db: Executor): MenuRepository {
             itemWhere(t),
           ),
         );
+      return rows.map((r) => toOverride(r.ov));
+    },
+    async listRestaurantOverrides(t) {
+      const rows = await db
+        .select({ ov: menuItemBranchOverrides })
+        .from(menuItemBranchOverrides)
+        .innerJoin(menuItems, eq(menuItems.id, menuItemBranchOverrides.itemId))
+        .where(and(eq(menuItemBranchOverrides.workspaceId, t.workspaceId), itemWhere(t)));
       return rows.map((r) => toOverride(r.ov));
     },
     loadBranchMenu: (t, opts) => loadBranchMenu(db, t, opts),

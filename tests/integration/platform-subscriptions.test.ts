@@ -1,7 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { PUT as putOverride, DELETE as deleteOverride } from "@/app/api/v1/admin/workspaces/[workspaceId]/entitlements/route";
+import {
+  PUT as putOverride,
+  DELETE as deleteOverride,
+} from "@/app/api/v1/admin/workspaces/[workspaceId]/entitlements/route";
 import { POST as setStatus } from "@/app/api/v1/admin/workspaces/[workspaceId]/status/route";
 import { POST as activate } from "@/app/api/v1/admin/workspaces/[workspaceId]/subscription/activate/route";
 import { POST as cancel } from "@/app/api/v1/admin/workspaces/[workspaceId]/subscription/cancel/route";
@@ -98,7 +101,10 @@ describe("subscription overview", () => {
       restaurantId,
       branchId,
     });
-    const res = await call(getSubscription, { params: { workspaceId: ws.id }, cookie: waiter.cookie });
+    const res = await call(getSubscription, {
+      params: { workspaceId: ws.id },
+      cookie: waiter.cookie,
+    });
     expect(res.status).toBe(403);
   });
 });
@@ -130,7 +136,10 @@ describe("Super Admin subscription actions", () => {
     });
     expect(res.status).toBe(200);
 
-    const rows = await c.db.select().from(subscriptions).where(eq(subscriptions.workspaceId, ws.id));
+    const rows = await c.db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.workspaceId, ws.id));
     expect(rows).toHaveLength(2);
     expect(rows.filter((r) => r.isCurrent)).toHaveLength(1);
     const current = rows.find((r) => r.isCurrent)!;
@@ -146,25 +155,46 @@ describe("Super Admin subscription actions", () => {
     const events = await c.db
       .select()
       .from(subscriptionEvents)
-      .where(and(eq(subscriptionEvents.workspaceId, ws.id), eq(subscriptionEvents.type, "activated")));
-    expect(events[0]).toMatchObject({ fromStatus: "TRIALING", toStatus: "ACTIVE", planKey: "starter" });
+      .where(
+        and(eq(subscriptionEvents.workspaceId, ws.id), eq(subscriptionEvents.type, "activated")),
+      );
+    expect(events[0]).toMatchObject({
+      fromStatus: "TRIALING",
+      toStatus: "ACTIVE",
+      planKey: "starter",
+    });
 
     const [audit] = await c.db
       .select()
       .from(auditLogs)
-      .where(and(eq(auditLogs.workspaceId, ws.id), eq(auditLogs.action, "platform.subscription_activated")));
+      .where(
+        and(
+          eq(auditLogs.workspaceId, ws.id),
+          eq(auditLogs.action, "platform.subscription_activated"),
+        ),
+      );
     expect(audit?.actorType).toBe("PLATFORM_ADMIN");
     expect(audit?.actorUserId).toBe(admin.userId);
 
     const notes = await c.db
       .select()
       .from(notifications)
-      .where(and(eq(notifications.userId, owner.userId), eq(notifications.type, "subscription.activated")));
+      .where(
+        and(
+          eq(notifications.userId, owner.userId),
+          eq(notifications.type, "subscription.activated"),
+        ),
+      );
     expect(notes).toHaveLength(1);
     const mails = await c.db
       .select()
       .from(emailOutbox)
-      .where(and(eq(emailOutbox.toAddress, owner.email), eq(emailOutbox.template, "subscription_activated")));
+      .where(
+        and(
+          eq(emailOutbox.toAddress, owner.email),
+          eq(emailOutbox.template, "subscription_activated"),
+        ),
+      );
     expect(mails).toHaveLength(1);
 
     // Cancel: access continues until period end.
@@ -322,7 +352,12 @@ describe("workspace suspension", () => {
     const [audit] = await c.db
       .select()
       .from(auditLogs)
-      .where(and(eq(auditLogs.workspaceId, ws.id), eq(auditLogs.action, "platform.workspace_status_changed")));
+      .where(
+        and(
+          eq(auditLogs.workspaceId, ws.id),
+          eq(auditLogs.action, "platform.workspace_status_changed"),
+        ),
+      );
     expect(audit?.actorType).toBe("PLATFORM_ADMIN");
   });
 });

@@ -63,6 +63,9 @@ export interface MenuRepository {
   /** The restaurant's active menu id, created on first use. */
   ensureMenu(t: Tenant): Promise<string>;
   loadTree(t: Tenant): Promise<MenuTreeRecord>;
+  /** Same as loadTree but never creates the menu (menuId is "" when none exists). */
+  peekTree(t: Tenant): Promise<MenuTreeRecord>;
+  readTree(t: Tenant, menuId: string): Promise<MenuTreeRecord>;
 
   listCategories(t: Tenant): Promise<MenuCategoryDto[]>;
   findCategory(t: Tenant, categoryId: string): Promise<MenuCategoryDto | null>;
@@ -113,6 +116,8 @@ export interface MenuRepository {
   ): Promise<BranchOverrideDto>;
   findOverride(t: Tenant & { branchId: string }, itemId: string): Promise<BranchOverrideDto | null>;
   listOverrides(t: Tenant & { branchId: string }): Promise<BranchOverrideDto[]>;
+  /** Overrides of every branch of the restaurant (Super Admin inspection). */
+  listRestaurantOverrides(t: Tenant): Promise<BranchOverrideDto[]>;
   loadBranchMenu(
     t: Tenant & { branchId: string },
     opts: { includeUnavailable: boolean; imageUrl: (key: string) => string },

@@ -16,6 +16,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <AuthGate requirePlatformAdmin>
       <DashboardShell
         nav={adminNav()}
+        area="admin"
+        profile={{ workspaceName: "Platform administration", roleLabel: "Super Admin" }}
         banner={<AnnouncementBar />}
         sidebarHeader={
           <Link href="/admin" className="flex items-center gap-3 rounded-lg px-2 py-1.5">

@@ -541,7 +541,11 @@ describe("workspace analytics", () => {
     const one = await getWorkspace(ownerA, wsA, `${RANGE}&branchId=${b2.branchId}`);
     expect(one.status).toBe(200);
     expect(one.body.data!.kpis.collected).toBe(10_500);
-    const byRestaurant = await getWorkspace(ownerA, wsA, `${RANGE}&restaurantId=${b1.restaurantId}`);
+    const byRestaurant = await getWorkspace(
+      ownerA,
+      wsA,
+      `${RANGE}&restaurantId=${b1.restaurantId}`,
+    );
     expect(byRestaurant.body.data!.kpis.collected).toBe(80_500);
 
     expect((await getWorkspace(ownerA, wsA, `${RANGE}&branchId=${bx.branchId}`)).status).toBe(404);
@@ -564,9 +568,7 @@ describe("workspace analytics", () => {
     expect(res.status).toBe(200);
     expect(res.body.data!.branchIds).toEqual([b2.branchId]);
     expect(res.body.data!.kpis).toMatchObject({ totalOrders: 1, collected: 10_500 });
-    expect((await getWorkspace(manager, wsA, `${RANGE}&branchId=${b1.branchId}`)).status).toBe(
-      404,
-    );
+    expect((await getWorkspace(manager, wsA, `${RANGE}&branchId=${b1.branchId}`)).status).toBe(404);
   });
 
   it("forbids staff without reporting permissions", async () => {

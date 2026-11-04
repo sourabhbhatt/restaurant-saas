@@ -27,6 +27,7 @@ export const GET = route(
       workspaceId: scope.workspaceId,
       workspaceName: scope.workspaceName,
       roleKey: scope.roleKey,
+      roleLabel: scope.roleLabel(),
       permissions: c.access.describe(scope),
       restaurants,
       entitlements: scope.entitlements,

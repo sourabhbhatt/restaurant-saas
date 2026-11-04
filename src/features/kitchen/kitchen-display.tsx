@@ -22,6 +22,7 @@ import { ConnectionStatus } from "@/features/realtime/connection-status";
 import { SoundControl } from "@/features/realtime/sound-control";
 import { useBranchEvents } from "@/features/realtime/use-branch-events";
 import { OfflineBanner, SyncStatusIndicator } from "@/features/offline";
+import { ProfileMenu } from "@/features/navigation/profile-menu";
 import { AuthGate } from "@/features/session/auth-gate";
 import { permissionChecker, useBranchContext } from "@/features/session/queries";
 
@@ -195,6 +196,12 @@ function KitchenScreen({ branchId, ctx }: { branchId: string; ctx: BranchContext
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <SyncStatusIndicator />
+            <ProfileMenu
+              workspaceId={ctx.workspaceId}
+              workspaceName={ctx.workspaceName}
+              roleLabel={ctx.roleLabel}
+              branchLabel={`${ctx.restaurantName} · ${ctx.branchName}`}
+            />
             <Clock />
             <ConnectionStatus status={realtime.status} lastSyncedAt={feed.dataUpdatedAt} />
             <ToggleGroup

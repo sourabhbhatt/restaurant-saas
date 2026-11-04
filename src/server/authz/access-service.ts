@@ -40,6 +40,11 @@ export interface WorkspaceScope {
   can(permission: Permission, target?: { restaurantId?: string; branchId?: string }): boolean;
   /** Throws FORBIDDEN or WORKSPACE_RESTRICTED. */
   require(permission: Permission, target?: { restaurantId?: string; branchId?: string }): void;
+  /**
+   * Human-readable role of the user here: the workspace role for owners and
+   * admins, otherwise the restaurant/branch roles that apply at `target`.
+   */
+  roleLabel(target?: { restaurantId?: string; branchId?: string }): string;
   /** Restaurants the user can see (null = all in workspace). */
   visibleRestaurantIds(): string[] | null;
   /**
@@ -127,6 +132,20 @@ export function createAccessService(deps: {
       require(permission, target) {
         if (!can(permission, target)) throw forbidden();
         assertOperationAllowed(ent, operationKindFor(permission));
+      },
+      roleLabel(target = {}) {
+        if (membership.roleKey === "workspace_owner" || membership.roleKey === "workspace_admin") {
+          return membership.roleName;
+        }
+        const names = membership.assignments
+          .filter(
+            (a) =>
+              (!target.restaurantId || a.restaurantId === target.restaurantId) &&
+              (!target.branchId || a.branchId === null || a.branchId === target.branchId),
+          )
+          .map((a) => a.roleName);
+        const unique = [...new Set(names)];
+        return unique.length > 0 ? unique.join(", ") : membership.roleName;
       },
       visibleRestaurantIds: () => (workspaceWide ? null : [...restaurantIds]),
       branchFilter: () =>

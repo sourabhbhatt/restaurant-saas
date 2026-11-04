@@ -84,6 +84,7 @@ export interface MembershipGrants {
     restaurantId: string;
     branchId: string | null;
     roleKey: string;
+    roleName: string;
     permissions: string[];
   }[];
 }
@@ -100,6 +101,7 @@ export interface WorkspaceSummaryForUser {
 export interface AccessRepository {
   findBranchRef(branchId: string): Promise<BranchRef | null>;
   findRestaurantRef(restaurantId: string): Promise<RestaurantRef | null>;
+  findWorkspaceName(workspaceId: string): Promise<string | null>;
   /** Active membership with permissions; null if the user is not a member. */
   loadMembershipGrants(userId: string, workspaceId: string): Promise<MembershipGrants | null>;
   listUserWorkspaces(userId: string): Promise<WorkspaceSummaryForUser[]>;

@@ -6,6 +6,7 @@ import { useCallback } from "react";
 
 import type { MeResponse } from "@/contracts/auth";
 import type { BranchContextDto, WorkspaceStructureDto } from "@/contracts/structure";
+import { clearDeviceUserData } from "@/features/offline";
 import { api, ApiError } from "@/lib/api-client";
 
 /** Shared query keys for session-level data. Feature modules define their own keys. */
@@ -15,6 +16,9 @@ export const sessionKeys = {
   branchContext: (branchId: string) => ["branch", branchId, "context"] as const,
 };
 
+/** When this JS bundle started running (used to tell restored cache from fresh server data). */
+const PAGE_LOADED_AT = Date.now();
+
 const noRetryOnAuth = (failureCount: number, error: unknown) =>
   !(error instanceof ApiError && [401, 403, 404].includes(error.status)) && failureCount < 2;
 
@@ -23,8 +27,31 @@ export function useMe() {
     queryKey: sessionKeys.me,
     queryFn: ({ signal }) => api.get<MeResponse>("/auth/me", undefined, signal),
     retry: noRetryOnAuth,
-    staleTime: 60_000,
+    // Identity only changes on sign-in/out or a profile edit (all invalidate this
+    // query), so it is not refetched on every focus or navigation.
+    // Cache restored from IndexedDB is always stale: confirm with the server once per
+    // page load, then keep the confirmed identity for 5 minutes.
+    staleTime: (query) => (query.state.dataUpdatedAt < PAGE_LOADED_AT ? 0 : 5 * 60_000),
+    refetchOnWindowFocus: false,
   });
+}
+
+/**
+ * The signed-in user as confirmed by the server on this page load. Data restored
+ * from the offline cache is never shown as identity while the server can still
+ * answer; if the server is unreachable the cached identity is used instead.
+ */
+export function useIdentity() {
+  const me = useMe();
+  // Data restored from IndexedDB carries its old timestamp; anything fetched from the
+  // server during this page load is newer than PAGE_LOADED_AT.
+  const confirmed = me.dataUpdatedAt >= PAGE_LOADED_AT || me.isError;
+  return {
+    me: me.data,
+    user: confirmed ? me.data?.user : undefined,
+    workspaces: confirmed ? (me.data?.workspaces ?? []) : [],
+    ready: confirmed && Boolean(me.data),
+  };
 }
 
 export function useWorkspaceStructure(workspaceId: string | undefined) {
@@ -60,7 +87,9 @@ export function useSignOut() {
     try {
       await api.post("/auth/signout");
     } finally {
+      // Forget everything about this account on the device, then go to login.
       qc.clear();
+      await clearDeviceUserData();
       router.replace("/sign-in");
     }
   }, [qc, router]);
