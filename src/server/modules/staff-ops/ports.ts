@@ -8,11 +8,7 @@ import type {
   TableSessionSummaryDto,
 } from "@/contracts/staff-ops";
 import type { Permission } from "@/domain/access/permissions";
-import type {
-  OrderItemStatus,
-  OrderPriority,
-  OrderStatus,
-} from "@/domain/orders/order-status";
+import type { OrderItemStatus, OrderPriority, OrderStatus } from "@/domain/orders/order-status";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
 /** Tenant filter taken from a server-resolved branch scope. */

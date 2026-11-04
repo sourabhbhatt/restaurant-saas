@@ -55,7 +55,10 @@ export function VerifyEmail() {
 
   return (
     <AuthCard title="Verifying your email…" description="This only takes a second.">
-      <div role="status" className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+      <div
+        role="status"
+        className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"
+      >
         <Spinner decorative />
         Checking your link
       </div>
@@ -76,13 +79,15 @@ function VerifyFailed({ message }: { message: string | null }) {
     <AuthCard
       icon={<MailWarningIcon />}
       title="We couldn't verify your email"
-      description={
-        message ?? "This verification link is invalid or has expired."
-      }
+      description={message ?? "This verification link is invalid or has expired."}
     >
       <div role="alert" className="flex flex-col gap-2">
         {canResend && (
-          <Button size="lg" onClick={() => resend.mutate()} disabled={resend.isPending || resend.isSuccess}>
+          <Button
+            size="lg"
+            onClick={() => resend.mutate()}
+            disabled={resend.isPending || resend.isSuccess}
+          >
             {resend.isPending && <Spinner decorative />}
             {resend.isSuccess ? "Email sent" : "Send a new verification email"}
           </Button>

@@ -26,12 +26,7 @@ import { recordAudit } from "../../audit/audit-service";
 import type { AccessService, BranchScope } from "../../authz/access-service";
 import { auditActorFor, type RequestMeta, type UserActor } from "../../context";
 import type { Clock, Logger } from "../../ports/observability";
-import type {
-  BranchTarget,
-  OrderRecord,
-  OrderTransitionPatch,
-  StaffOpsRepos,
-} from "./ports";
+import type { BranchTarget, OrderRecord, OrderTransitionPatch, StaffOpsRepos } from "./ports";
 
 export interface StaffOpsServiceDeps {
   tx: TransactionRunner<StaffOpsRepos>;
@@ -49,17 +44,15 @@ const STALE_MESSAGE = "This order was already updated by someone else";
 type StaffAction = Exclude<OrderAction, "complete">;
 
 /** Item status each order transition moves the lines to (and from which states). */
-const ITEM_EFFECT: Record<
-  StaffAction,
-  { to: OrderItemStatus; from?: readonly OrderItemStatus[] }
-> = {
-  accept: { to: "PENDING", from: ["PENDING", "PREPARING", "READY"] },
-  start: { to: "PREPARING", from: ["PENDING"] },
-  ready: { to: "READY", from: ["PENDING", "PREPARING"] },
-  serve: { to: "SERVED", from: ["PENDING", "PREPARING", "READY"] },
-  reject: { to: "CANCELLED", from: ["PENDING", "PREPARING", "READY"] },
-  cancel: { to: "CANCELLED", from: ["PENDING", "PREPARING", "READY"] },
-};
+const ITEM_EFFECT: Record<StaffAction, { to: OrderItemStatus; from?: readonly OrderItemStatus[] }> =
+  {
+    accept: { to: "PENDING", from: ["PENDING", "PREPARING", "READY"] },
+    start: { to: "PREPARING", from: ["PENDING"] },
+    ready: { to: "READY", from: ["PENDING", "PREPARING"] },
+    serve: { to: "SERVED", from: ["PENDING", "PREPARING", "READY"] },
+    reject: { to: "CANCELLED", from: ["PENDING", "PREPARING", "READY"] },
+    cancel: { to: "CANCELLED", from: ["PENDING", "PREPARING", "READY"] },
+  };
 
 function targetOf(scope: BranchScope): BranchTarget {
   return {
@@ -214,9 +207,7 @@ export function createStaffOpsService(deps: StaffOpsServiceDeps) {
 
     const notification = notificationFor(action, order);
     if (notification) {
-      await r.staffOps.notifyBranch(target, notification.permission, notification.input, [
-        userId,
-      ]);
+      await r.staffOps.notifyBranch(target, notification.permission, notification.input, [userId]);
     }
     return updated;
   }
@@ -405,7 +396,16 @@ export function createStaffOpsService(deps: StaffOpsServiceDeps) {
 
         const out: ChangedOrder[] = [];
         if (order.status === "ACCEPTED" && input.status === "PREPARING") {
-          const started = await applyTransition(r, scope, order, "start", "PREPARING", null, meta, true);
+          const started = await applyTransition(
+            r,
+            scope,
+            order,
+            "start",
+            "PREPARING",
+            null,
+            meta,
+            true,
+          );
           if (!started) throw new DomainError("STALE_VERSION", STALE_MESSAGE);
           order = started;
           out.push(changeOf(order, "start"));
@@ -414,7 +414,16 @@ export function createStaffOpsService(deps: StaffOpsServiceDeps) {
         const live = statuses.filter((s) => s !== "CANCELLED");
         if (live.length > 0 && live.every((s) => s === "READY")) {
           const to = nextOrderStatus(order.status, "ready");
-          const ready = await applyTransition(r, scope, order, "ready", to, "All items ready", meta, true);
+          const ready = await applyTransition(
+            r,
+            scope,
+            order,
+            "ready",
+            to,
+            "All items ready",
+            meta,
+            true,
+          );
           if (!ready) throw new DomainError("STALE_VERSION", STALE_MESSAGE);
           order = ready;
           out.push(changeOf(order, "ready"));

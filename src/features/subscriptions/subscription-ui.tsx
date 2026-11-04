@@ -58,7 +58,9 @@ export function toDate(value: Date | string | null | undefined): Date | null {
 
 export function formatDate(value: Date | string | null | undefined): string {
   const d = toDate(value);
-  return d ? d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
+  return d
+    ? d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : "—";
 }
 
 export function formatDateTime(value: Date | string | null | undefined): string {

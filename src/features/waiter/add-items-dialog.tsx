@@ -354,9 +354,15 @@ export function AddItemsDialog({
       <DialogContent className="flex max-h-[calc(100dvh-1rem)] flex-col sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Add items · {tableName}</DialogTitle>
-          <DialogDescription>Pick dishes from the branch menu and send them as one order.</DialogDescription>
+          <DialogDescription>
+            Pick dishes from the branch menu and send them as one order.
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} noValidate className="grid min-h-0 flex-1 gap-4 md:grid-cols-[1fr_18rem]">
+        <form
+          onSubmit={submit}
+          noValidate
+          className="grid min-h-0 flex-1 gap-4 md:grid-cols-[1fr_18rem]"
+        >
           <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
             {configuring ? (
               <ItemConfigurator
@@ -389,11 +395,22 @@ export function AddItemsDialog({
                   aria-label="Search dishes"
                 />
                 {categories.length === 0 ? (
-                  <EmptyState size="compact" title="No dishes found" description="Try another search." />
+                  <EmptyState
+                    size="compact"
+                    title="No dishes found"
+                    description="Try another search."
+                  />
                 ) : (
                   categories.map((c) => (
-                    <section key={c.id} aria-labelledby={`cat-${c.id}`} className="flex flex-col gap-2">
-                      <h3 id={`cat-${c.id}`} className="text-sm font-semibold text-muted-foreground">
+                    <section
+                      key={c.id}
+                      aria-labelledby={`cat-${c.id}`}
+                      className="flex flex-col gap-2"
+                    >
+                      <h3
+                        id={`cat-${c.id}`}
+                        className="text-sm font-semibold text-muted-foreground"
+                      >
                         {c.name}
                       </h3>
                       <div className="grid gap-2 sm:grid-cols-2">
@@ -411,7 +428,7 @@ export function AddItemsDialog({
                                 <span className="text-xs text-muted-foreground">Unavailable</span>
                               )}
                             </span>
-                            <span className="shrink-0 tabular-nums text-muted-foreground">
+                            <span className="shrink-0 text-muted-foreground tabular-nums">
                               {item.variants.length ? "from " : ""}
                               {formatMoney(startingPrice(item), currency)}
                             </span>
@@ -425,7 +442,10 @@ export function AddItemsDialog({
             )}
           </div>
 
-          <aside className="flex min-h-0 flex-col gap-3 rounded-xl border p-3" aria-label="Order summary">
+          <aside
+            className="flex min-h-0 flex-col gap-3 rounded-xl border p-3"
+            aria-label="Order summary"
+          >
             <p className="flex items-center gap-2 text-sm font-semibold">
               <ShoppingBasket className="size-4" aria-hidden /> This order
             </p>
@@ -436,10 +456,15 @@ export function AddItemsDialog({
                 {cart.map((l) => {
                   const p = linePrice(l);
                   return (
-                    <li key={l.key} className="flex flex-col gap-1 rounded-lg bg-muted/40 p-2 text-sm">
+                    <li
+                      key={l.key}
+                      className="flex flex-col gap-1 rounded-lg bg-muted/40 p-2 text-sm"
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-medium">{l.item.name}</span>
-                        <span className="tabular-nums">{formatMoney(p.unit * l.quantity, currency)}</span>
+                        <span className="tabular-nums">
+                          {formatMoney(p.unit * l.quantity, currency)}
+                        </span>
                       </div>
                       {(p.label || l.notes) && (
                         <span className="text-xs text-muted-foreground">
@@ -451,7 +476,9 @@ export function AddItemsDialog({
                           value={l.quantity}
                           label={l.item.name}
                           onChange={(q) =>
-                            syncLines(cart.map((x) => (x.key === l.key ? { ...x, quantity: q } : x)))
+                            syncLines(
+                              cart.map((x) => (x.key === l.key ? { ...x, quantity: q } : x)),
+                            )
                           }
                         />
                         <Button
@@ -478,7 +505,12 @@ export function AddItemsDialog({
               label="Instructions"
               error={form.formState.errors.specialInstructions?.message}
             >
-              <Textarea rows={2} maxLength={500} placeholder="Optional" {...form.register("specialInstructions")} />
+              <Textarea
+                rows={2}
+                maxLength={500}
+                placeholder="Optional"
+                {...form.register("specialInstructions")}
+              />
             </FormField>
             <Controller
               control={form.control}
@@ -508,7 +540,12 @@ export function AddItemsDialog({
             </div>
           </aside>
           <DialogFooter className="md:col-span-2">
-            <Button type="button" variant="outline" disabled={mutation.isPending} onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={mutation.isPending}
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={mutation.isPending || cart.length === 0}>

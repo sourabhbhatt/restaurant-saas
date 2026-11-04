@@ -101,8 +101,8 @@ const SECTIONS: LegalSection[] = [
     body: (
       <p>
         {n} does not collect payments from restaurant guests — restaurants take payment at the
-        counter and record it in {n}. Guests should contact the restaurant directly for any refund of
-        a meal or bill.
+        counter and record it in {n}. Guests should contact the restaurant directly for any refund
+        of a meal or bill.
       </p>
     ),
   },

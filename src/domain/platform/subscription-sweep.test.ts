@@ -76,11 +76,7 @@ describe("planSubscriptionSweep", () => {
   });
 
   it("ignores expired subscriptions", () => {
-    const d = planSubscriptionSweep(
-      { ...trial(), status: "EXPIRED" },
-      policy,
-      addDays(start, 100),
-    );
+    const d = planSubscriptionSweep({ ...trial(), status: "EXPIRED" }, policy, addDays(start, 100));
     expect(d.changed).toBe(false);
   });
 });

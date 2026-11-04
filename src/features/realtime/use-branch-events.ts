@@ -55,7 +55,9 @@ export function useBranchEvents(
   options: { onEvent?: (type: string, data: Record<string, unknown>) => void } = {},
 ): BranchEventsState {
   const qc = useQueryClient();
-  const [status, setStatus] = useState<RealtimeStatus>("connecting");
+  const [status, setStatus] = useState<RealtimeStatus>(() =>
+    typeof EventSource === "undefined" ? "unsupported" : "connecting",
+  );
   const [lastEventAt, setLastEventAt] = useState<number | null>(null);
   const onEventRef = useRef(options.onEvent);
   useEffect(() => {
@@ -64,10 +66,7 @@ export function useBranchEvents(
 
   useEffect(() => {
     if (!branchId) return;
-    if (typeof window === "undefined" || typeof EventSource === "undefined") {
-      setStatus("unsupported");
-      return;
-    }
+    if (typeof window === "undefined" || typeof EventSource === "undefined") return;
     let source: EventSource | null = null;
     let attempt = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -88,7 +87,6 @@ export function useBranchEvents(
 
     const connect = () => {
       if (disposed) return;
-      setStatus(attempt === 0 ? "connecting" : "reconnecting");
       source = new EventSource(`${API_BASE}/branches/${branchId}/events`, {
         withCredentials: true,
       });

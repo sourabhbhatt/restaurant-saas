@@ -344,9 +344,9 @@ describe("menu items", () => {
       cookie: owner.cookie,
     });
     expect(del.status).toBe(200);
-    expect((await call(getItem, { params: { itemId: created.id }, cookie: owner.cookie })).status).toBe(
-      404,
-    );
+    expect(
+      (await call(getItem, { params: { itemId: created.id }, cookie: owner.cookie })).status,
+    ).toBe(404);
     const groups = await c.db.select().from(addonGroups).where(eq(addonGroups.itemId, created.id));
     expect(groups).toHaveLength(1); // still there for history
     const audit = await c.db
@@ -377,7 +377,9 @@ describe("menu items", () => {
   it("enforces the maxMenuItems limit", async () => {
     const w = await createWorkspaceAs(owner, "Limited WS");
     const r = await insertRestaurantWithBranch(c, w.id, { name: "Tiny" });
-    await c.db.insert(workspaceEntitlements).values({ workspaceId: w.id, key: "maxMenuItems", value: 1 });
+    await c.db
+      .insert(workspaceEntitlements)
+      .values({ workspaceId: w.id, key: "maxMenuItems", value: 1 });
     const body = { ...baseItem(r.categoryId), variants: [], addonGroups: [] };
     const first = await call(createItem, {
       params: { restaurantId: r.restaurantId },
@@ -446,7 +448,10 @@ describe("branch-effective menu", () => {
     const kebab = items[0]!;
     expect(kebab.price).toBe(27500);
     expect(kebab.allergens).toEqual(["DAIRY"]);
-    const line = priceSelection(kebab, { quantity: 2, addonIds: [kebab.addonGroups[0]!.addons[1]!.id] });
+    const line = priceSelection(kebab, {
+      quantity: 2,
+      addonIds: [kebab.addonGroups[0]!.addons[1]!.id],
+    });
     expect(line.lineTotal).toBe((27500 + 3000) * 2);
 
     // Other branch inherits restaurant values.
@@ -629,7 +634,11 @@ describe("uploads", () => {
     expect(key).toMatch(new RegExp(`^ws/${ws.id}/menu_item/[0-9a-f-]{36}\\.png$`));
     expect(url).toBe(`/api/v1/files/${key}`);
     const [row] = await c.db.select().from(storedFiles).where(eq(storedFiles.key, key));
-    expect(row).toMatchObject({ workspaceId: ws.id, contentType: "image/png", sizeBytes: PNG.length });
+    expect(row).toMatchObject({
+      workspaceId: ws.id,
+      contentType: "image/png",
+      sizeBytes: PNG.length,
+    });
 
     const file = await getFile(new Request(`${TEST_ORIGIN}${url}`), {
       params: Promise.resolve({ key: key.split("/") }),
@@ -661,7 +670,9 @@ describe("uploads", () => {
 
   it("rejects SVG, non-images and oversize files", async () => {
     const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
-    expect((await uploadFile(owner.cookie, ws.id, svg, { type: "image/svg+xml" })).status).toBe(422);
+    expect((await uploadFile(owner.cookie, ws.id, svg, { type: "image/svg+xml" })).status).toBe(
+      422,
+    );
     const text = new TextEncoder().encode("hello world");
     expect((await uploadFile(owner.cookie, ws.id, text)).status).toBe(422);
     const big = new Uint8Array(2 * 1024 * 1024 + 1);
@@ -676,7 +687,8 @@ describe("uploads", () => {
       body: {
         ...baseItem(rest.categoryId),
         name: "Borrowed",
-        imageKey: "ws/00000000-0000-4000-8000-000000000000/menu_item/00000000-0000-4000-8000-000000000000.png",
+        imageKey:
+          "ws/00000000-0000-4000-8000-000000000000/menu_item/00000000-0000-4000-8000-000000000000.png",
       },
       cookie: owner.cookie,
     });
@@ -685,7 +697,9 @@ describe("uploads", () => {
 
   it("enforces the storage limit", async () => {
     const w = await createWorkspaceAs(owner, "Storage WS");
-    await c.db.insert(workspaceEntitlements).values({ workspaceId: w.id, key: "storageMb", value: 1 });
+    await c.db
+      .insert(workspaceEntitlements)
+      .values({ workspaceId: w.id, key: "storageMb", value: 1 });
     const half = new Uint8Array(600 * 1024);
     half.set(PNG);
     expect((await uploadFile(owner.cookie, w.id, half)).status).toBe(201);

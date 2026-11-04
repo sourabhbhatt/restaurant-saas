@@ -14,7 +14,13 @@ import type {
   updateRoleSchema,
 } from "@/contracts/tenancy";
 import { allowedPermissionsForScope } from "@/contracts/tenancy";
-import { conflict, DomainError, forbidden, notFound, validationFailed } from "@/domain/shared/errors";
+import {
+  conflict,
+  DomainError,
+  forbidden,
+  notFound,
+  validationFailed,
+} from "@/domain/shared/errors";
 import { generateToken, hashToken, isWellFormedToken } from "@/domain/shared/tokens";
 import { addDays } from "@/domain/subscriptions/entitlements";
 import { UniqueViolationError } from "@/infrastructure/database/interfaces/transaction";
@@ -129,7 +135,10 @@ export function createPeopleService({
     email: string,
     token: string,
   ) {
-    await sendEmail({ to: email, ...invitationEmail(workspaceName, inviterName, inviteUrl(token)) });
+    await sendEmail({
+      to: email,
+      ...invitationEmail(workspaceName, inviterName, inviteUrl(token)),
+    });
   }
 
   return {
@@ -146,7 +155,9 @@ export function createPeopleService({
       meta: RequestMeta,
     ): Promise<MemberDto> {
       scope.require("workspace.members.manage");
-      const target = await tx.read((r) => r.tenancy.findMembership(scope.workspaceId, membershipId));
+      const target = await tx.read((r) =>
+        r.tenancy.findMembership(scope.workspaceId, membershipId),
+      );
       if (!target) throw notFound("Member");
       if (input.status === "ACTIVE" && target.status === "DISABLED") {
         await entitlements.assertCanAdd(scope.workspaceId, "maxStaff");
@@ -580,6 +591,24 @@ export function createPeopleService({
       if (!isWellFormedToken(token)) throw notFound("Invitation");
       const tokenHash = await hashToken(token);
       const now = clock.now();
+      // Seat check first (the entitlement service reads outside this module's transaction).
+      const pre = await tx.read(async (r) => {
+        const found = await r.tenancy.findInvitationByTokenHash(tokenHash);
+        return found
+          ? {
+              inv: found,
+              existing: await r.tenancy.findMembershipByUser(found.workspaceId, actor.userId),
+            }
+          : null;
+      });
+      if (
+        pre &&
+        pre.inv.status === "PENDING" &&
+        pre.inv.email.toLowerCase() === actor.email.trim().toLowerCase() &&
+        (!pre.existing || pre.existing.status === "DISABLED")
+      ) {
+        await entitlements.assertCanAdd(pre.inv.workspaceId, "maxStaff");
+      }
       return tx.run(async (r) => {
         const inv = await r.tenancy.findInvitationByTokenHash(tokenHash, true);
         if (!inv) throw notFound("Invitation");
@@ -597,7 +626,6 @@ export function createPeopleService({
         const existing = await r.tenancy.findMembershipByUser(inv.workspaceId, actor.userId);
         let membershipId: string;
         if (!existing) {
-          await entitlements.assertCanAdd(inv.workspaceId, "maxStaff");
           membershipId = await r.tenancy.insertMembership({
             workspaceId: inv.workspaceId,
             userId: actor.userId,
@@ -607,7 +635,6 @@ export function createPeopleService({
         } else {
           membershipId = existing.id;
           if (existing.status === "DISABLED") {
-            await entitlements.assertCanAdd(inv.workspaceId, "maxStaff");
             await r.tenancy.updateMembership(inv.workspaceId, existing.id, {
               status: "ACTIVE",
               roleId: existing.roleKey === OWNER_ROLE_KEY ? existing.roleId : inv.workspaceRoleId,
@@ -662,7 +689,11 @@ export function createPeopleService({
       return tx.read((r) => r.tenancy.listRoles(scope.workspaceId));
     },
 
-    async createRole(scope: WorkspaceScope, input: CreateRole, meta: RequestMeta): Promise<RoleDto> {
+    async createRole(
+      scope: WorkspaceScope,
+      input: CreateRole,
+      meta: RequestMeta,
+    ): Promise<RoleDto> {
       scope.require("workspace.roles.manage");
       await entitlements.assertFeature(scope.workspaceId, "custom_roles");
       return tx.run(async (r) => {

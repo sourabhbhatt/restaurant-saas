@@ -9,7 +9,12 @@ import {
 import type { Container } from "@/server/container";
 import { newQrToken } from "@/server/modules/tables/qr-tokens";
 
-import { createWorkspaceAs, insertRestaurantWithBranch, signUpUser, type TestUser } from "./fixtures";
+import {
+  createWorkspaceAs,
+  insertRestaurantWithBranch,
+  signUpUser,
+  type TestUser,
+} from "./fixtures";
 
 /** Direct-insert fixtures for the ordering module's integration tests. */
 

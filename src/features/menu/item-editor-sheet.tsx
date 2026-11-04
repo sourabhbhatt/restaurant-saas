@@ -164,9 +164,7 @@ export function ItemEditorSheet(props: ItemEditorProps) {
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent className="w-full gap-0 sm:max-w-2xl">
-        {props.open && (
-          <ItemEditorBody key={props.item?.id ?? "new"} {...props} />
-        )}
+        {props.open && <ItemEditorBody key={props.item?.id ?? "new"} {...props} />}
       </SheetContent>
     </Sheet>
   );
@@ -252,7 +250,14 @@ function ItemEditorBody({
       <SheetBody className="py-4">
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)} className="gap-4">
           <TabsList className="w-full">
-            <TabsTrigger value="details" aria-invalid={tabForError(errors) === "details" && Object.keys(errors).length > 0 ? true : undefined}>
+            <TabsTrigger
+              value="details"
+              aria-invalid={
+                tabForError(errors) === "details" && Object.keys(errors).length > 0
+                  ? true
+                  : undefined
+              }
+            >
               Details
             </TabsTrigger>
             <TabsTrigger value="variants">
@@ -376,7 +381,11 @@ function ItemEditorBody({
                   </FormField>
                 )}
               />
-              <FormField label="Prep time (minutes)" error={errors.prepTimeMinutes?.message} required>
+              <FormField
+                label="Prep time (minutes)"
+                error={errors.prepTimeMinutes?.message}
+                required
+              >
                 <Input
                   type="number"
                   inputMode="numeric"
@@ -445,7 +454,12 @@ function ItemEditorBody({
           </TabsContent>
 
           <TabsContent value="variants">
-            <VariantsFields control={control} register={register} errors={errors} currency={currency} />
+            <VariantsFields
+              control={control}
+              register={register}
+              errors={errors}
+              currency={currency}
+            />
           </TabsContent>
 
           <TabsContent value="addons">
@@ -540,7 +554,10 @@ function VariantsFields({ control, register, errors, currency }: FieldsProps) {
       {fields.map((f, i) => {
         const e = errors.variants?.[i];
         return (
-          <div key={f.key} className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_9rem_auto]">
+          <div
+            key={f.key}
+            className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_9rem_auto]"
+          >
             <FormField label="Variant name" error={e?.name?.message} required>
               <Input {...register(`variants.${i}.name`)} placeholder="e.g. Full" />
             </FormField>
@@ -748,7 +765,10 @@ function AddonsFields({
         return (
           <div key={f.key} className="grid grid-cols-[1fr_8rem_auto_auto] items-start gap-2">
             <FormField label="Option" hideLabel error={e?.name?.message}>
-              <Input {...register(`addonGroups.${groupIndex}.addons.${j}.name`)} placeholder="Option name" />
+              <Input
+                {...register(`addonGroups.${groupIndex}.addons.${j}.name`)}
+                placeholder="Option name"
+              />
             </FormField>
             <Controller
               control={control}
@@ -870,7 +890,9 @@ function PricePreview({
   try {
     line = priceSelection(priced, {
       variantId: selectedVariant,
-      addonIds: addonKeys.filter((k) => priced.addonGroups.some((g) => g.addons.some((a) => a.id === k))),
+      addonIds: addonKeys.filter((k) =>
+        priced.addonGroups.some((g) => g.addons.some((a) => a.id === k)),
+      ),
       quantity: 1,
     });
   } catch (e) {
@@ -881,11 +903,17 @@ function PricePreview({
   }
 
   return (
-    <section aria-label="Price preview" className="mt-6 flex flex-col gap-3 rounded-lg border bg-muted/40 p-4">
+    <section
+      aria-label="Price preview"
+      className="mt-6 flex flex-col gap-3 rounded-lg border bg-muted/40 p-4"
+    >
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold">Guest preview</h3>
         <span className="text-sm text-muted-foreground">
-          From <span className="font-semibold text-foreground">{formatMoney(startingPrice(priced), currency)}</span>
+          From{" "}
+          <span className="font-semibold text-foreground">
+            {formatMoney(startingPrice(priced), currency)}
+          </span>
         </span>
       </div>
       {priced.variants.length > 0 && (
@@ -936,11 +964,15 @@ function PricePreview({
       ))}
       {line ? (
         <p className="text-sm">
-          One serving: <span className="font-semibold tabular-nums">{formatMoney(line.unitPrice, currency)}</span>
+          One serving:{" "}
+          <span className="font-semibold tabular-nums">
+            {formatMoney(line.unitPrice, currency)}
+          </span>
           {line.addonsUnitTotal > 0 && (
             <span className="text-muted-foreground">
               {" "}
-              ({formatMoney(line.baseUnitPrice, currency)} + {formatMoney(line.addonsUnitTotal, currency)} add-ons)
+              ({formatMoney(line.baseUnitPrice, currency)} +{" "}
+              {formatMoney(line.addonsUnitTotal, currency)} add-ons)
             </span>
           )}
         </p>

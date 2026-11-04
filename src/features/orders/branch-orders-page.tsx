@@ -43,8 +43,8 @@ const DATE_RANGES = {
 } as const;
 type DateRange = keyof typeof DATE_RANGES;
 
-function rangeFor(range: DateRange): { from?: string; to?: string } {
-  const start = new Date();
+function rangeFor(range: DateRange, day: string): { from?: string; to?: string } {
+  const start = new Date(day);
   start.setHours(0, 0, 0, 0);
   if (range === "today") return { from: start.toISOString() };
   if (range === "yesterday") {
@@ -72,17 +72,19 @@ export function BranchOrdersPage() {
   const orderNumber = /^\d+$/.test(search.trim().replace(/^#/, ""))
     ? Number(search.trim().replace(/^#/, ""))
     : undefined;
-  const filters: OrderListFilters = {
-    ...rangeFor(range),
-    status: status === "all" ? undefined : status,
-    tableId: tableId === "all" ? undefined : tableId,
-    orderNumber,
-    limit: 200,
-  };
-  // Recompute the date window at most once per minute so the query key stays stable.
-  const minute = Math.floor(now / 60_000);
-  const stableFilters = useMemo(() => filters, [JSON.stringify(filters), minute]); // eslint-disable-line react-hooks/exhaustive-deps
-  const orders = useBranchOrders(branchId, stableFilters, {
+  // The date window only moves when the day changes, so the query key stays stable.
+  const day = new Date(now).toDateString();
+  const filters = useMemo<OrderListFilters>(
+    () => ({
+      ...rangeFor(range, day),
+      status: status === "all" ? undefined : status,
+      tableId: tableId === "all" ? undefined : tableId,
+      orderNumber,
+      limit: 200,
+    }),
+    [range, day, status, tableId, orderNumber],
+  );
+  const orders = useBranchOrders(branchId, filters, {
     refetchInterval: realtime.pollInterval,
     enabled: can("orders.view"),
   });
@@ -90,7 +92,9 @@ export function BranchOrdersPage() {
   const tables = useMemo(() => {
     const map = new Map<string, string>();
     for (const o of orders.data ?? []) map.set(o.tableId, o.tableName);
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], undefined, { numeric: true }));
+    return [...map.entries()].sort((a, b) =>
+      a[1].localeCompare(b[1], undefined, { numeric: true }),
+    );
   }, [orders.data]);
 
   const filtersActive = status !== "all" || range !== "today" || tableId !== "all" || search !== "";

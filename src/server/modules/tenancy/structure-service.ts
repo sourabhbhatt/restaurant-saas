@@ -13,6 +13,7 @@ import type {
   updateRestaurantSchema,
 } from "@/contracts/tenancy";
 import { defaultBusinessHours } from "@/contracts/tenancy";
+import { effectivePermissions } from "@/domain/access/permissions";
 import { validateTaxConfig } from "@/domain/billing/bill-calculator";
 import { conflict, DomainError, notFound } from "@/domain/shared/errors";
 import { UniqueViolationError } from "@/infrastructure/database/interfaces/transaction";
@@ -32,7 +33,10 @@ type UpdateBranch = z.output<typeof updateBranchSchema>;
 type BranchSettingsInput = z.output<typeof branchSettingsSchema>;
 
 const stale = (what: string) =>
-  new DomainError("STALE_VERSION", `This ${what} was changed by someone else. Reload and try again.`);
+  new DomainError(
+    "STALE_VERSION",
+    `This ${what} was changed by someone else. Reload and try again.`,
+  );
 
 const codeTaken = () =>
   new DomainError("CONFLICT", "Another branch of this restaurant already uses this code", {
@@ -73,7 +77,9 @@ function branchPatch(input: UpdateBranch): BranchPatch {
 }
 
 function isCodeViolation(error: unknown): boolean {
-  return error instanceof UniqueViolationError && error.constraint === "branches_restaurant_code_uq";
+  return (
+    error instanceof UniqueViolationError && error.constraint === "branches_restaurant_code_uq"
+  );
 }
 
 export function createStructureService({ tx, clock, entitlements }: TenancyServiceDeps) {
@@ -102,6 +108,7 @@ export function createStructureService({ tx, clock, entitlements }: TenancyServi
         ...restaurant,
         settings,
         branches: branches.filter((b) => scope.can("branch.view", { branchId: b.id })),
+        permissions: effectivePermissions(scope.grants, { restaurantId: scope.restaurantId }),
       };
     });
   }
@@ -111,7 +118,10 @@ export function createStructureService({ tx, clock, entitlements }: TenancyServi
     async listRestaurants(scope: WorkspaceScope): Promise<RestaurantListItemDto[]> {
       scope.require("workspace.view");
       return tx.read(async (r) => {
-        const list = await r.tenancy.listRestaurants(scope.workspaceId, scope.visibleRestaurantIds());
+        const list = await r.tenancy.listRestaurants(
+          scope.workspaceId,
+          scope.visibleRestaurantIds(),
+        );
         const branches = await r.tenancy.listBranchSummaries(
           scope.workspaceId,
           list.map((x) => x.id),
@@ -195,7 +205,11 @@ export function createStructureService({ tx, clock, entitlements }: TenancyServi
           r.audit,
           auditActorFor(scope.actor, meta),
           "restaurant.updated",
-          { workspaceId: scope.workspaceId, targetType: "restaurant", targetId: scope.restaurantId },
+          {
+            workspaceId: scope.workspaceId,
+            targetType: "restaurant",
+            targetId: scope.restaurantId,
+          },
           {
             fields: Object.keys(patch),
             settings: input.settings ? Object.keys(input.settings) : [],

@@ -51,13 +51,25 @@ function BranchTree() {
           <Node icon={StoreIcon} title="Spice Route" meta="Shared menu · 48 items" />
           <div className="ml-5 flex flex-col gap-2 border-l border-dashed pl-6">
             <Node icon={MapPinIcon} title="Indiranagar" meta="Paneer tikka ₹280" small />
-            <Node icon={MapPinIcon} title="Koramangala" meta="Paneer tikka ₹300 · branch price" small accent />
+            <Node
+              icon={MapPinIcon}
+              title="Koramangala"
+              meta="Paneer tikka ₹300 · branch price"
+              small
+              accent
+            />
           </div>
         </div>
         <div className="flex flex-col gap-3">
           <Node icon={StoreIcon} title="Dosa Corner" meta="Shared menu · 31 items" />
           <div className="ml-5 flex flex-col gap-2 border-l border-dashed pl-6">
-            <Node icon={MapPinIcon} title="HSR Layout" meta="Filter coffee · sold out" small muted />
+            <Node
+              icon={MapPinIcon}
+              title="HSR Layout"
+              meta="Filter coffee · sold out"
+              small
+              muted
+            />
           </div>
         </div>
       </div>

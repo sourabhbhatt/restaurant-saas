@@ -4,11 +4,7 @@ import type { SessionStatus, TableStatus } from "@/domain/tables/table-status";
 
 export const MAX_BULK_TABLES = 100;
 
-const name = z
-  .string()
-  .trim()
-  .min(1, "Enter a table name")
-  .max(30, "Use at most 30 characters");
+const name = z.string().trim().min(1, "Enter a table name").max(30, "Use at most 30 characters");
 const capacity = z
   .number({ message: "Enter the number of seats" })
   .int("Use a whole number")

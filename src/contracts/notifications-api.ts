@@ -36,7 +36,11 @@ export interface NotificationListDto {
 
 export const markNotificationsReadSchema = z
   .object({
-    ids: z.array(z.uuid({ message: "Invalid notification id" })).min(1).max(200).optional(),
+    ids: z
+      .array(z.uuid({ message: "Invalid notification id" }))
+      .min(1)
+      .max(200)
+      .optional(),
     all: z.boolean().optional(),
     /** With `all`: only mark this workspace's (and platform-wide) notifications. */
     workspaceId: z.uuid({ message: "Invalid workspace" }).optional(),

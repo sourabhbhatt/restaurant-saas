@@ -43,11 +43,7 @@ export function useBranchMenu(branchId: string, enabled = true) {
   return useQuery({
     queryKey: menuKeys.branch(branchId),
     queryFn: ({ signal }) =>
-      api.get<BranchMenu>(
-        `/branches/${branchId}/menu`,
-        { includeUnavailable: "true" },
-        signal,
-      ),
+      api.get<BranchMenu>(`/branches/${branchId}/menu`, { includeUnavailable: "true" }, signal),
     enabled,
     retry: noRetryOnAuth,
   });

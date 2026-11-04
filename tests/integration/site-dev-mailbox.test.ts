@@ -14,7 +14,10 @@ afterAll(async () => {
   await c.close();
 });
 
-function setEnv(patch: { ENABLE_TEST_HOOKS?: boolean; NODE_ENV?: "development" | "test" | "production" }) {
+function setEnv(patch: {
+  ENABLE_TEST_HOOKS?: boolean;
+  NODE_ENV?: "development" | "test" | "production";
+}) {
   Object.assign(c.env as Record<string, unknown>, patch);
 }
 

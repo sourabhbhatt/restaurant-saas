@@ -80,7 +80,8 @@ async function safe<T>(work: (d: CustomerDb) => Promise<T>, fallback: T): Promis
 
 export const customerDb = {
   loadCart: (token: string) => safe((d) => d.carts.get(token).then((r) => r ?? null), null),
-  saveCart: (record: CartRecord) => safe((d) => d.carts.put(record).then(() => undefined), undefined),
+  saveCart: (record: CartRecord) =>
+    safe((d) => d.carts.put(record).then(() => undefined), undefined),
   loadMenu: (token: string) => safe((d) => d.menus.get(token).then((r) => r ?? null), null),
   saveMenu: (token: string, data: PublicQrDto) =>
     safe((d) => d.menus.put({ token, data, savedAt: Date.now() }).then(() => undefined), undefined),

@@ -64,7 +64,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         id: "hardware",
-        question: "Does it connect to POS hardware like receipt printers, cash drawers or card terminals?",
+        question:
+          "Does it connect to POS hardware like receipt printers, cash drawers or card terminals?",
         answer: [
           "Not yet. There are no POS hardware integrations today. Cashiers record card and UPI payments taken on your existing terminal or QR, and table QR codes can be printed from the browser.",
         ],

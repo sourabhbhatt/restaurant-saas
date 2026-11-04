@@ -19,13 +19,19 @@ export function PricingPage() {
       <Section className="py-14 md:py-20">
         <PricingPlans variant="full" />
         <p className="mt-10 text-center text-sm text-muted-foreground">
-          Subscriptions are activated by our team — we&apos;ll confirm the plan and payment details with
-          you directly. Read our{" "}
-          <Link href="/legal/refunds" className="font-medium text-foreground underline underline-offset-4">
+          Subscriptions are activated by our team — we&apos;ll confirm the plan and payment details
+          with you directly. Read our{" "}
+          <Link
+            href="/legal/refunds"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
             cancellation &amp; refund policy
           </Link>
           . Need something bigger?{" "}
-          <Link href="/contact" className="font-medium text-foreground underline underline-offset-4">
+          <Link
+            href="/contact"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
             Contact {BRAND.name}
           </Link>
           .

@@ -21,7 +21,10 @@ export function formatMoneyCompact(minor: number, currency: string): string {
 }
 
 const intFmt = new Intl.NumberFormat("en-IN");
-const compactFmt = new Intl.NumberFormat("en-IN", { notation: "compact", maximumFractionDigits: 1 });
+const compactFmt = new Intl.NumberFormat("en-IN", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 
 export function formatCount(n: number): string {
   return intFmt.format(n);
@@ -43,7 +46,11 @@ export function formatPercent(p: number | null | undefined): string {
   return p === null || p === undefined ? "—" : `${p % 1 === 0 ? p : p.toFixed(1)}%`;
 }
 
-const dayFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
+const dayFmt = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
 const longDayFmt = new Intl.DateTimeFormat("en-IN", {
   weekday: "short",
   day: "numeric",

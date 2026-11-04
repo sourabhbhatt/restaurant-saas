@@ -253,7 +253,8 @@ export type BranchSettingsInput = z.input<typeof branchSettingsSchema>;
 /** Which permissions a role of each scope may contain. */
 export function allowedPermissionsForScope(scope: RoleScope): Permission[] {
   if (scope === "WORKSPACE") return ALL_PERMISSIONS;
-  if (scope === "RESTAURANT") return ALL_PERMISSIONS.filter((p) => PERMISSIONS[p].scope !== "WORKSPACE");
+  if (scope === "RESTAURANT")
+    return ALL_PERMISSIONS.filter((p) => PERMISSIONS[p].scope !== "WORKSPACE");
   return ALL_PERMISSIONS.filter((p) => PERMISSIONS[p].scope === "BRANCH");
 }
 
@@ -413,6 +414,8 @@ export interface BranchDto {
 export interface RestaurantDetailDto extends RestaurantDto {
   settings: RestaurantSettingsDto;
   branches: BranchDto[];
+  /** Caller's effective permissions at this restaurant (display only). */
+  permissions: Permission[];
 }
 
 export interface BranchSettingsDto {
@@ -531,7 +534,10 @@ export interface AcceptInvitationResultDto {
 }
 
 /** Permission catalog grouped by scope, for the role editor. */
-export function permissionGroups(): { scope: RoleScope; permissions: { key: Permission; description: string }[] }[] {
+export function permissionGroups(): {
+  scope: RoleScope;
+  permissions: { key: Permission; description: string }[];
+}[] {
   return (["WORKSPACE", "RESTAURANT", "BRANCH"] as const).map((scope) => ({
     scope,
     permissions: ALL_PERMISSIONS.filter((p) => PERMISSIONS[p].scope === scope).map((key) => ({

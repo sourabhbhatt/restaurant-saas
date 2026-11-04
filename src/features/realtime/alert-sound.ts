@@ -10,16 +10,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
  */
 export function useAlertSound(storageKey: string, branchEnabled: boolean) {
   const ctxRef = useRef<AudioContext | null>(null);
-  const [muted, setMutedState] = useState(false);
-  const [unlocked, setUnlocked] = useState(false);
-
-  useEffect(() => {
+  // Consoles render only on the client (behind AuthGate), so storage can be read here.
+  const [muted, setMutedState] = useState(() => {
     try {
-      setMutedState(window.localStorage.getItem(storageKey) === "muted");
+      return window.localStorage.getItem(storageKey) === "muted";
     } catch {
-      // storage unavailable (private mode): default unmuted
+      return false; // storage unavailable (private mode): default unmuted
     }
-  }, [storageKey]);
+  });
+  const [unlocked, setUnlocked] = useState(false);
 
   const setMuted = useCallback(
     (value: boolean) => {

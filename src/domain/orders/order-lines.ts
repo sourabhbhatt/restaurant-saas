@@ -1,5 +1,10 @@
 import { DomainError, type FieldErrors } from "../shared/errors";
-import { priceSelection, type DietaryType, type PricedItem, type PricedLine } from "../menu/pricing";
+import {
+  priceSelection,
+  type DietaryType,
+  type PricedItem,
+  type PricedLine,
+} from "../menu/pricing";
 
 /**
  * Order repricing. Every line a client submits is priced again from the

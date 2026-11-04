@@ -3,7 +3,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { POST as bulkCreate } from "@/app/api/v1/branches/[branchId]/tables/bulk/route";
 import { GET as qrSheet } from "@/app/api/v1/branches/[branchId]/tables/qr-sheet/route";
-import { GET as listTables, POST as createTable } from "@/app/api/v1/branches/[branchId]/tables/route";
+import {
+  GET as listTables,
+  POST as createTable,
+} from "@/app/api/v1/branches/[branchId]/tables/route";
 import {
   DELETE as revokeQr,
   GET as getQr,
@@ -153,7 +156,9 @@ describe("tables CRUD", () => {
   it("enforces maxTables", async () => {
     const w = await createWorkspaceAs(owner, "Small WS");
     const r = await insertRestaurantWithBranch(c, w.id, { name: "Small" });
-    await c.db.insert(workspaceEntitlements).values({ workspaceId: w.id, key: "maxTables", value: 3 });
+    await c.db
+      .insert(workspaceEntitlements)
+      .values({ workspaceId: w.id, key: "maxTables", value: 3 });
     const bulk = await call(bulkCreate, {
       params: { branchId: r.branchId },
       body: { prefix: "X", from: 1, to: 4, capacity: 2 },
@@ -194,7 +199,10 @@ describe("table QR codes", () => {
     expect(row).toMatchObject({ tableId: t.id, status: "ACTIVE", branchId: rest.branchId });
 
     // GET returns the same URL (decrypted), and the token never appears in the audit log.
-    const current = await call<TableQrDto>(getQr, { params: { tableId: t.id }, cookie: owner.cookie });
+    const current = await call<TableQrDto>(getQr, {
+      params: { tableId: t.id },
+      cookie: owner.cookie,
+    });
     expect(current.body.data!.url).toBe(url);
     const audits = await c.db
       .select()
@@ -264,7 +272,11 @@ describe("tables authorization", () => {
         body: { name: "Mine" },
         cookie: stranger.cookie,
       }),
-      await call(generateQr, { method: "POST", params: { tableId: t.id }, cookie: stranger.cookie }),
+      await call(generateQr, {
+        method: "POST",
+        params: { tableId: t.id },
+        cookie: stranger.cookie,
+      }),
       await call(getQr, { params: { tableId: t.id }, cookie: stranger.cookie }),
     ]) {
       expect(res.status).toBe(404);
@@ -305,8 +317,13 @@ describe("tables authorization", () => {
       ).status,
     ).toBe(403);
     expect(
-      (await call(generateQr, { method: "POST", params: { tableId: t.id }, cookie: kitchen.cookie }))
-        .status,
+      (
+        await call(generateQr, {
+          method: "POST",
+          params: { tableId: t.id },
+          cookie: kitchen.cookie,
+        })
+      ).status,
     ).toBe(403);
     expect(
       (await call(listTables, { params: { branchId: rest.branchId }, cookie: kitchen.cookie }))

@@ -31,7 +31,8 @@ export function SiteFooter() {
       <div className="border-t">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>
-            {BRAND.name} — restaurant operations software. Made for restaurants in {BRAND.jurisdiction}.
+            {BRAND.name} — restaurant operations software. Made for restaurants in{" "}
+            {BRAND.jurisdiction}.
           </p>
           <p>
             <Link href="/sign-in" className="hover:text-foreground">

@@ -72,7 +72,7 @@ export function NotificationItem({
         </span>
         {n.body && (
           <span
-            className={cn("text-sm text-muted-foreground break-words", dense && "line-clamp-2")}
+            className={cn("text-sm break-words text-muted-foreground", dense && "line-clamp-2")}
           >
             {n.body}
           </span>

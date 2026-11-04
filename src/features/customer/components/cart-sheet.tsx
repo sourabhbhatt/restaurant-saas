@@ -119,7 +119,10 @@ export function CartSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="mx-auto max-h-[92dvh] w-full max-w-2xl gap-0 sm:rounded-t-2xl">
+      <SheetContent
+        side="bottom"
+        className="mx-auto max-h-[92dvh] w-full max-w-2xl gap-0 sm:rounded-t-2xl"
+      >
         <SheetHeader className="border-b">
           <SheetTitle className="text-lg">Your order</SheetTitle>
           <SheetDescription>
@@ -146,7 +149,7 @@ export function CartSheet({
                   <div className="flex items-start gap-3">
                     <DietaryMark dietary={line.dietary} className="mt-1" />
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium leading-snug">{line.name}</p>
+                      <p className="leading-snug font-medium">{line.name}</p>
                       {(line.variantName || line.addonNames.length > 0) && (
                         <p className="text-sm text-muted-foreground">
                           {[line.variantName, ...line.addonNames].filter(Boolean).join(" · ")}

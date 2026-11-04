@@ -64,7 +64,8 @@ export function SignUpForm() {
   if (me.isSuccess && !redirecting) return <SignedInNotice me={me.data} continueTo={target} />;
 
   const pending = mutation.isPending || redirecting;
-  const signInHref = target === "/app/onboarding" ? "/sign-in" : `/sign-in?next=${encodeURIComponent(target)}`;
+  const signInHref =
+    target === "/app/onboarding" ? "/sign-in" : `/sign-in?next=${encodeURIComponent(target)}`;
 
   const onSubmit = handleSubmit(async (values) => {
     setBlocked(null);
@@ -98,7 +99,10 @@ export function SignUpForm() {
       footer={
         <>
           Already have an account?{" "}
-          <Link href={signInHref} className="font-medium text-foreground underline-offset-4 hover:underline">
+          <Link
+            href={signInHref}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
             Sign in
           </Link>
         </>
@@ -130,14 +134,12 @@ export function SignUpForm() {
             {...register("email")}
           />
         </FormField>
-        <FormField
-          label="Password"
-          error={errors.password?.message}
-          required
-          description={<PasswordStrength value={password} />}
-        >
-          <PasswordInput autoComplete="new-password" {...register("password")} />
-        </FormField>
+        <div className="flex flex-col gap-2.5">
+          <FormField label="Password" error={errors.password?.message} required>
+            <PasswordInput autoComplete="new-password" {...register("password")} />
+          </FormField>
+          <PasswordStrength value={password} />
+        </div>
         <Controller
           control={control}
           name="acceptTerms"
@@ -154,20 +156,35 @@ export function SignUpForm() {
                   aria-describedby={fieldState.error ? "accept-terms-error" : undefined}
                   className="mt-0.5"
                 />
-                <label htmlFor="accept-terms" className="text-sm leading-snug text-muted-foreground">
+                <label
+                  htmlFor="accept-terms"
+                  className="text-sm leading-snug text-muted-foreground"
+                >
                   I agree to the{" "}
-                  <Link href="/legal/terms" target="_blank" className="font-medium text-foreground underline underline-offset-4">
+                  <Link
+                    href="/legal/terms"
+                    target="_blank"
+                    className="font-medium text-foreground underline underline-offset-4"
+                  >
                     terms of service
                   </Link>{" "}
                   and{" "}
-                  <Link href="/legal/privacy" target="_blank" className="font-medium text-foreground underline underline-offset-4">
+                  <Link
+                    href="/legal/privacy"
+                    target="_blank"
+                    className="font-medium text-foreground underline underline-offset-4"
+                  >
                     privacy policy
                   </Link>
                   .
                 </label>
               </div>
               {fieldState.error && (
-                <p id="accept-terms-error" role="alert" className="text-sm font-medium text-destructive">
+                <p
+                  id="accept-terms-error"
+                  role="alert"
+                  className="text-sm font-medium text-destructive"
+                >
                   {fieldState.error.message}
                 </p>
               )}
@@ -176,7 +193,11 @@ export function SignUpForm() {
         />
         <Button type="submit" size="lg" disabled={pending} className="mt-1">
           {pending && <Spinner decorative />}
-          {redirecting ? "Setting things up…" : mutation.isPending ? "Creating account…" : "Create account"}
+          {redirecting
+            ? "Setting things up…"
+            : mutation.isPending
+              ? "Creating account…"
+              : "Create account"}
         </Button>
       </form>
     </AuthCard>

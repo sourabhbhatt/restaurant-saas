@@ -1,8 +1,4 @@
-import type {
-  BillDto,
-  BillTotalsDto,
-  PaymentSummaryDto,
-} from "@/contracts/billing";
+import type { BillDto, BillTotalsDto, PaymentSummaryDto } from "@/contracts/billing";
 import type {
   BillListQuery,
   BillListResponse,
@@ -357,8 +353,7 @@ export function createBillingService({ tx, clock, realtime, logger }: BillingSer
       ) {
         const replay = await tx.read((r) => replayOf(r.billing));
         if (!replay) throw error;
-        const change =
-          replay.tendered !== null ? cashChange(replay.tendered, replay.amount) : null;
+        const change = replay.tendered !== null ? cashChange(replay.tendered, replay.amount) : null;
         return paymentResult(key, billId, replay.id, change, true);
       }
       throw error;
@@ -501,7 +496,12 @@ export function createBillingService({ tx, clock, realtime, logger }: BillingSer
           r.audit,
           auditActorFor(scope.actor, meta),
           "bill.generated",
-          { workspaceId: key.workspaceId, branchId: key.branchId, targetType: "bill", targetId: billId },
+          {
+            workspaceId: key.workspaceId,
+            branchId: key.branchId,
+            targetType: "bill",
+            targetId: billId,
+          },
           {
             billNumber,
             sessionId: session.id,
@@ -635,7 +635,9 @@ export function createBillingService({ tx, clock, realtime, logger }: BillingSer
         const before = computeBalance(bill.grandTotal, ledgerOf(ledger));
         const after = computeBalance(
           bill.grandTotal,
-          ledgerOf(ledger.map((p) => (p.id === paymentId ? { ...p, status: "VOIDED" as const } : p))),
+          ledgerOf(
+            ledger.map((p) => (p.id === paymentId ? { ...p, status: "VOIDED" as const } : p)),
+          ),
         );
         if (after.netPaid > bill.grandTotal) {
           throw new DomainError(
@@ -671,7 +673,12 @@ export function createBillingService({ tx, clock, realtime, logger }: BillingSer
           r.audit,
           auditActorFor(scope.actor, meta),
           "payment.voided",
-          { workspaceId: key.workspaceId, branchId: key.branchId, targetType: "payment", targetId: paymentId },
+          {
+            workspaceId: key.workspaceId,
+            branchId: key.branchId,
+            targetType: "payment",
+            targetId: paymentId,
+          },
           {
             billId: bill.id,
             billNumber: bill.billNumber,
@@ -739,7 +746,12 @@ export function createBillingService({ tx, clock, realtime, logger }: BillingSer
           r.audit,
           auditActorFor(scope.actor, meta),
           "bill.voided",
-          { workspaceId: key.workspaceId, branchId: key.branchId, targetType: "bill", targetId: bill.id },
+          {
+            workspaceId: key.workspaceId,
+            branchId: key.branchId,
+            targetType: "bill",
+            targetId: bill.id,
+          },
           { billNumber: bill.billNumber, grandTotal: bill.grandTotal, reason },
         );
         return { billId: bill.id, sessionId: session.id, tableId: session.tableId };

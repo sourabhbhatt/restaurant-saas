@@ -30,7 +30,7 @@ export function ProductMockup() {
 
         <DashboardWindow />
 
-        <div className="absolute -bottom-10 left-2 w-[42%] max-w-[15rem] sm:-bottom-12 sm:-left-4 md:-left-10 md:w-[30%] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-6 motion-safe:duration-700 motion-safe:delay-300 motion-safe:fill-mode-both">
+        <div className="absolute -bottom-10 left-2 w-[42%] max-w-[15rem] motion-safe:animate-in motion-safe:delay-300 motion-safe:duration-700 motion-safe:fill-mode-both motion-safe:fade-in motion-safe:slide-in-from-bottom-6 sm:-bottom-12 sm:-left-4 md:-left-10 md:w-[30%]">
           <PhoneMockup />
         </div>
       </div>
@@ -40,7 +40,7 @@ export function ProductMockup() {
 
 function DashboardWindow() {
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card shadow-2xl shadow-foreground/10 ring-1 ring-foreground/5 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-700 motion-safe:fill-mode-both">
+    <div className="overflow-hidden rounded-2xl border bg-card shadow-2xl ring-1 shadow-foreground/10 ring-foreground/5 motion-safe:animate-in motion-safe:duration-700 motion-safe:fill-mode-both motion-safe:zoom-in-95 motion-safe:fade-in">
       {/* Window chrome */}
       <div className="flex items-center gap-2 border-b bg-muted/50 px-4 py-2.5">
         <span className="size-2.5 rounded-full bg-destructive/60" />
@@ -58,7 +58,12 @@ function DashboardWindow() {
               <BellRingIcon className="size-3" /> 2 new
             </span>
           </div>
-          <ApprovalCard table="T4" guests="2 guests" items={["Paneer tikka", "Butter naan ×2"]} highlight />
+          <ApprovalCard
+            table="T4"
+            guests="2 guests"
+            items={["Paneer tikka", "Butter naan ×2"]}
+            highlight
+          />
           <ApprovalCard table="T9" guests="1 guest" items={["Masala dosa", "Filter coffee"]} />
         </div>
 
@@ -228,7 +233,9 @@ function PhoneMockup() {
               key={c}
               className={cn(
                 "rounded-full border px-1.5 py-0.5 text-[8px]",
-                i === 0 ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground",
+                i === 0
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "text-muted-foreground",
               )}
             >
               {c}

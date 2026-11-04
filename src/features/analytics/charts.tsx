@@ -34,6 +34,12 @@ export function chartColor(index: number): string {
   return `var(--chart-${SLOT_ORDER[index % SLOT_ORDER.length]})`;
 }
 
+/** Payment methods keep their color whatever their rank. */
+const METHOD_SLOT: Record<string, number> = { CASH: 0, UPI: 1, CARD: 2, OTHER: 3 };
+export function methodColor(method: string): string {
+  return chartColor(METHOD_SLOT[method] ?? 4);
+}
+
 const AXIS = { fontSize: 12, fill: "var(--muted-foreground)" } as const;
 const GRID = "var(--border)";
 
@@ -134,7 +140,7 @@ export interface SeriesDef {
   color: string;
 }
 
-export function TrendChart<T extends Record<string, unknown>>({
+export function TrendChart<T extends object>({
   data,
   xKey,
   series,
@@ -151,7 +157,7 @@ export function TrendChart<T extends Record<string, unknown>>({
   formatX?: (v: string) => string;
   height?: number;
 }) {
-  const content = (p: TooltipContentProps<number, string>) => {
+  const content = (p: TooltipContentProps) => {
     if (!p.active || !p.payload?.length) return null;
     const label = String(p.label ?? "");
     return (
@@ -169,10 +175,13 @@ export function TrendChart<T extends Record<string, unknown>>({
       {series.length > 1 && <Legend items={series} shape="line" />}
       <div style={{ height }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <AreaChart
+            data={data as unknown as Record<string, unknown>[]}
+            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+          >
             <CartesianGrid vertical={false} stroke={GRID} />
             <XAxis
-              dataKey={xKey}
+              dataKey={xKey as string}
               tick={AXIS}
               tickLine={false}
               axisLine={{ stroke: GRID }}
@@ -187,7 +196,10 @@ export function TrendChart<T extends Record<string, unknown>>({
               tickFormatter={formatAxis ?? formatValue}
               allowDecimals={false}
             />
-            <Tooltip content={content} cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1 }} />
+            <Tooltip
+              content={content}
+              cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1 }}
+            />
             {series.map((s) => (
               <Area
                 key={s.key}
@@ -212,7 +224,7 @@ export function TrendChart<T extends Record<string, unknown>>({
 
 // ---------------------------------------------------------------- columns
 
-export function ColumnChart<T extends Record<string, unknown>>({
+export function ColumnChart<T extends object>({
   data,
   xKey,
   yKey,
@@ -233,7 +245,7 @@ export function ColumnChart<T extends Record<string, unknown>>({
   formatX?: (v: string) => string;
   height?: number;
 }) {
-  const content = (p: TooltipContentProps<number, string>) => {
+  const content = (p: TooltipContentProps) => {
     if (!p.active || !p.payload?.length) return null;
     const label2 = String(p.label ?? "");
     return (
@@ -246,10 +258,14 @@ export function ColumnChart<T extends Record<string, unknown>>({
   return (
     <div style={{ height }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap={2}>
+        <BarChart
+          data={data as unknown as Record<string, unknown>[]}
+          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+          barCategoryGap={2}
+        >
           <CartesianGrid vertical={false} stroke={GRID} />
           <XAxis
-            dataKey={xKey}
+            dataKey={xKey as string}
             tick={AXIS}
             tickLine={false}
             axisLine={{ stroke: GRID }}
@@ -266,7 +282,7 @@ export function ColumnChart<T extends Record<string, unknown>>({
           />
           <Tooltip content={content} cursor={{ fill: "var(--muted)", opacity: 0.5 }} />
           <Bar
-            dataKey={yKey}
+            dataKey={yKey as string}
             name={label}
             fill={color}
             maxBarSize={24}
@@ -281,7 +297,7 @@ export function ColumnChart<T extends Record<string, unknown>>({
 
 // ---------------------------------------------------------------- horizontal bars
 
-export function BarList<T extends Record<string, unknown>>({
+export function BarList<T extends object>({
   data,
   nameKey,
   valueKey,
@@ -299,7 +315,7 @@ export function BarList<T extends Record<string, unknown>>({
   formatAxis?: (v: number) => string;
 }) {
   const height = Math.max(120, data.length * 36 + 24);
-  const content = (p: TooltipContentProps<number, string>) => {
+  const content = (p: TooltipContentProps) => {
     if (!p.active || !p.payload?.length) return null;
     const row = p.payload[0]?.payload as T | undefined;
     return (
@@ -313,7 +329,7 @@ export function BarList<T extends Record<string, unknown>>({
     <div style={{ height }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
-          data={data}
+          data={data as unknown as Record<string, unknown>[]}
           layout="vertical"
           margin={{ top: 0, right: 16, bottom: 0, left: 0 }}
           barCategoryGap={8}
@@ -329,7 +345,7 @@ export function BarList<T extends Record<string, unknown>>({
           />
           <YAxis
             type="category"
-            dataKey={nameKey}
+            dataKey={nameKey as string}
             tick={AXIS}
             tickLine={false}
             axisLine={{ stroke: GRID }}
@@ -338,7 +354,7 @@ export function BarList<T extends Record<string, unknown>>({
           />
           <Tooltip content={content} cursor={{ fill: "var(--muted)", opacity: 0.5 }} />
           <Bar
-            dataKey={valueKey}
+            dataKey={valueKey as string}
             name={label}
             fill={color}
             maxBarSize={20}
@@ -359,14 +375,15 @@ export function DonutChart({
   centerLabel,
   centerValue,
 }: {
-  data: { name: string; value: number }[];
+  /** `color` pins a slot to the entity; otherwise slots follow list order. */
+  data: { name: string; value: number; color?: string }[];
   formatValue: (v: number) => string;
   centerLabel?: string;
   centerValue?: string;
 }) {
   const positive = data.filter((d) => d.value > 0);
   const total = positive.reduce((s, d) => s + d.value, 0);
-  const content = (p: TooltipContentProps<number, string>) => {
+  const content = (p: TooltipContentProps) => {
     if (!p.active || !p.payload?.length) return null;
     const e = p.payload[0]!;
     const share = total ? Math.round((Number(e.value) / total) * 1000) / 10 : 0;
@@ -393,7 +410,7 @@ export function DonutChart({
               isAnimationActive={false}
             >
               {positive.map((d) => (
-                <Cell key={d.name} fill={chartColor(data.indexOf(d))} />
+                <Cell key={d.name} fill={d.color ?? chartColor(data.indexOf(d))} />
               ))}
             </Pie>
             <Tooltip content={content} />
@@ -412,7 +429,7 @@ export function DonutChart({
             <span
               aria-hidden
               className="size-2.5 shrink-0 rounded-sm"
-              style={{ background: chartColor(i) }}
+              style={{ background: d.color ?? chartColor(i) }}
             />
             <span className="flex-1 truncate">{d.name}</span>
             <span className="font-medium tabular-nums">{formatValue(d.value)}</span>

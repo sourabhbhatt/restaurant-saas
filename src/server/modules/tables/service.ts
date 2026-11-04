@@ -161,7 +161,12 @@ export function createTableService(deps: TableServiceDeps) {
               r.audit,
               auditActorFor(scope.actor, meta),
               "table.created",
-              { workspaceId: t.workspaceId, branchId: t.branchId, targetType: "table", targetId: id },
+              {
+                workspaceId: t.workspaceId,
+                branchId: t.branchId,
+                targetType: "table",
+                targetId: id,
+              },
               { name: input.name, capacity: input.capacity },
             );
             return toTableDto(await requireTable(r, t, id!));
@@ -172,7 +177,13 @@ export function createTableService(deps: TableServiceDeps) {
 
     async bulkCreate(
       scope: BranchScope,
-      input: { prefix: string; from: number; to: number; capacity: number; section?: string | null },
+      input: {
+        prefix: string;
+        from: number;
+        to: number;
+        capacity: number;
+        section?: string | null;
+      },
       meta: RequestMeta,
     ): Promise<TableDto[]> {
       scope.require("tables.manage");
@@ -209,7 +220,12 @@ export function createTableService(deps: TableServiceDeps) {
               r.audit,
               auditActorFor(scope.actor, meta),
               "table.bulk_created",
-              { workspaceId: t.workspaceId, branchId: t.branchId, targetType: "branch", targetId: t.branchId },
+              {
+                workspaceId: t.workspaceId,
+                branchId: t.branchId,
+                targetType: "branch",
+                targetId: t.branchId,
+              },
               { count: ids.length, first: names[0], last: names[names.length - 1] },
             );
             return (await r.tables.list(t, ids)).map(toTableDto);
@@ -246,7 +262,9 @@ export function createTableService(deps: TableServiceDeps) {
               throw duplicateName(input.name);
             }
             if (input.isActive === false && current.session) {
-              throw conflict("Close the open session on this table before taking it out of service");
+              throw conflict(
+                "Close the open session on this table before taking it out of service",
+              );
             }
             if (input.sortOrder !== undefined) {
               const ids = (await r.tables.list(t)).map((x) => x.id);
@@ -268,7 +286,12 @@ export function createTableService(deps: TableServiceDeps) {
               r.audit,
               auditActorFor(scope.actor, meta),
               "table.updated",
-              { workspaceId: t.workspaceId, branchId: t.branchId, targetType: "table", targetId: tableId },
+              {
+                workspaceId: t.workspaceId,
+                branchId: t.branchId,
+                targetType: "table",
+                targetId: tableId,
+              },
               {
                 fields: Object.entries(input)
                   .filter(([k, v]) => k !== "version" && v !== undefined)
@@ -295,7 +318,12 @@ export function createTableService(deps: TableServiceDeps) {
           r.audit,
           auditActorFor(scope.actor, meta),
           "table.deleted",
-          { workspaceId: t.workspaceId, branchId: t.branchId, targetType: "table", targetId: tableId },
+          {
+            workspaceId: t.workspaceId,
+            branchId: t.branchId,
+            targetType: "table",
+            targetId: tableId,
+          },
           { name: current.name },
         );
       });
@@ -323,7 +351,12 @@ export function createTableService(deps: TableServiceDeps) {
           r.audit,
           auditActorFor(scope.actor, meta),
           "qr.generated",
-          { workspaceId: t.workspaceId, branchId: t.branchId, targetType: "table", targetId: tableId },
+          {
+            workspaceId: t.workspaceId,
+            branchId: t.branchId,
+            targetType: "table",
+            targetId: tableId,
+          },
           { regenerated: revoked > 0, qrId: inserted.id },
         );
         return { inserted, tableName: table.name };
@@ -364,7 +397,12 @@ export function createTableService(deps: TableServiceDeps) {
           r.audit,
           auditActorFor(scope.actor, meta),
           "qr.revoked",
-          { workspaceId: t.workspaceId, branchId: t.branchId, targetType: "table", targetId: tableId },
+          {
+            workspaceId: t.workspaceId,
+            branchId: t.branchId,
+            targetType: "table",
+            targetId: tableId,
+          },
           {},
         );
         return { revoked: true };
@@ -377,7 +415,13 @@ export function createTableService(deps: TableServiceDeps) {
       const t = tenantOf(scope);
       const { tables, qrs } = await tx.read(async (r) => {
         const tables = await r.tables.list(t, tableIds ?? undefined);
-        return { tables, qrs: await r.tables.listActiveQr(t, tables.map((x) => x.id)) };
+        return {
+          tables,
+          qrs: await r.tables.listActiveQr(
+            t,
+            tables.map((x) => x.id),
+          ),
+        };
       });
       const out: TableQrDto[] = [];
       const missing: QrSheetDto["missing"] = [];

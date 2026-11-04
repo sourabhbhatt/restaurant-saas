@@ -38,9 +38,9 @@ export function useBranchAnalytics(
   enabled = true,
 ) {
   return useQuery({
-    queryKey: analyticsKeys.branch(branchId ?? "", range.from, range.to),
+    queryKey: [...analyticsKeys.branch(branchId ?? "", range.from, range.to), range],
     queryFn: ({ signal }) =>
-      api.get<BranchAnalyticsDto>(`/branches/${branchId}/analytics`, range, signal),
+      api.get<BranchAnalyticsDto>(`/branches/${branchId}/analytics`, { ...range }, signal),
     enabled: Boolean(branchId) && enabled,
     placeholderData: keepPreviousData,
     retry,
@@ -72,11 +72,7 @@ export function useWorkspaceAnalytics(
   return useQuery({
     queryKey: analyticsKeys.workspace(workspaceId ?? "", params),
     queryFn: ({ signal }) =>
-      api.get<WorkspaceAnalyticsDto>(
-        `/workspaces/${workspaceId}/analytics`,
-        { ...params },
-        signal,
-      ),
+      api.get<WorkspaceAnalyticsDto>(`/workspaces/${workspaceId}/analytics`, { ...params }, signal),
     enabled: Boolean(workspaceId) && enabled,
     placeholderData: keepPreviousData,
     retry,

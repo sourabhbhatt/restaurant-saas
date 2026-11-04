@@ -289,7 +289,11 @@ function GroupRow({ label, span }: { label: string; span: number }) {
 
 function PlansSkeleton() {
   return (
-    <div role="status" aria-label="Loading plans" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div
+      role="status"
+      aria-label="Loading plans"
+      className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+    >
       {[0, 1, 2].map((i) => (
         <div key={i} className="flex flex-col gap-5 rounded-2xl border bg-card p-6">
           <Skeleton className="h-5 w-24" />

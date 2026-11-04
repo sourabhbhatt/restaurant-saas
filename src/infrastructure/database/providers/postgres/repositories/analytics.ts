@@ -99,13 +99,11 @@ export function analyticsRepository(db: Executor): AnalyticsRepository {
           ),
         )
         .orderBy(restaurants.name, branches.name);
-      return list.map(
-        (b): AnalyticsBranch => ({
-          ...b,
-          kitchenDelayMinutes: b.kitchenDelayMinutes ?? 20,
-          businessHours: Array.isArray(b.businessHours) ? b.businessHours : [],
-        }),
-      );
+      return list.map((b): AnalyticsBranch => ({
+        ...b,
+        kitchenDelayMinutes: b.kitchenDelayMinutes ?? 20,
+        businessHours: Array.isArray(b.businessHours) ? b.businessHours : [],
+      }));
     },
 
     async orderTotals(sel, w) {
@@ -612,15 +610,18 @@ export function analyticsRepository(db: Executor): AnalyticsRepository {
           slug: workspaces.slug,
           status: workspaces.status,
           createdAt: workspaces.createdAt,
-          restaurants: sql<number>`(select count(*) from restaurants r where r.workspace_id = ${workspaces.id} and r.deleted_at is null)`.mapWith(
-            Number,
-          ),
-          branches: sql<number>`(select count(*) from branches br where br.workspace_id = ${workspaces.id} and br.deleted_at is null)`.mapWith(
-            Number,
-          ),
-          members: sql<number>`(select count(*) from workspace_memberships m where m.workspace_id = ${workspaces.id} and m.status = 'ACTIVE')`.mapWith(
-            Number,
-          ),
+          restaurants:
+            sql<number>`(select count(*) from restaurants r where r.workspace_id = ${workspaces.id} and r.deleted_at is null)`.mapWith(
+              Number,
+            ),
+          branches:
+            sql<number>`(select count(*) from branches br where br.workspace_id = ${workspaces.id} and br.deleted_at is null)`.mapWith(
+              Number,
+            ),
+          members:
+            sql<number>`(select count(*) from workspace_memberships m where m.workspace_id = ${workspaces.id} and m.status = 'ACTIVE')`.mapWith(
+              Number,
+            ),
         })
         .from(workspaces)
         .where(isNull(workspaces.deletedAt))

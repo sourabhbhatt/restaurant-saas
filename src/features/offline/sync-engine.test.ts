@@ -87,7 +87,16 @@ afterEach(async () => {
 describe("backoff", () => {
   it("doubles from 1s and caps at 5 minutes", () => {
     const schedule = [1, 2, 3, 4, 5, 9, 10, 20].map((n) => backoffDelay(n, () => 0.5));
-    expect(schedule).toEqual([1000, 2000, 4000, 8000, 16000, 256000, BACKOFF_MAX_MS, BACKOFF_MAX_MS]);
+    expect(schedule).toEqual([
+      1000,
+      2000,
+      4000,
+      8000,
+      16000,
+      256000,
+      BACKOFF_MAX_MS,
+      BACKOFF_MAX_MS,
+    ]);
   });
 
   it("applies bounded jitter", () => {
@@ -227,7 +236,9 @@ describe("SyncEngine", () => {
   });
 
   it("retry-with-latest drops the version check and uses a new key", async () => {
-    const item = await engine.enqueue(input({ body: { name: "Dal", version: 3 }, expectedVersion: 3 }));
+    const item = await engine.enqueue(
+      input({ body: { name: "Dal", version: 3 }, expectedVersion: 3 }),
+    );
     responder = () => apiError(409, "STALE_VERSION");
     await engine.syncNow();
     responder = () => ok();
@@ -388,7 +399,13 @@ describe("SyncEngine", () => {
 describe("switchUser", () => {
   it("clears another user's cached data but keeps their unsynced changes", async () => {
     await switchUser(db, "user-1");
-    await db.queryCache.put({ key: "k", queryKey: ["me"], data: 1, updatedAt: 1, userId: "user-1" });
+    await db.queryCache.put({
+      key: "k",
+      queryKey: ["me"],
+      data: 1,
+      updatedAt: 1,
+      userId: "user-1",
+    });
     await db.drafts.put({ key: "user-1:d", userId: "user-1", value: "x", updatedAt: 1 });
     const pending = await engine.enqueue(input());
     const synced = await engine.enqueue(input({ scopeKey: "z" }));

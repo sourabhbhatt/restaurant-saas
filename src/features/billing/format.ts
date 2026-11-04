@@ -55,9 +55,11 @@ export function formatDateTime(iso: string, timeZone?: string): string {
 
 export function formatTime(iso: string, timeZone?: string): string {
   try {
-    return new Intl.DateTimeFormat("en-IN", { timeZone, hour: "numeric", minute: "2-digit" }).format(
-      new Date(iso),
-    );
+    return new Intl.DateTimeFormat("en-IN", {
+      timeZone,
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(iso));
   } catch {
     return new Date(iso).toLocaleTimeString();
   }

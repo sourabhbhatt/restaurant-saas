@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import type { z } from "zod";
 
@@ -11,11 +11,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  branchOverrideSchema,
-  type BranchOverrideDto,
-  type MenuItemDto,
-} from "@/contracts/menu";
+import { branchOverrideSchema, type BranchOverrideDto, type MenuItemDto } from "@/contracts/menu";
 import { effectiveItemPrice } from "@/domain/menu/pricing";
 import { formatMoney } from "@/domain/shared/money";
 import { applyFieldErrors, errorMessage } from "@/lib/api-client";
@@ -56,13 +52,12 @@ export function BranchPricingPanel({
     control,
     handleSubmit,
     setError,
-    watch,
     formState: { errors, isSubmitting, isDirty },
   } = form;
 
-  const price = watch("price");
-  const discounted = watch("discountedPrice");
-  const isAvailable = watch("isAvailable");
+  const price = useWatch({ control, name: "price" });
+  const discounted = useWatch({ control, name: "discountedPrice" });
+  const isAvailable = useWatch({ control, name: "isAvailable" });
   const effective = {
     price: typeof price === "number" ? price : item.price,
     discountedPrice: typeof discounted === "number" ? discounted : item.discountedPrice,
@@ -104,8 +99,8 @@ export function BranchPricingPanel({
       className="flex flex-col gap-4"
     >
       <p className="text-sm text-muted-foreground">
-        Changes here apply only to <span className="font-medium text-foreground">{branchName}</span>.
-        Leave a price empty to use the restaurant price.
+        Changes here apply only to <span className="font-medium text-foreground">{branchName}</span>
+        . Leave a price empty to use the restaurant price.
       </p>
       {item.variants.length > 0 && (
         <Alert>
@@ -164,20 +159,25 @@ export function BranchPricingPanel({
         name="isAvailable"
         render={({ field }) => {
           const value: AvailabilityChoice =
-            field.value === null || field.value === undefined ? "inherit" : field.value ? "on" : "off";
+            field.value === null || field.value === undefined
+              ? "inherit"
+              : field.value
+                ? "on"
+                : "off";
           return (
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-1 text-sm font-medium">Availability at {branchName}</legend>
               <RadioGroup
                 value={value}
-                onValueChange={(v) =>
-                  field.onChange(v === "inherit" ? null : v === "on")
-                }
+                onValueChange={(v) => field.onChange(v === "inherit" ? null : v === "on")}
                 className="gap-2"
               >
                 {(
                   [
-                    ["inherit", `Same as restaurant (${item.isAvailable ? "available" : "unavailable"})`],
+                    [
+                      "inherit",
+                      `Same as restaurant (${item.isAvailable ? "available" : "unavailable"})`,
+                    ],
                     ["on", "Available here"],
                     ["off", "Unavailable here"],
                   ] as const
@@ -211,7 +211,12 @@ export function BranchPricingPanel({
           type="button"
           variant="outline"
           disabled={isSubmitting}
-          onClick={() => form.reset({ price: null, discountedPrice: null, isAvailable: null }, { keepDefaultValues: true })}
+          onClick={() =>
+            form.reset(
+              { price: null, discountedPrice: null, isAvailable: null },
+              { keepDefaultValues: true },
+            )
+          }
         >
           Reset to restaurant values
         </Button>

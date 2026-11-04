@@ -119,7 +119,10 @@ useCartStore.subscribe((s, prev) => {
 
 export function cartTotals(lines: readonly CartLine[]): { count: number; subtotal: number } {
   return lines.reduce(
-    (acc, l) => ({ count: acc.count + l.quantity, subtotal: acc.subtotal + l.unitPrice * l.quantity }),
+    (acc, l) => ({
+      count: acc.count + l.quantity,
+      subtotal: acc.subtotal + l.unitPrice * l.quantity,
+    }),
     { count: 0, subtotal: 0 },
   );
 }

@@ -32,9 +32,14 @@ export function WaiterOrderCard({
   highlight?: boolean;
 }) {
   const since =
-    order.status === "READY" ? order.readyAt : order.status === "PENDING" ? order.createdAt : order.acceptedAt;
+    order.status === "READY"
+      ? order.readyAt
+      : order.status === "PENDING"
+        ? order.createdAt
+        : order.acceptedAt;
   const ageMinutes = since ? (now - new Date(since).getTime()) / 60_000 : 0;
-  const waitingLong = order.status === "PENDING" ? ageMinutes >= 3 : order.status === "READY" && ageMinutes >= 5;
+  const waitingLong =
+    order.status === "PENDING" ? ageMinutes >= 3 : order.status === "READY" && ageMinutes >= 5;
 
   return (
     <Card

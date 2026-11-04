@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Receipt, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -50,7 +50,11 @@ const discountFormSchema = z
     if (!v.enabled) return;
     const n = Number(v.amount);
     if (v.amount === "" || !Number.isFinite(n) || n <= 0) {
-      ctx.addIssue({ code: "custom", path: ["amount"], message: "Enter a discount greater than zero" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["amount"],
+        message: "Enter a discount greater than zero",
+      });
     } else if (v.type === "PERCENT" && n > 100) {
       ctx.addIssue({ code: "custom", path: ["amount"], message: "Discount cannot exceed 100%" });
     }
@@ -103,7 +107,8 @@ export function GenerateBillDialog({
     resolver: zodResolver(discountFormSchema),
     defaultValues: { enabled: false, type: "PERCENT", amount: "", reason: "" },
   });
-  const enabled = form.watch("enabled");
+  const enabled = useWatch({ control: form.control, name: "enabled" });
+  const discountType = useWatch({ control: form.control, name: "type" });
   const p = preview.data;
 
   const close = (o: boolean) => {
@@ -167,19 +172,38 @@ export function GenerateBillDialog({
               </Alert>
             )}
             <dl className="flex flex-col gap-1.5 text-sm">
-              <Row label={`Subtotal (${p.items?.length ?? 0} lines)`} value={p.subtotal} currency={currency} />
-              {p.discountAmount > 0 && <Row label="Discount" value={-p.discountAmount} currency={currency} />}
+              <Row
+                label={`Subtotal (${p.items?.length ?? 0} lines)`}
+                value={p.subtotal}
+                currency={currency}
+              />
+              {p.discountAmount > 0 && (
+                <Row label="Discount" value={-p.discountAmount} currency={currency} />
+              )}
               {p.serviceChargeAmount > 0 && (
-                <Row label={`Service charge (${p.serviceChargeBps / 100}%)`} value={p.serviceChargeAmount} currency={currency} />
+                <Row
+                  label={`Service charge (${p.serviceChargeBps / 100}%)`}
+                  value={p.serviceChargeAmount}
+                  currency={currency}
+                />
               )}
               {p.taxes.map((t) => (
-                <Row key={t.name} label={`${t.name} (${t.rateBps / 100}%)`} value={t.amount} currency={currency} />
+                <Row
+                  key={t.name}
+                  label={`${t.name} (${t.rateBps / 100}%)`}
+                  value={t.amount}
+                  currency={currency}
+                />
               ))}
               <Separator className="my-1" />
               <Row label="Grand total" value={p.grandTotal} currency={currency} strong />
             </dl>
             {canDiscount && (
-              <form onSubmit={applyDiscount} noValidate className="flex flex-col gap-3 rounded-xl border p-3">
+              <form
+                onSubmit={applyDiscount}
+                noValidate
+                className="flex flex-col gap-3 rounded-xl border p-3"
+              >
                 <Controller
                   control={form.control}
                   name="enabled"
@@ -219,7 +243,11 @@ export function GenerateBillDialog({
                         )}
                       />
                       <FormField label="Value" error={form.formState.errors.amount?.message}>
-                        <Input inputMode="decimal" placeholder={form.watch("type") === "PERCENT" ? "10" : "50"} {...form.register("amount")} />
+                        <Input
+                          inputMode="decimal"
+                          placeholder={discountType === "PERCENT" ? "10" : "50"}
+                          {...form.register("amount")}
+                        />
                       </FormField>
                     </div>
                     <FormField label="Reason" error={form.formState.errors.reason?.message}>

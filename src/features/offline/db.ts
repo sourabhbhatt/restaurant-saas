@@ -120,9 +120,7 @@ export async function switchUser(db: OfflineDatabase, userId: string): Promise<b
     if (previous === userId) return false;
     await db.queryCache.where("userId").notEqual(userId).delete();
     await db.drafts.where("userId").notEqual(userId).delete();
-    await db.outbox
-      .filter((item) => item.userId !== userId && item.status === "synced")
-      .delete();
+    await db.outbox.filter((item) => item.userId !== userId && item.status === "synced").delete();
     await db.meta.put({ key: CURRENT_USER_KEY, value: userId });
     return previous !== null;
   });

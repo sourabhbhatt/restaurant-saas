@@ -75,7 +75,10 @@ function tableContextQuery(db: Executor) {
     .from(diningTables)
     .innerJoin(
       branches,
-      and(eq(branches.id, diningTables.branchId), eq(branches.workspaceId, diningTables.workspaceId)),
+      and(
+        eq(branches.id, diningTables.branchId),
+        eq(branches.workspaceId, diningTables.workspaceId),
+      ),
     )
     .innerJoin(
       restaurants,

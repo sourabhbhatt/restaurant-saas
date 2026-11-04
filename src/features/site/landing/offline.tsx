@@ -45,7 +45,10 @@ export function OfflineSection() {
           </div>
           <ul className="flex flex-col gap-2 text-sm font-medium">
             {NEEDS_CONNECTION.map((p) => (
-              <li key={p} className="rounded-lg border border-warning/40 bg-background/70 px-3 py-2">
+              <li
+                key={p}
+                className="rounded-lg border border-warning/40 bg-background/70 px-3 py-2"
+              >
                 {p}
               </li>
             ))}

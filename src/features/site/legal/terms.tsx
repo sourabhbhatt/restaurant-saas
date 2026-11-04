@@ -12,9 +12,9 @@ const SECTIONS: LegalSection[] = [
     body: (
       <p>
         These terms form an agreement between {BRAND.legalEntity} (&quot;we&quot;) and the business
-        or person that creates a {n} workspace (&quot;you&quot;). By creating an account or using the
-        service you accept these terms and our <Link href="/legal/privacy">privacy policy</Link>. If
-        you accept on behalf of a business, you confirm you are authorised to do so.
+        or person that creates a {n} workspace (&quot;you&quot;). By creating an account or using
+        the service you accept these terms and our <Link href="/legal/privacy">privacy policy</Link>
+        . If you accept on behalf of a business, you confirm you are authorised to do so.
       </p>
     ),
   },
@@ -47,7 +47,9 @@ const SECTIONS: LegalSection[] = [
     title: "Accounts and staff",
     body: (
       <ul>
-        <li>Keep your login details confidential and tell us promptly about any unauthorised use.</li>
+        <li>
+          Keep your login details confidential and tell us promptly about any unauthorised use.
+        </li>
         <li>
           The workspace owner is responsible for the staff they invite, the roles they assign and
           everything done in the workspace.
@@ -144,8 +146,9 @@ const SECTIONS: LegalSection[] = [
     body: (
       <p>
         We work to keep {n} available and secure but do not guarantee uninterrupted service. We may
-        perform maintenance and improve or change features; we will give reasonable notice of changes
-        that materially reduce the service you pay for. [Insert service level commitments, if any.]
+        perform maintenance and improve or change features; we will give reasonable notice of
+        changes that materially reduce the service you pay for. [Insert service level commitments,
+        if any.]
       </p>
     ),
   },
@@ -155,8 +158,8 @@ const SECTIONS: LegalSection[] = [
     body: (
       <p>
         You can stop using the service at any time. We may suspend or terminate a workspace for
-        non-payment, serious or repeated breach of these terms, or where required by law, with notice
-        where reasonably possible.
+        non-payment, serious or repeated breach of these terms, or where required by law, with
+        notice where reasonably possible.
       </p>
     ),
   },

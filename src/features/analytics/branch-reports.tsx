@@ -13,6 +13,7 @@ import {
   ChartCard,
   ColumnChart,
   DonutChart,
+  methodColor,
   Meter,
   PeakHoursHeatmap,
   TrendChart,
@@ -78,6 +79,7 @@ function SalesTab({ d, dimmed }: { d: Data; dimmed: boolean }) {
               data={d.paymentMethods.map((m) => ({
                 name: PAYMENT_METHOD_LABELS[m.method] ?? m.method,
                 value: m.net,
+                color: methodColor(m.method),
               }))}
               formatValue={money}
               centerValue={formatMoneyCompact(d.kpis.collected, cur)}
@@ -179,7 +181,11 @@ function MenuTab({ d, dimmed }: { d: Data; dimmed: boolean }) {
           rows={d.topItems}
           rowKey="name"
           columns={[
-            { id: "name", header: "Item", cell: (r) => <span className="font-medium">{r.name}</span> },
+            {
+              id: "name",
+              header: "Item",
+              cell: (r) => <span className="font-medium">{r.name}</span>,
+            },
             { id: "cat", header: "Category", cell: (r) => r.category ?? "—" },
             { id: "qty", header: "Qty", align: "right", cell: (r) => formatCount(r.quantity) },
             { id: "orders", header: "Orders", align: "right", cell: (r) => formatCount(r.orders) },
@@ -193,7 +199,11 @@ function MenuTab({ d, dimmed }: { d: Data; dimmed: boolean }) {
           rows={d.categories}
           rowKey="category"
           columns={[
-            { id: "cat", header: "Category", cell: (r) => <span className="font-medium">{r.category}</span> },
+            {
+              id: "cat",
+              header: "Category",
+              cell: (r) => <span className="font-medium">{r.category}</span>,
+            },
             { id: "items", header: "Items", align: "right", cell: (r) => formatCount(r.items) },
             { id: "qty", header: "Qty", align: "right", cell: (r) => formatCount(r.quantity) },
             { id: "rev", header: "Revenue", align: "right", cell: (r) => money(r.revenue) },
@@ -255,8 +265,17 @@ function KitchenTab({ d, dimmed }: { d: Data; dimmed: boolean }) {
               rows={k.items}
               rowKey="name"
               columns={[
-                { id: "name", header: "Item", cell: (r) => <span className="font-medium">{r.name}</span> },
-                { id: "orders", header: "Orders", align: "right", cell: (r) => formatCount(r.orders) },
+                {
+                  id: "name",
+                  header: "Item",
+                  cell: (r) => <span className="font-medium">{r.name}</span>,
+                },
+                {
+                  id: "orders",
+                  header: "Orders",
+                  align: "right",
+                  cell: (r) => formatCount(r.orders),
+                },
                 { id: "qty", header: "Qty", align: "right", cell: (r) => formatCount(r.quantity) },
                 {
                   id: "prep",
@@ -311,6 +330,7 @@ function CashierTab({ d, dimmed }: { d: Data; dimmed: boolean }) {
               data={c.byMethod.map((m) => ({
                 name: PAYMENT_METHOD_LABELS[m.method] ?? m.method,
                 value: m.net,
+                color: methodColor(m.method),
               }))}
               formatValue={money}
             />

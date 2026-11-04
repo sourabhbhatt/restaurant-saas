@@ -148,7 +148,9 @@ export function OrdersView({
           icon={<ClipboardListIcon />}
           title="No orders yet"
           description="Orders you place from this phone will appear here."
-          action={session.canOrder ? <Button onClick={onBrowse}>Browse the menu</Button> : undefined}
+          action={
+            session.canOrder ? <Button onClick={onBrowse}>Browse the menu</Button> : undefined
+          }
         />
       ) : (
         <ol className="space-y-4" aria-label="Your orders">
@@ -163,7 +165,7 @@ export function OrdersView({
       {(session.canOrder || session.canRequestBill) && (
         <div className="flex flex-col gap-2 pt-2 sm:flex-row">
           {session.canOrder && (
-            <Button size="lg" className="h-12 flex-1" onClick={onBrowse}>
+            <Button size="lg" className="h-12 sm:flex-1" onClick={onBrowse}>
               <PlusIcon /> Add more items
             </Button>
           )}
@@ -171,7 +173,7 @@ export function OrdersView({
             <Button
               size="lg"
               variant="outline"
-              className="h-12 flex-1"
+              className="h-12 sm:flex-1"
               onClick={() => setConfirmBill(true)}
             >
               <ReceiptIcon /> Request the bill
@@ -205,7 +207,10 @@ function OrderCard({ order }: { order: GuestOrderViewDto }) {
   const doneIndex = order.status === "COMPLETED" ? STEPS.length - 1 : currentIndex;
 
   return (
-    <article className="rounded-xl border bg-card p-4 shadow-xs" aria-label={`Order ${order.orderNumber}`}>
+    <article
+      className="rounded-xl border bg-card p-4 shadow-xs"
+      aria-label={`Order ${order.orderNumber}`}
+    >
       <header className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold">Order #{order.orderNumber}</h3>
@@ -293,14 +298,18 @@ function OrderCard({ order }: { order: GuestOrderViewDto }) {
               <span className="font-medium tabular-nums">{item.quantity}×</span> {item.itemName}
               {(item.variantName || item.addons.length > 0) && (
                 <span className="block text-xs text-muted-foreground">
-                  {[item.variantName, ...item.addons.map((a) => a.name)].filter(Boolean).join(" · ")}
+                  {[item.variantName, ...item.addons.map((a) => a.name)]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               )}
               {item.notes && (
                 <span className="block text-xs text-muted-foreground italic">“{item.notes}”</span>
               )}
             </span>
-            <span className="shrink-0 tabular-nums">{formatMoney(item.lineTotal, order.currency)}</span>
+            <span className="shrink-0 tabular-nums">
+              {formatMoney(item.lineTotal, order.currency)}
+            </span>
           </li>
         ))}
       </ul>

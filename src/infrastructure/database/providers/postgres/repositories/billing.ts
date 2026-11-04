@@ -3,7 +3,11 @@ import { alias } from "drizzle-orm/pg-core";
 
 import type { BillDto, BillItemDto, PaymentDto } from "@/contracts/billing";
 import type { BillListItemDto, SessionAwaitingBillDto } from "@/contracts/billing-extra";
-import { buildBillLines, countSessionOrders, type SnapshotOrder } from "@/domain/billing/bill-lines";
+import {
+  buildBillLines,
+  countSessionOrders,
+  type SnapshotOrder,
+} from "@/domain/billing/bill-lines";
 import {
   PAYMENT_METHODS,
   type BillStatus,
@@ -605,7 +609,9 @@ export function billingRepository(db: Executor): BillingRepository {
     async listBills(key, filter) {
       const where = and(
         billScope(key),
-        filter.paymentStatus?.length ? inArray(bills.paymentStatus, filter.paymentStatus) : undefined,
+        filter.paymentStatus?.length
+          ? inArray(bills.paymentStatus, filter.paymentStatus)
+          : undefined,
         filter.status?.length ? inArray(bills.status, filter.status) : undefined,
         filter.start ? gte(bills.issuedAt, filter.start) : undefined,
         filter.end ? lt(bills.issuedAt, filter.end) : undefined,
@@ -723,8 +729,8 @@ export function billingRepository(db: Executor): BillingRepository {
         branchName: row.branchName,
         legalName: row.legalName,
         taxId: row.taxId,
-        addressLines: [row.addressLine1, row.addressLine2, cityLine].filter(
-          (l): l is string => Boolean(l && l.trim()),
+        addressLines: [row.addressLine1, row.addressLine2, cityLine].filter((l): l is string =>
+          Boolean(l && l.trim()),
         ),
         phone: row.phone,
         timezone: row.timezone,

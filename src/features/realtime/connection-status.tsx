@@ -66,7 +66,13 @@ export function ConnectionStatus({
   const tone: StatusTone = online ? TONE[status] : "danger";
   const label = online ? LABEL[status] : "Offline";
   const synced =
-    seconds === null ? null : seconds < 10 ? "just now" : seconds < 120 ? `${seconds}s ago` : `${Math.round(seconds / 60)}m ago`;
+    seconds === null
+      ? null
+      : seconds < 10
+        ? "just now"
+        : seconds < 120
+          ? `${seconds}s ago`
+          : `${Math.round(seconds / 60)}m ago`;
   return (
     <div
       className={cn("flex items-center gap-2 text-xs text-muted-foreground", className)}

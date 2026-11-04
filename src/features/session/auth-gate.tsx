@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { Suspense, useEffect, type ReactNode } from "react";
 
 import { ErrorState, PageSkeleton } from "@/components/shared/feedback";
 import { ApiError, errorMessage } from "@/lib/api-client";
@@ -12,7 +12,7 @@ import { useMe } from "./queries";
  * Client-side gate for signed-in areas. This is a UX convenience only: every
  * API call is authorized on the server regardless of what the client renders.
  */
-export function AuthGate({
+function AuthGateInner({
   children,
   requirePlatformAdmin = false,
 }: {
@@ -47,4 +47,13 @@ export function AuthGate({
     );
   }
   return <>{children}</>;
+}
+
+export function AuthGate(props: { children: ReactNode; requirePlatformAdmin?: boolean }) {
+  // usePathname() needs a Suspense boundary under cacheComponents.
+  return (
+    <Suspense fallback={<PageSkeleton variant="detail" />}>
+      <AuthGateInner {...props} />
+    </Suspense>
+  );
 }

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { NavItem } from "@/features/navigation/nav-config";
+import { OfflineBanner, SyncStatusIndicator } from "@/features/offline";
 import { useMe, useSignOut } from "@/features/session/queries";
 import { cn } from "@/lib/utils";
 
@@ -160,9 +161,11 @@ export function DashboardShell({
             </SheetContent>
           </Sheet>
           <div className="flex-1" />
+          <SyncStatusIndicator />
           {topbarActions}
           <UserMenu />
         </header>
+        <OfflineBanner />
         {banner}
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
           {children}

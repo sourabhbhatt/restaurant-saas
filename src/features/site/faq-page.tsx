@@ -33,7 +33,12 @@ export function FaqPage() {
           </nav>
           <div className="flex flex-col gap-12">
             {FAQ_GROUPS.map((g) => (
-              <section key={g.id} id={g.id} aria-labelledby={`${g.id}-title`} className="flex scroll-mt-24 flex-col gap-4">
+              <section
+                key={g.id}
+                id={g.id}
+                aria-labelledby={`${g.id}-title`}
+                className="flex scroll-mt-24 flex-col gap-4"
+              >
                 <h2 id={`${g.id}-title`} className="text-xl font-semibold tracking-tight">
                   {g.title}
                 </h2>
@@ -43,7 +48,9 @@ export function FaqPage() {
             <div className="flex flex-col items-start gap-3 rounded-2xl border bg-muted/40 p-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="font-semibold">Still have a question?</h2>
-                <p className="text-sm text-muted-foreground">Email us and we&apos;ll get back to you.</p>
+                <p className="text-sm text-muted-foreground">
+                  Email us and we&apos;ll get back to you.
+                </p>
               </div>
               <Button asChild variant="outline">
                 <Link href="/contact">Contact us</Link>

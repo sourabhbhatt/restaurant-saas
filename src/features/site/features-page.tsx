@@ -160,7 +160,10 @@ const BLOCKS: FeatureBlock[] = [
     eyebrow: "Accountability",
     title: "Audit logs",
     body: "Important actions are recorded with who did it and when — from approvals and voids to setting changes.",
-    points: ["Activity history for owners and admins", "No passwords or payment secrets ever logged"],
+    points: [
+      "Activity history for owners and admins",
+      "No passwords or payment secrets ever logged",
+    ],
   },
 ];
 
@@ -172,7 +175,10 @@ export function FeaturesPage() {
         title="Everything a dine-in restaurant needs to run service"
         description="From the guest's first scan to the final bill — with your staff in control at every step."
       >
-        <nav aria-label="Features on this page" className="flex max-w-3xl flex-wrap justify-center gap-2">
+        <nav
+          aria-label="Features on this page"
+          className="flex max-w-3xl flex-wrap justify-center gap-2"
+        >
           {BLOCKS.map((b) => (
             <Link
               key={b.id}
@@ -203,7 +209,10 @@ export function FeaturesPage() {
                     {b.eyebrow}
                   </span>
                 </div>
-                <h2 id={`${b.id}-title`} className="text-2xl font-semibold tracking-tight text-balance">
+                <h2
+                  id={`${b.id}-title`}
+                  className="text-2xl font-semibold tracking-tight text-balance"
+                >
                   {b.title}
                 </h2>
                 <p className="leading-relaxed text-muted-foreground">{b.body}</p>
@@ -239,7 +248,10 @@ export function FeaturesPage() {
           </div>
           <ul className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {NOT_YET.map((n) => (
-              <li key={n.title} className="flex flex-col gap-1.5 rounded-2xl border border-dashed bg-background p-5">
+              <li
+                key={n.title}
+                className="flex flex-col gap-1.5 rounded-2xl border border-dashed bg-background p-5"
+              >
                 <h3 className="font-semibold">{n.title}</h3>
                 <p className="text-sm text-muted-foreground">{n.body}</p>
               </li>

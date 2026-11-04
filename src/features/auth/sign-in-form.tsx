@@ -78,7 +78,10 @@ export function SignInForm() {
       footer={
         <>
           New here?{" "}
-          <Link href={signUpHref} className="font-medium text-foreground underline-offset-4 hover:underline">
+          <Link
+            href={signUpHref}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
             Start a free trial
           </Link>
         </>

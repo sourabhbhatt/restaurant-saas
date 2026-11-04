@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { billWarnings, buildBillLines, countSessionOrders, type SnapshotOrder } from "./bill-lines";
 
-const item = (over: Partial<SnapshotOrder["items"][number]> = {}): SnapshotOrder["items"][number] => ({
+const item = (
+  over: Partial<SnapshotOrder["items"][number]> = {},
+): SnapshotOrder["items"][number] => ({
   id: over.id ?? "i1",
   itemName: "Dish",
   variantName: null,
@@ -23,12 +25,28 @@ describe("buildBillLines", () => {
         orderNumber: 2,
         status: "SERVED",
         items: [
-          item({ id: "b", itemName: "Naan", sortOrder: 1, unitPrice: 600, quantity: 2, lineTotal: 1_200, addons: [{ groupName: "Extras", addonName: "Butter" }, { groupName: "Extras", addonName: "Garlic" }] }),
+          item({
+            id: "b",
+            itemName: "Naan",
+            sortOrder: 1,
+            unitPrice: 600,
+            quantity: 2,
+            lineTotal: 1_200,
+            addons: [
+              { groupName: "Extras", addonName: "Butter" },
+              { groupName: "Extras", addonName: "Garlic" },
+            ],
+          }),
           item({ id: "a", itemName: "Curry", sortOrder: 0 }),
           item({ id: "x", itemName: "Lassi", status: "CANCELLED" }),
         ],
       },
-      { id: "o1", orderNumber: 1, status: "COMPLETED", items: [item({ id: "c", itemName: "Soup" })] },
+      {
+        id: "o1",
+        orderNumber: 1,
+        status: "COMPLETED",
+        items: [item({ id: "c", itemName: "Soup" })],
+      },
       { id: "o3", orderNumber: 3, status: "PENDING", items: [item({ id: "d" })] },
       { id: "o4", orderNumber: 4, status: "REJECTED", items: [item({ id: "e" })] },
       { id: "o5", orderNumber: 5, status: "CANCELLED", items: [item({ id: "f" })] },

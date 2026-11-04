@@ -63,7 +63,10 @@ export async function setupBillingBranch(
   const ws = await createWorkspaceAs(owner, `Billing WS ${++seq}`);
   const r = await insertRestaurantWithBranch(c, ws.id, { taxes: opts.taxes });
   if (opts.settings) {
-    await c.db.update(branchSettings).set(opts.settings).where(eq(branchSettings.branchId, r.branchId));
+    await c.db
+      .update(branchSettings)
+      .set(opts.settings)
+      .where(eq(branchSettings.branchId, r.branchId));
   }
   return {
     owner,

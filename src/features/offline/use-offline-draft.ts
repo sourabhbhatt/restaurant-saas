@@ -70,8 +70,7 @@ export function useOfflineDraft<T>(key: string, initial: T): OfflineDraft<T> {
   const setValue = useCallback(
     (next: T | ((previous: T) => T)) => {
       setState((previous) => {
-        const resolved =
-          typeof next === "function" ? (next as (p: T) => T)(previous) : (next as T);
+        const resolved = typeof next === "function" ? (next as (p: T) => T)(previous) : (next as T);
         const db = getOfflineDb();
         if (db && storageKey && userId) {
           if (timer.current) clearTimeout(timer.current);

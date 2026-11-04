@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import "./globals.css";
 
 /**
@@ -32,14 +34,12 @@ export default function GlobalError({ error, retry }: { error: unknown; retry: (
             >
               Try again
             </button>
-            <button
-              type="button"
-              // Full reload: the root layout itself failed, so start from a clean document.
-              onClick={() => window.location.assign("/")}
+            <Link
+              href="/"
               className="inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium hover:bg-accent"
             >
               Go to the homepage
-            </button>
+            </Link>
           </div>
         </main>
       </body>

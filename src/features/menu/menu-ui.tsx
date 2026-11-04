@@ -71,7 +71,8 @@ export function MoneyInput({
       parsed === null || Number.isNaN(parsed)
         ? null
         : toMinor(parsed, isCurrencyCode(currency) ? currency : "INR");
-    if (!Object.is(asMinor, value ?? null) && !Number.isNaN(value)) setText(toText(value, currency));
+    if (!Object.is(asMinor, value ?? null) && !Number.isNaN(value))
+      setText(toText(value, currency));
   }
   return (
     <div className="relative">

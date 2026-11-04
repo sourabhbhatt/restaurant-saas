@@ -333,7 +333,9 @@ export function createMenuService(deps: MenuServiceDeps) {
       isAvailable: boolean,
       meta: RequestMeta,
     ): Promise<MenuItemDto> {
-      const perm: Permission = scope.can("menu.manage") ? "menu.manage" : "menu.availability.manage";
+      const perm: Permission = scope.can("menu.manage")
+        ? "menu.manage"
+        : "menu.availability.manage";
       scope.require(perm);
       const t = tenantOf(scope);
       return tx.run(async (r) => {
@@ -382,9 +384,7 @@ export function createMenuService(deps: MenuServiceDeps) {
 
     async listOverrides(scope: BranchScope): Promise<BranchOverrideDto[]> {
       if (!scope.can("menu.view")) scope.require("menu.availability.manage");
-      return tx.read((r) =>
-        r.menu.listOverrides({ ...tenantOf(scope), branchId: scope.branchId }),
-      );
+      return tx.read((r) => r.menu.listOverrides({ ...tenantOf(scope), branchId: scope.branchId }));
     },
 
     /**

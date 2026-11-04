@@ -49,9 +49,7 @@ export function BranchFilter({ workspaceId, value, onChange, className }: Branch
         {restaurants.map((r) => (
           <SelectGroup key={r.id}>
             <SelectLabel>{r.name}</SelectLabel>
-            {r.branches.length > 1 && (
-              <SelectItem value={`r:${r.id}`}>All of {r.name}</SelectItem>
-            )}
+            {r.branches.length > 1 && <SelectItem value={`r:${r.id}`}>All of {r.name}</SelectItem>}
             {r.branches.map((b) => (
               <SelectItem key={b.id} value={`b:${b.id}`}>
                 {b.name}

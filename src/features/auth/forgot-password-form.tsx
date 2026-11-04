@@ -87,7 +87,12 @@ export function ForgotPasswordForm() {
         </Link>
       }
     >
-      <form noValidate onSubmit={onSubmit} className="flex flex-col gap-5" aria-busy={mutation.isPending}>
+      <form
+        noValidate
+        onSubmit={onSubmit}
+        className="flex flex-col gap-5"
+        aria-busy={mutation.isPending}
+      >
         <FormField label="Email" error={form.formState.errors.email?.message} required>
           <Input
             type="email"

@@ -8,12 +8,7 @@ import {
   type PaymentStatus,
 } from "@/domain/billing/payments";
 
-import type {
-  BillDto,
-  BillItemDto,
-  BillTotalsDto,
-  PaymentDto,
-} from "./billing";
+import type { BillDto, BillItemDto, BillTotalsDto, PaymentDto } from "./billing";
 
 /**
  * Billing contract additions (list, queue, preview, receipt and close-session

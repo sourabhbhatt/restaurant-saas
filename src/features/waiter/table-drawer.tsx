@@ -134,7 +134,7 @@ export function TableDrawer({
                     <p className="text-xs text-destructive">Rejected: {o.rejectionReason}</p>
                   )}
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm tabular-nums text-muted-foreground">
+                    <span className="text-sm text-muted-foreground tabular-nums">
                       {formatMoney(o.subtotal, o.currency)}
                     </span>
                     <OrderActionButtons
@@ -158,7 +158,12 @@ export function TableDrawer({
               </Button>
             )}
             {canBill && (
-              <Button className="flex-1" size="lg" variant="outline" onClick={() => setBilling(true)}>
+              <Button
+                className="flex-1"
+                size="lg"
+                variant="outline"
+                onClick={() => setBilling(true)}
+              >
                 <Receipt aria-hidden /> Generate bill
               </Button>
             )}

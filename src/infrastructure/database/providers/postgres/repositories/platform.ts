@@ -152,8 +152,7 @@ function toSupportDto(r: SupportJoinRow): SupportRequestDto {
       r.creatorId && r.creatorName && r.creatorEmail
         ? { id: r.creatorId, name: r.creatorName, email: r.creatorEmail }
         : null,
-    assignedTo:
-      r.assigneeId && r.assigneeName ? { id: r.assigneeId, name: r.assigneeName } : null,
+    assignedTo: r.assigneeId && r.assigneeName ? { id: r.assigneeId, name: r.assigneeName } : null,
     resolvedAt: iso(r.req.resolvedAt),
     createdAt: r.req.createdAt.toISOString(),
     updatedAt: r.req.updatedAt.toISOString(),
@@ -389,7 +388,9 @@ export function platformRepository(db: Executor): PlatformRepository {
       await db
         .update(subscriptions)
         .set(set)
-        .where(and(eq(subscriptions.id, subscriptionId), eq(subscriptions.workspaceId, workspaceId)));
+        .where(
+          and(eq(subscriptions.id, subscriptionId), eq(subscriptions.workspaceId, workspaceId)),
+        );
     },
     async compareAndSetReminders(subscriptionId, expected, next) {
       const rows = await db
@@ -647,9 +648,7 @@ export function platformRepository(db: Executor): PlatformRepository {
         .orderBy(asc(branches.name));
       return rs.map((r) => ({
         ...r,
-        branches: bs
-          .filter((b) => b.restaurantId === r.id)
-          .map(({ restaurantId: _r, ...b }) => b),
+        branches: bs.filter((b) => b.restaurantId === r.id).map(({ restaurantId: _r, ...b }) => b),
       }));
     },
     async listOverrides(workspaceId) {
@@ -691,7 +690,10 @@ export function platformRepository(db: Executor): PlatformRepository {
       const rows = await db
         .delete(workspaceEntitlements)
         .where(
-          and(eq(workspaceEntitlements.workspaceId, workspaceId), eq(workspaceEntitlements.key, key)),
+          and(
+            eq(workspaceEntitlements.workspaceId, workspaceId),
+            eq(workspaceEntitlements.key, key),
+          ),
         )
         .returning({ id: workspaceEntitlements.id });
       return rows.length > 0;
@@ -914,4 +916,3 @@ export function platformRepository(db: Executor): PlatformRepository {
     },
   };
 }
-

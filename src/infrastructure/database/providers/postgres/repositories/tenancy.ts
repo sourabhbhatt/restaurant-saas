@@ -588,7 +588,9 @@ export function tenancyRepository(db: Executor): TenancyRepository {
         .select({ b: branches, restaurantName: restaurants.name })
         .from(branches)
         .innerJoin(restaurants, eq(restaurants.id, branches.restaurantId))
-        .where(and(liveBranch(workspaceId), eq(branches.id, branchId), isNull(restaurants.deletedAt)))
+        .where(
+          and(liveBranch(workspaceId), eq(branches.id, branchId), isNull(restaurants.deletedAt)),
+        )
         .limit(1);
       return row ? toBranch(row.b, row.restaurantName) : null;
     },
@@ -624,7 +626,9 @@ export function tenancyRepository(db: Executor): TenancyRepository {
       const [row] = await db
         .select()
         .from(branchSettings)
-        .where(and(eq(branchSettings.workspaceId, workspaceId), eq(branchSettings.branchId, branchId)))
+        .where(
+          and(eq(branchSettings.workspaceId, workspaceId), eq(branchSettings.branchId, branchId)),
+        )
         .limit(1);
       if (row) return toSettings(row);
       const [created] = await db
@@ -938,21 +942,19 @@ export function tenancyRepository(db: Executor): TenancyRepository {
           ),
         )
         .orderBy(asc(users.name), asc(roles.name));
-      return rows.map(
-        (r): StaffAssignmentDto => ({
-          id: r.id,
-          membershipId: r.membershipId,
-          userId: r.userId,
-          name: r.name,
-          email: r.email,
-          memberStatus: r.memberStatus,
-          role: { id: r.roleId, key: r.roleKey, name: r.roleName, scope: r.roleScope },
-          restaurantId: r.restaurantId,
-          restaurantName: r.restaurantName,
-          branchId: r.branchId,
-          branchName: r.branchName,
-        }),
-      );
+      return rows.map((r): StaffAssignmentDto => ({
+        id: r.id,
+        membershipId: r.membershipId,
+        userId: r.userId,
+        name: r.name,
+        email: r.email,
+        memberStatus: r.memberStatus,
+        role: { id: r.roleId, key: r.roleKey, name: r.roleName, scope: r.roleScope },
+        restaurantId: r.restaurantId,
+        restaurantName: r.restaurantName,
+        branchId: r.branchId,
+        branchName: r.branchName,
+      }));
     },
     async findAssignment(workspaceId, assignmentId) {
       const [row] = await db
@@ -964,7 +966,9 @@ export function tenancyRepository(db: Executor): TenancyRepository {
           branchId: roleAssignments.branchId,
         })
         .from(roleAssignments)
-        .where(and(eq(roleAssignments.workspaceId, workspaceId), eq(roleAssignments.id, assignmentId)))
+        .where(
+          and(eq(roleAssignments.workspaceId, workspaceId), eq(roleAssignments.id, assignmentId)),
+        )
         .limit(1);
       return row ?? null;
     },
@@ -982,7 +986,9 @@ export function tenancyRepository(db: Executor): TenancyRepository {
     async deleteAssignment(workspaceId, assignmentId) {
       const rows = await db
         .delete(roleAssignments)
-        .where(and(eq(roleAssignments.workspaceId, workspaceId), eq(roleAssignments.id, assignmentId)))
+        .where(
+          and(eq(roleAssignments.workspaceId, workspaceId), eq(roleAssignments.id, assignmentId)),
+        )
         .returning({ id: roleAssignments.id });
       return rows.length > 0;
     },

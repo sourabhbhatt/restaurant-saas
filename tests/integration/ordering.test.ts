@@ -7,7 +7,12 @@ import { POST as joinSession } from "@/app/api/v1/public/qr/[token]/session/rout
 import { POST as billRequest } from "@/app/api/v1/public/session/bill-request/route";
 import { POST as placeOrder } from "@/app/api/v1/public/session/orders/route";
 import { GET as getSession } from "@/app/api/v1/public/session/route";
-import type { BillRequestResultDto, GuestSessionDto, JoinSessionDto, PublicQrDto } from "@/contracts/ordering";
+import type {
+  BillRequestResultDto,
+  GuestSessionDto,
+  JoinSessionDto,
+  PublicQrDto,
+} from "@/contracts/ordering";
 import type { GuestOrderDto, OrderDto } from "@/contracts/orders";
 import {
   auditLogs,
@@ -135,7 +140,10 @@ describe("QR resolution", () => {
   it("rejects QRs of a suspended workspace or one without the qr_ordering feature", async () => {
     const s = await createOrderingWorld(c, "Suspended Owner");
     expect((await call(resolveQr, { params: { token: s.table.token } })).status).toBe(200);
-    await c.db.update(workspaces).set({ status: "SUSPENDED" }).where(eq(workspaces.id, s.workspaceId));
+    await c.db
+      .update(workspaces)
+      .set({ status: "SUSPENDED" })
+      .where(eq(workspaces.id, s.workspaceId));
     const res = await call(resolveQr, { params: { token: s.table.token } });
     expect(res.status).toBe(404);
     expect(res.body.error!.code).toBe("QR_INVALID");
@@ -308,7 +316,9 @@ describe("table sessions and guest orders", () => {
     const rows = await c.db
       .select()
       .from(notifications)
-      .where(and(eq(notifications.userId, w.owner.userId), eq(notifications.type, "order.created")));
+      .where(
+        and(eq(notifications.userId, w.owner.userId), eq(notifications.type, "order.created")),
+      );
     expect(rows.some((n) => (n.data as { orderId?: string }).orderId === res.body.data!.id)).toBe(
       true,
     );
@@ -316,7 +326,9 @@ describe("table sessions and guest orders", () => {
 
   it("rejects unavailable items and invalid selections with field errors", async () => {
     const g = await guest(w.table.token);
-    const soldOut = await order(g.cookie, { lines: [{ menuItemId: w.soldOutItemId, quantity: 1 }] });
+    const soldOut = await order(g.cookie, {
+      lines: [{ menuItemId: w.soldOutItemId, quantity: 1 }],
+    });
     expect(soldOut.status).toBe(422);
     expect(soldOut.body.error!.fieldErrors!["lines.0.item"]).toBeDefined();
 
@@ -340,7 +352,9 @@ describe("table sessions and guest orders", () => {
     expect(fe["lines.3.menuItemId"]).toBeDefined();
     expect(Object.keys(fe).some((k) => k.startsWith("lines.0"))).toBe(false);
 
-    const tooMany = await order(g.cookie, { lines: [{ menuItemId: w.simpleItemId, quantity: 100 }] });
+    const tooMany = await order(g.cookie, {
+      lines: [{ menuItemId: w.simpleItemId, quantity: 100 }],
+    });
     expect(tooMany.status).toBe(422);
     expect((await session(g.cookie)).body.data!.orders).toHaveLength(0);
   });
@@ -386,7 +400,9 @@ describe("table sessions and guest orders", () => {
 
     const other = await createOrderingWorld(c, "Numbering Owner");
     const og = await guest(other.table.token);
-    const first = await order(og.cookie, { lines: [{ menuItemId: other.simpleItemId, quantity: 1 }] });
+    const first = await order(og.cookie, {
+      lines: [{ menuItemId: other.simpleItemId, quantity: 1 }],
+    });
     expect(first.body.data!.orderNumber).toBe(1);
   });
 
@@ -483,7 +499,10 @@ describe("bill request", () => {
     const res = await call<BillRequestResultDto>(billRequest, { method: "POST", cookie: g.cookie });
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({ status: "BILL_REQUESTED", alreadyRequested: false });
-    const again = await call<BillRequestResultDto>(billRequest, { method: "POST", cookie: g.cookie });
+    const again = await call<BillRequestResultDto>(billRequest, {
+      method: "POST",
+      cookie: g.cookie,
+    });
     expect(again.body.data!.alreadyRequested).toBe(true);
 
     const s = await session(g.cookie);
@@ -495,7 +514,9 @@ describe("bill request", () => {
     const notes = await c.db
       .select()
       .from(notifications)
-      .where(and(eq(notifications.userId, w.owner.userId), eq(notifications.type, "bill.requested")));
+      .where(
+        and(eq(notifications.userId, w.owner.userId), eq(notifications.type, "bill.requested")),
+      );
     expect(notes).toHaveLength(1);
   });
 
@@ -539,7 +560,12 @@ describe("staff order placement", () => {
     });
     expect(res.status).toBe(201);
     const o = res.body.data!;
-    expect(o).toMatchObject({ source: "STAFF", status: "ACCEPTED", priority: "RUSH", subtotal: 75_000 });
+    expect(o).toMatchObject({
+      source: "STAFF",
+      status: "ACCEPTED",
+      priority: "RUSH",
+      subtotal: 75_000,
+    });
     expect(o.tableId).toBe(t.tableId);
     const [row] = await c.db.select().from(orders).where(eq(orders.id, o.id));
     expect(row!.acceptedBy).toBe(w.owner.userId);
@@ -628,7 +654,10 @@ describe("staff order placement", () => {
     // Own branch, but a table id from another workspace.
     const crossTable = await call(staffOrder, {
       params: { branchId: other.branchId },
-      body: { ...staffBody(w.table.tableId), lines: [{ menuItemId: other.simpleItemId, quantity: 1 }] },
+      body: {
+        ...staffBody(w.table.tableId),
+        lines: [{ menuItemId: other.simpleItemId, quantity: 1 }],
+      },
       cookie: other.owner.cookie,
     });
     expect(crossTable.status).toBe(404);
@@ -682,12 +711,18 @@ describe("tenant isolation for guests", () => {
     expect(JSON.stringify(sa.body.data)).not.toContain(gb.sessionId);
 
     // Ordering B's item with A's cookie is priced against A's menu → rejected.
-    const crossItem = await order(ga.cookie, { lines: [{ menuItemId: b.simpleItemId, quantity: 1 }] });
+    const crossItem = await order(ga.cookie, {
+      lines: [{ menuItemId: b.simpleItemId, quantity: 1 }],
+    });
     expect(crossItem.status).toBe(422);
     // A's guest cannot use B's staff endpoints.
     const staff = await call(staffOrder, {
       params: { branchId: b.branchId },
-      body: { tableId: b.table.tableId, idempotencyKey: key(), lines: [{ menuItemId: b.simpleItemId, quantity: 1 }] },
+      body: {
+        tableId: b.table.tableId,
+        idempotencyKey: key(),
+        lines: [{ menuItemId: b.simpleItemId, quantity: 1 }],
+      },
       cookie: ga.cookie,
     });
     expect(staff.status).toBe(401);

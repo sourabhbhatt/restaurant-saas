@@ -41,13 +41,24 @@ export function PaymentHistory({ bill, branchId, timezone, canVoid }: Props) {
                 aria-hidden
                 className={cn(
                   "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                  p.kind === "REFUND" ? "bg-warning/20 text-warning-foreground" : "bg-primary/10 text-primary",
+                  p.kind === "REFUND"
+                    ? "bg-warning/20 text-warning-foreground"
+                    : "bg-primary/10 text-primary",
                 )}
               >
-                {p.kind === "REFUND" ? <Undo2 className="size-4" /> : METHOD_LABEL[p.method].slice(0, 2)}
+                {p.kind === "REFUND" ? (
+                  <Undo2 className="size-4" />
+                ) : (
+                  METHOD_LABEL[p.method].slice(0, 2)
+                )}
               </span>
               <div className="min-w-0 flex-1">
-                <p className={cn("text-sm font-medium", voided && "text-muted-foreground line-through")}>
+                <p
+                  className={cn(
+                    "text-sm font-medium",
+                    voided && "text-muted-foreground line-through",
+                  )}
+                >
                   {p.kind === "REFUND" ? "Refund" : "Payment"} · {METHOD_LABEL[p.method]}
                   {p.reference && (
                     <span className="font-normal text-muted-foreground"> · Ref {p.reference}</span>
@@ -60,7 +71,9 @@ export function PaymentHistory({ bill, branchId, timezone, canVoid }: Props) {
                 </p>
                 {p.note && <p className="text-xs text-muted-foreground">“{p.note}”</p>}
                 {voided && (
-                  <p className="text-xs text-destructive">Voided{p.voidReason ? `: ${p.voidReason}` : ""}</p>
+                  <p className="text-xs text-destructive">
+                    Voided{p.voidReason ? `: ${p.voidReason}` : ""}
+                  </p>
                 )}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">

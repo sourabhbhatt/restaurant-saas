@@ -6,7 +6,12 @@ import { useId, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { addDaysIso, daysInclusive, localDate, MAX_RANGE_DAYS } from "@/domain/analytics/date-range";
+import {
+  addDaysIso,
+  daysInclusive,
+  localDate,
+  MAX_RANGE_DAYS,
+} from "@/domain/analytics/date-range";
 import { cn } from "@/lib/utils";
 
 import { formatRange } from "./format";
@@ -58,8 +63,7 @@ function validate(from: string, to: string, today: string): { from?: string; to?
   if (!to) errors.to = "Choose an end date";
   if (errors.from || errors.to) return errors;
   if (from > to) errors.from = "Must be on or before the end date";
-  else if (daysInclusive(from, to) > MAX_RANGE_DAYS)
-    errors.to = `At most ${MAX_RANGE_DAYS} days`;
+  else if (daysInclusive(from, to) > MAX_RANGE_DAYS) errors.to = `At most ${MAX_RANGE_DAYS} days`;
   else if (from > today) errors.from = "Can't be in the future";
   return errors;
 }

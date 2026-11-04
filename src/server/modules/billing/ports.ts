@@ -137,7 +137,11 @@ export interface BillingRepository {
   findPaymentBranchId(paymentId: string): Promise<string | null>;
 
   loadSettings(key: BranchKey): Promise<BranchBillingSettings>;
-  findSession(key: BranchKey, sessionId: string, opts?: { lock?: boolean }): Promise<SessionRecord | null>;
+  findSession(
+    key: BranchKey,
+    sessionId: string,
+    opts?: { lock?: boolean },
+  ): Promise<SessionRecord | null>;
   updateSession(
     key: BranchKey,
     sessionId: string,

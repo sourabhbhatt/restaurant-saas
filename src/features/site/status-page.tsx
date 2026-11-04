@@ -34,7 +34,9 @@ export function StatusPage({
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
           <div className="text-muted-foreground">{description}</div>
         </div>
-        {children && <div className="flex flex-wrap items-center justify-center gap-3">{children}</div>}
+        {children && (
+          <div className="flex flex-wrap items-center justify-center gap-3">{children}</div>
+        )}
       </main>
     </div>
   );

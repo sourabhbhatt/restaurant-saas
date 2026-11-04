@@ -138,8 +138,17 @@ export function SyncStatusIndicator({ className }: { className?: string }) {
 }
 
 function SyncPanel() {
-  const { online, syncing, counts, items, otherUserPending, lastSyncAt, lastOnlineAt, authRequired, userId } =
-    useSyncStore();
+  const {
+    online,
+    syncing,
+    counts,
+    items,
+    otherUserPending,
+    lastSyncAt,
+    lastOnlineAt,
+    authRequired,
+    userId,
+  } = useSyncStore();
   const [syncPending, setSyncPending] = useState(false);
   const [confirmOther, setConfirmOther] = useState(false);
 
@@ -193,8 +202,7 @@ function SyncPanel() {
             <TriangleAlertIcon aria-hidden="true" />
             <AlertTitle>Sign in to continue syncing</AlertTitle>
             <AlertDescription>
-              Your session ended. Waiting changes are kept and will be sent after you sign in
-              again.
+              Your session ended. Waiting changes are kept and will be sent after you sign in again.
             </AlertDescription>
           </Alert>
         )}
@@ -220,9 +228,7 @@ function SyncPanel() {
           />
         )}
 
-        {attention.length > 0 && (
-          <ItemSection title="Needs your attention" items={attention} />
-        )}
+        {attention.length > 0 && <ItemSection title="Needs your attention" items={attention} />}
         {waiting.length > 0 && <ItemSection title="Waiting to sync" items={waiting} />}
         {synced.length > 0 && (
           <ItemSection
@@ -322,11 +328,15 @@ function OutboxRow({ item }: { item: OutboxItem }) {
         <div className="flex min-w-0 flex-col gap-0.5">
           <p className="text-sm font-medium break-words">{item.label}</p>
           <p className="text-xs text-muted-foreground">
-            <time dateTime={new Date(item.createdAt).toISOString()} title={absoluteTime(item.createdAt)}>
+            <time
+              dateTime={new Date(item.createdAt).toISOString()}
+              title={absoluteTime(item.createdAt)}
+            >
               {relativeTime(item.createdAt)}
             </time>
-            {item.attempts > 0 && ` · ${item.attempts} ${item.attempts === 1 ? "attempt" : "attempts"}`}
-            {item.status === "pending" && item.attempts > 0 && item.nextAttemptAt > Date.now()
+            {item.attempts > 0 &&
+              ` · ${item.attempts} ${item.attempts === 1 ? "attempt" : "attempts"}`}
+            {item.status === "pending" && item.attempts > 0
               ? ` · next try ${relativeTime(item.nextAttemptAt)}`
               : null}
           </p>

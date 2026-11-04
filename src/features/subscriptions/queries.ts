@@ -22,7 +22,11 @@ export function useSubscriptionOverview(workspaceId: string | undefined, enabled
   return useQuery({
     queryKey: subscriptionKeys.overview(workspaceId ?? ""),
     queryFn: ({ signal }) =>
-      api.get<SubscriptionOverviewDto>(`/workspaces/${workspaceId}/subscription`, undefined, signal),
+      api.get<SubscriptionOverviewDto>(
+        `/workspaces/${workspaceId}/subscription`,
+        undefined,
+        signal,
+      ),
     enabled: Boolean(workspaceId) && enabled,
     retry: noRetryOnAuth,
   });

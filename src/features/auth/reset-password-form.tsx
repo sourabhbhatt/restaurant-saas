@@ -76,14 +76,12 @@ export function ResetPasswordForm() {
       description="Choose a strong password you don't use anywhere else. You'll be signed out on all devices."
     >
       <form noValidate onSubmit={onSubmit} className="flex flex-col gap-5" aria-busy={pending}>
-        <FormField
-          label="New password"
-          error={form.formState.errors.password?.message}
-          required
-          description={<PasswordStrength value={password} />}
-        >
-          <PasswordInput autoComplete="new-password" {...form.register("password")} />
-        </FormField>
+        <div className="flex flex-col gap-2.5">
+          <FormField label="New password" error={form.formState.errors.password?.message} required>
+            <PasswordInput autoComplete="new-password" {...form.register("password")} />
+          </FormField>
+          <PasswordStrength value={password} />
+        </div>
         <FormField
           label="Confirm new password"
           error={form.formState.errors.confirmPassword?.message}

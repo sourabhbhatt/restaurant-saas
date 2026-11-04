@@ -8,10 +8,20 @@ const br = "22222222-2222-4222-8222-222222222222";
 describe("notificationHref", () => {
   it("links orders to the waiter screen of the branch", () => {
     expect(
-      notificationHref({ type: "order.created", data: { orderId: "x" }, branchId: br, workspaceId: ws }),
+      notificationHref({
+        type: "order.created",
+        data: { orderId: "x" },
+        branchId: br,
+        workspaceId: ws,
+      }),
     ).toBe(`/waiter/${br}`);
     expect(
-      notificationHref({ type: "order.ready", data: { branchId: br }, branchId: null, workspaceId: ws }),
+      notificationHref({
+        type: "order.ready",
+        data: { branchId: br },
+        branchId: null,
+        workspaceId: ws,
+      }),
     ).toBe(`/waiter/${br}`);
   });
 
@@ -37,7 +47,12 @@ describe("notificationHref", () => {
       }),
     ).toBeNull();
     expect(
-      notificationHref({ type: "platform.announcement", data: {}, branchId: null, workspaceId: null }),
+      notificationHref({
+        type: "platform.announcement",
+        data: {},
+        branchId: null,
+        workspaceId: null,
+      }),
     ).toBeNull();
   });
 });

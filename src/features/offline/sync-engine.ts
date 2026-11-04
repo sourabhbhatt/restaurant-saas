@@ -188,7 +188,13 @@ export class SyncEngine {
   }
 
   private async runLoop(initialForce: boolean): Promise<SyncRunResult> {
-    const result: SyncRunResult = { synced: 0, retried: 0, conflicts: 0, failed: 0, skipped: false };
+    const result: SyncRunResult = {
+      synced: 0,
+      retried: 0,
+      conflicts: 0,
+      failed: 0,
+      skipped: false,
+    };
     let force = initialForce;
     this.deps.onRunStateChange?.(true);
     try {
@@ -217,7 +223,9 @@ export class SyncEngine {
       .filter((i) => i.status !== "synced")
       .sortBy("createdAt");
     const now = this.now();
-    const anyDue = items.some((i) => i.status === "pending" && (ctx.force || i.nextAttemptAt <= now));
+    const anyDue = items.some(
+      (i) => i.status === "pending" && (ctx.force || i.nextAttemptAt <= now),
+    );
     if (!anyDue) {
       await this.prune();
       return;
@@ -345,8 +353,7 @@ export class SyncEngine {
         await db.outbox.update(claimed.id, {
           status: "pending",
           updatedAt: now,
-          nextAttemptAt:
-            now + Math.max(backoffDelay(claimed.attempts, this.random), retryAfterMs),
+          nextAttemptAt: now + Math.max(backoffDelay(claimed.attempts, this.random), retryAfterMs),
           lastError: outcome === "auth" ? "Sign in again to sync this change" : message,
           lastErrorCode: code ?? (status === 0 ? "NETWORK_ERROR" : null),
           lastStatus: status,

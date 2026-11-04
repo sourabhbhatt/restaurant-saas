@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,7 @@ export function ReasonDialog({
     resolver: zodResolver(reasonSchema),
     defaultValues: { reason: "" },
   });
-  const value = form.watch("reason");
+  const value = useWatch({ control: form.control, name: "reason" });
 
   return (
     <Dialog
@@ -90,10 +90,20 @@ export function ReasonDialog({
             ))}
           </div>
           <FormField label="Reason" error={form.formState.errors.reason?.message} required>
-            <Textarea rows={3} maxLength={300} placeholder="Tell the guest why" {...form.register("reason")} />
+            <Textarea
+              rows={3}
+              maxLength={300}
+              placeholder="Tell the guest why"
+              {...form.register("reason")}
+            />
           </FormField>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={pending}
+            >
               Back
             </Button>
             <Button type="submit" variant="destructive" disabled={pending}>

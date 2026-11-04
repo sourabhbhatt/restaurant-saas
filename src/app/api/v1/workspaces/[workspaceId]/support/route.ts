@@ -11,7 +11,12 @@ export const GET = route(
   {
     auth: "user",
     params,
-    query: supportListQuerySchema.pick({ status: true, category: true, page: true, pageSize: true }),
+    query: supportListQuerySchema.pick({
+      status: true,
+      category: true,
+      page: true,
+      pageSize: true,
+    }),
   },
   async ({ actor, params, query, c }) => {
     const scope = await c.access.forWorkspace(actor, params.workspaceId);

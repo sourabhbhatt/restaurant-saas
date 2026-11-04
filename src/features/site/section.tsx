@@ -107,7 +107,7 @@ export function Backdrop({ className }: { className?: string }) {
   return (
     <div aria-hidden="true" className={cn("pointer-events-none absolute inset-0 -z-0", className)}>
       <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_0%,color-mix(in_oklch,var(--primary)_16%,transparent),transparent_70%)]" />
-      <div className="absolute inset-0 [mask-image:radial-gradient(70%_60%_at_50%_0%,black,transparent)] bg-[radial-gradient(color-mix(in_oklch,var(--foreground)_14%,transparent)_1px,transparent_1px)] [background-size:22px_22px] opacity-60" />
+      <div className="absolute inset-0 bg-[radial-gradient(color-mix(in_oklch,var(--foreground)_14%,transparent)_1px,transparent_1px)] [mask-image:radial-gradient(70%_60%_at_50%_0%,black,transparent)] [background-size:22px_22px] opacity-60" />
     </div>
   );
 }

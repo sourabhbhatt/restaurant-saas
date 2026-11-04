@@ -98,7 +98,11 @@ export function useBillPreview(
 export function useGenerateBill(branchId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { sessionId: string; discount: DiscountInput | null; idempotencyKey: string }) =>
+    mutationFn: (body: {
+      sessionId: string;
+      discount: DiscountInput | null;
+      idempotencyKey: string;
+    }) =>
       api.post<BillDto>(`/branches/${branchId}/bills`, body, {
         idempotencyKey: body.idempotencyKey,
       }),

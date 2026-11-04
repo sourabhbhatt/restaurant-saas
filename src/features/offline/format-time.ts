@@ -9,7 +9,11 @@ export function relativeTime(at: number | string | Date, now: number = Date.now(
   if (abs < 60 * 60_000) return rtf.format(Math.round(diff / 60_000), "minute");
   if (abs < 24 * 60 * 60_000) return rtf.format(Math.round(diff / (60 * 60_000)), "hour");
   if (abs < 7 * 24 * 60 * 60_000) return rtf.format(Math.round(diff / (24 * 60 * 60_000)), "day");
-  return new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  return new Date(ms).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 /** Absolute timestamp for tooltips / `title` attributes. */

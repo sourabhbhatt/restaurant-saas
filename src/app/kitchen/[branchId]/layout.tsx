@@ -7,7 +7,7 @@ export default function KitchenLayout({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      <Toaster position="bottom-center" richColors />
+      <Toaster position="bottom-center" />
     </>
   );
 }

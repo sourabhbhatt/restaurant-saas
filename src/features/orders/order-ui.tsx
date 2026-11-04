@@ -28,7 +28,13 @@ const ITEM_STATUS_META: Record<OrderItemStatus, { label: string; tone: StatusTon
   CANCELLED: { label: "Cancelled", tone: "danger" },
 };
 
-export function OrderStatusBadge({ status, className }: { status: OrderStatus; className?: string }) {
+export function OrderStatusBadge({
+  status,
+  className,
+}: {
+  status: OrderStatus;
+  className?: string;
+}) {
   const meta = ORDER_STATUS_META[status];
   return (
     <StatusBadge
@@ -42,7 +48,13 @@ export function OrderStatusBadge({ status, className }: { status: OrderStatus; c
   );
 }
 
-export function PriorityBadge({ priority, className }: { priority: OrderPriority; className?: string }) {
+export function PriorityBadge({
+  priority,
+  className,
+}: {
+  priority: OrderPriority;
+  className?: string;
+}) {
   if (priority === "NORMAL") return null;
   return (
     <StatusBadge tone={priority === "RUSH" ? "danger" : "warning"} className={className}>
@@ -118,7 +130,13 @@ export function OrderItemsList({
   );
 }
 
-export function SpecialInstructions({ text, size = "default" }: { text: string | null; size?: "default" | "lg" }) {
+export function SpecialInstructions({
+  text,
+  size = "default",
+}: {
+  text: string | null;
+  size?: "default" | "lg";
+}) {
   if (!text) return null;
   return (
     <div

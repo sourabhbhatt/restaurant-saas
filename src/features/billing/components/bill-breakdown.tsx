@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import type { BillItemDto, BillTotalsDto } from "@/contracts/billing";
 import { cn } from "@/lib/utils";
 
@@ -19,8 +21,8 @@ function Row({
   value,
   className,
 }: {
-  label: React.ReactNode;
-  value: React.ReactNode;
+  label: ReactNode;
+  value: ReactNode;
   className?: string;
 }) {
   return (
@@ -116,7 +118,9 @@ export function BillBreakdown({
         {paid && (
           <>
             <Row label="Paid" value={m(paid.amountPaid)} className="mt-2" />
-            {paid.amountRefunded > 0 && <Row label="Refunded" value={`− ${m(paid.amountRefunded)}`} />}
+            {paid.amountRefunded > 0 && (
+              <Row label="Refunded" value={`− ${m(paid.amountRefunded)}`} />
+            )}
             <div
               className={cn(
                 "flex items-baseline justify-between gap-4 font-semibold",
@@ -136,7 +140,10 @@ export function BillBreakdown({
   );
 }
 
-export function discountLabelFor(discount: { type: string; value: number } | null, currency: string) {
+export function discountLabelFor(
+  discount: { type: string; value: number } | null,
+  currency: string,
+) {
   if (!discount) return null;
   return discount.type === "PERCENT" ? bpsLabel(discount.value) : money(discount.value, currency);
 }

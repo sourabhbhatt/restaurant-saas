@@ -57,11 +57,21 @@ export function RefundDialog({ bill, branchId, open, onOpenChange }: Props) {
   );
 }
 
-function RefundBody({ bill, branchId, onDone }: { bill: BillDto; branchId: string; onDone: () => void }) {
+function RefundBody({
+  bill,
+  branchId,
+  onDone,
+}: {
+  bill: BillDto;
+  branchId: string;
+  onDone: () => void;
+}) {
   const netPaid = bill.amountPaid - bill.amountRefunded;
   const usedMethods = [
     ...new Set(
-      bill.payments.filter((p) => p.kind === "PAYMENT" && p.status === "CONFIRMED").map((p) => p.method),
+      bill.payments
+        .filter((p) => p.kind === "PAYMENT" && p.status === "CONFIRMED")
+        .map((p) => p.method),
     ),
   ];
   const methods: PaymentMethod[] = usedMethods.length ? usedMethods : [...PAYMENT_METHODS];
@@ -150,10 +160,18 @@ function RefundBody({ bill, branchId, onDone }: { bill: BillDto; branchId: strin
           </FormField>
         )}
       />
-      <FormField label={`Amount (${bill.currency})`} error={formState.errors.amount?.message} required>
+      <FormField
+        label={`Amount (${bill.currency})`}
+        error={formState.errors.amount?.message}
+        required
+      >
         <Input inputMode="decimal" autoComplete="off" {...register("amount")} />
       </FormField>
-      <FormField label="Reference" description="Optional: UPI/card transaction id" error={formState.errors.reference?.message}>
+      <FormField
+        label="Reference"
+        description="Optional: UPI/card transaction id"
+        error={formState.errors.reference?.message}
+      >
         <Input autoComplete="off" {...register("reference")} />
       </FormField>
       <FormField label="Reason" error={formState.errors.note?.message} required>

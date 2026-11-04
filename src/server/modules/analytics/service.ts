@@ -264,7 +264,11 @@ export function createAnalyticsService({ tx, clock, entitlements }: AnalyticsSer
             }
           : null,
         tables: canTables
-          ? { active: snap.activeTables, total: snap.totalTables, billRequested: snap.billRequested }
+          ? {
+              active: snap.activeTables,
+              total: snap.totalTables,
+              billRequested: snap.billRequested,
+            }
           : null,
         bills: canBills
           ? {
@@ -532,4 +536,3 @@ export function createAnalyticsService({ tx, clock, entitlements }: AnalyticsSer
 }
 
 export type AnalyticsService = ReturnType<typeof createAnalyticsService>;
-

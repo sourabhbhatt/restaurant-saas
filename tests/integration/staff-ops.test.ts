@@ -159,13 +159,19 @@ describe("order lifecycle", () => {
     const kitchenNotes = await c.db
       .select()
       .from(notifications)
-      .where(and(eq(notifications.userId, kitchen.userId), eq(notifications.type, "order.accepted")));
-    expect(kitchenNotes.some((n) => (n.data as { orderId?: string }).orderId === orderId)).toBe(true);
+      .where(
+        and(eq(notifications.userId, kitchen.userId), eq(notifications.type, "order.accepted")),
+      );
+    expect(kitchenNotes.some((n) => (n.data as { orderId?: string }).orderId === orderId)).toBe(
+      true,
+    );
     // The actor is not notified about their own action.
     const self = await c.db
       .select()
       .from(notifications)
-      .where(and(eq(notifications.userId, waiter.userId), eq(notifications.type, "order.accepted")));
+      .where(
+        and(eq(notifications.userId, waiter.userId), eq(notifications.type, "order.accepted")),
+      );
     expect(self).toHaveLength(0);
 
     await act(kitchen, orderId, "ready", 2);
@@ -173,7 +179,9 @@ describe("order lifecycle", () => {
       .select()
       .from(notifications)
       .where(and(eq(notifications.userId, waiter.userId), eq(notifications.type, "order.ready")));
-    expect(waiterNotes.some((n) => (n.data as { orderId?: string }).orderId === orderId)).toBe(true);
+    expect(waiterNotes.some((n) => (n.data as { orderId?: string }).orderId === orderId)).toBe(
+      true,
+    );
   });
 
   it("rejects invalid transitions with 409 and stale versions with STALE_VERSION", async () => {
@@ -219,7 +227,9 @@ describe("order lifecycle", () => {
     const history = await c.db
       .select()
       .from(orderStatusHistory)
-      .where(and(eq(orderStatusHistory.orderId, orderId), eq(orderStatusHistory.toStatus, "ACCEPTED")));
+      .where(
+        and(eq(orderStatusHistory.orderId, orderId), eq(orderStatusHistory.toStatus, "ACCEPTED")),
+      );
     expect(history).toHaveLength(1);
   });
 
@@ -286,8 +296,12 @@ describe("tenant isolation", () => {
     });
     expect(item.status).toBe(404);
     expect(
-      (await call(listOrders, { params: { branchId: branch.branchId }, cookie: otherWaiter.cookie }))
-        .status,
+      (
+        await call(listOrders, {
+          params: { branchId: branch.branchId },
+          cookie: otherWaiter.cookie,
+        })
+      ).status,
     ).toBe(404);
     const sess = await call(getSession, {
       params: { branchId: other.branchId, sessionId },
@@ -301,7 +315,9 @@ describe("tenant isolation", () => {
     const outsider = foreign.owner;
     const { orderId, itemIds } = await newOrder();
     expect((await act(outsider, orderId, "accept", 1)).status).toBe(404);
-    expect((await call(getOrder, { params: { orderId }, cookie: outsider.cookie })).status).toBe(404);
+    expect((await call(getOrder, { params: { orderId }, cookie: outsider.cookie })).status).toBe(
+      404,
+    );
     expect(
       (
         await call(patchPriority, {
@@ -412,7 +428,9 @@ describe("item-level kitchen status", () => {
     const history = await c.db
       .select()
       .from(orderStatusHistory)
-      .where(and(eq(orderStatusHistory.orderId, orderId), eq(orderStatusHistory.toStatus, "READY")));
+      .where(
+        and(eq(orderStatusHistory.orderId, orderId), eq(orderStatusHistory.toStatus, "READY")),
+      );
     expect(history).toHaveLength(1);
     expect(history[0]!.reason).toBe("All items ready");
 
@@ -423,9 +441,7 @@ describe("item-level kitchen status", () => {
   it("serializes concurrent last-item updates so the order still auto-readies", async () => {
     const { orderId, itemIds } = await newOrder();
     await act(waiter, orderId, "accept", 1);
-    const results = await Promise.all(
-      itemIds.map((id) => setItem(kitchen, orderId, id, "READY")),
-    );
+    const results = await Promise.all(itemIds.map((id) => setItem(kitchen, orderId, id, "READY")));
     expect(results.every((r) => r.status === 200)).toBe(true);
     const [row] = await c.db.select().from(orders).where(eq(orders.id, orderId));
     expect(row!.status).toBe("READY");
@@ -478,8 +494,16 @@ describe("order list", () => {
   it("filters by status, table, session and order number, newest first", async () => {
     const t2 = await insertTable(c, branch, "T2-list");
     const s2 = await openSession(c, branch, t2);
-    const o1 = await insertOrder(c, branch, { tableId: t2, sessionId: s2, lines: [{ name: "Tea" }] });
-    const o2 = await insertOrder(c, branch, { tableId: t2, sessionId: s2, lines: [{ name: "Cake" }] });
+    const o1 = await insertOrder(c, branch, {
+      tableId: t2,
+      sessionId: s2,
+      lines: [{ name: "Tea" }],
+    });
+    const o2 = await insertOrder(c, branch, {
+      tableId: t2,
+      sessionId: s2,
+      lines: [{ name: "Cake" }],
+    });
     await act(waiter, o2.orderId, "accept", 1);
 
     const p = { branchId: branch.branchId };
@@ -589,9 +613,9 @@ describe("table sessions", () => {
 
     // Kitchen staff lack tables.view.
     const k = await addStaff(c, b, "kitchen_staff");
-    expect((await call(listSessions, { params: { branchId: b.branchId }, cookie: k.cookie })).status).toBe(
-      403,
-    );
+    expect(
+      (await call(listSessions, { params: { branchId: b.branchId }, cookie: k.cookie })).status,
+    ).toBe(403);
   });
 });
 

@@ -60,10 +60,7 @@ export const SUBSCRIPTION_PHASES = [
 const limitValue = z.number().int().min(0, "Use 0 or more").max(1_000_000).nullable();
 
 export const planLimitsSchema = z.object(
-  Object.fromEntries(LIMIT_KEYS.map((k) => [k, limitValue])) as Record<
-    LimitKey,
-    typeof limitValue
-  >,
+  Object.fromEntries(LIMIT_KEYS.map((k) => [k, limitValue])) as Record<LimitKey, typeof limitValue>,
 );
 
 const planKeySchema = z
@@ -115,10 +112,7 @@ export const planFormSchema = planInputSchema.extend({
           value: z.number({ error: "Enter a number" }).int("Whole numbers only").min(0).max(1e6),
         }),
       ]),
-    ) as Record<
-      LimitKey,
-      z.ZodObject<{ unlimited: z.ZodBoolean; value: z.ZodNumber }>
-    >,
+    ) as Record<LimitKey, z.ZodObject<{ unlimited: z.ZodBoolean; value: z.ZodNumber }>>,
   ),
 });
 export type PlanFormValues = z.infer<typeof planFormSchema>;

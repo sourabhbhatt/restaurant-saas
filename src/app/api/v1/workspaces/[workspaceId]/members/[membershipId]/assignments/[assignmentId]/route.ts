@@ -10,12 +10,7 @@ export const DELETE = route(
   },
   async ({ actor, params, meta, c }) => {
     const scope = await c.access.forWorkspace(actor, params.workspaceId);
-    await tenancyService(c).removeAssignment(
-      scope,
-      params.membershipId,
-      params.assignmentId,
-      meta,
-    );
+    await tenancyService(c).removeAssignment(scope, params.membershipId, params.assignmentId, meta);
     return { data: { ok: true } };
   },
 );

@@ -101,9 +101,8 @@ export function useMarkNotificationsRead() {
         };
       };
       const snapshot = qc.getQueriesData({ queryKey: notificationKeys.all });
-      qc.setQueriesData<NotificationListDto>(
-        { queryKey: ["notifications", "bell"] },
-        (old) => (old ? touch(old) : old),
+      qc.setQueriesData<NotificationListDto>({ queryKey: ["notifications", "bell"] }, (old) =>
+        old ? touch(old) : old,
       );
       qc.setQueriesData<InfiniteData<NotificationListDto>>(
         { queryKey: ["notifications", "list"] },

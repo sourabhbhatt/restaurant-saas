@@ -1,9 +1,4 @@
-import type {
-  BranchMenu,
-  BranchOverrideDto,
-  MenuCategoryDto,
-  MenuItemDto,
-} from "@/contracts/menu";
+import type { BranchMenu, BranchOverrideDto, MenuCategoryDto, MenuItemDto } from "@/contracts/menu";
 import type { Allergen, DietaryType } from "@/domain/menu/pricing";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
@@ -116,10 +111,7 @@ export interface MenuRepository {
     input: Tenant & { branchId: string; itemId: string },
     values: { price: number | null; discountedPrice: number | null; isAvailable: boolean | null },
   ): Promise<BranchOverrideDto>;
-  findOverride(
-    t: Tenant & { branchId: string },
-    itemId: string,
-  ): Promise<BranchOverrideDto | null>;
+  findOverride(t: Tenant & { branchId: string }, itemId: string): Promise<BranchOverrideDto | null>;
   listOverrides(t: Tenant & { branchId: string }): Promise<BranchOverrideDto[]>;
   loadBranchMenu(
     t: Tenant & { branchId: string },

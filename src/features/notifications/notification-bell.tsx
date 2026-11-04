@@ -29,10 +29,9 @@ export function NotificationBell({ workspaceId }: { workspaceId: string }) {
   const items = bell.data?.items ?? [];
 
   const mark = (input: { ids: string[] } | { all: true }) =>
-    markRead.mutate(
-      "all" in input ? { all: true, workspaceId } : { ids: input.ids },
-      { onError: (error) => toast.error(errorMessage(error)) },
-    );
+    markRead.mutate("all" in input ? { all: true, workspaceId } : { ids: input.ids }, {
+      onError: (error) => toast.error(errorMessage(error)),
+    });
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

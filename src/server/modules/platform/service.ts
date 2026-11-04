@@ -47,20 +47,10 @@ import {
 
 import { recordAudit } from "../../audit/audit-service";
 import type { WorkspaceScope } from "../../authz/access-service";
-import {
-  auditActorFor,
-  type AuditActor,
-  type RequestMeta,
-  type UserActor,
-} from "../../context";
+import { auditActorFor, type AuditActor, type RequestMeta, type UserActor } from "../../context";
 import type { Clock, Logger } from "../../ports/observability";
 import type { EntitlementService } from "../../subscriptions/entitlement-service";
-import type {
-  AuditFilter,
-  PlatformMailer,
-  PlatformRepos,
-  SubscriptionRow,
-} from "./ports";
+import type { AuditFilter, PlatformMailer, PlatformRepos, SubscriptionRow } from "./ports";
 
 export interface PlatformServiceDeps {
   tx: TransactionRunner<PlatformRepos>;
@@ -95,7 +85,12 @@ function assertAdmin(actor: UserActor): void {
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 const fmtDate = (d: Date) =>
-  d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  d.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 
 export function toPublicPlan(p: AdminPlanDto): PublicPlanDto {
   return {
@@ -107,9 +102,7 @@ export function toPublicPlan(p: AdminPlanDto): PublicPlanDto {
     annualPrice: p.annualPrice,
     isTrialEligible: p.isTrialEligible,
     limits: p.limits,
-    features: p.features
-      .filter((f) => f in FEATURES)
-      .map((f) => ({ key: f, label: FEATURES[f] })),
+    features: p.features.filter((f) => f in FEATURES).map((f) => ({ key: f, label: FEATURES[f] })),
   };
 }
 
@@ -223,10 +216,7 @@ export function createPlatformService(deps: PlatformServiceDeps) {
      */
     async getSubscriptionOverview(scope: WorkspaceScope): Promise<SubscriptionOverviewDto> {
       if (!scope.can("workspace.subscription.view")) throw forbidden();
-      const [usage, s] = await Promise.all([
-        entitlements.getUsage(scope.workspaceId),
-        settings(),
-      ]);
+      const [usage, s] = await Promise.all([entitlements.getUsage(scope.workspaceId), settings()]);
       return tx.read(async (r) => {
         const [ws, sub, plans, history, pendingUpgrade] = await Promise.all([
           r.platform.findWorkspace(scope.workspaceId),
@@ -1082,7 +1072,11 @@ export function createPlatformService(deps: PlatformServiceDeps) {
         if (input.status !== undefined && input.status !== req.status) {
           patch.status = input.status;
           const done = input.status === "RESOLVED" || input.status === "CLOSED";
-          patch.resolvedAt = done ? (req.resolvedAt ? new Date(req.resolvedAt) : clock.now()) : null;
+          patch.resolvedAt = done
+            ? req.resolvedAt
+              ? new Date(req.resolvedAt)
+              : clock.now()
+            : null;
         }
         if (input.priority !== undefined) patch.priority = input.priority;
         if (input.assignee !== undefined) {

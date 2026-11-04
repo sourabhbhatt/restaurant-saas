@@ -1,4 +1,10 @@
-import { BellRingIcon, ChefHatIcon, HandPlatterIcon, ShieldCheckIcon, TimerIcon } from "lucide-react";
+import {
+  BellRingIcon,
+  ChefHatIcon,
+  HandPlatterIcon,
+  ShieldCheckIcon,
+  TimerIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 

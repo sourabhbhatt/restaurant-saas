@@ -425,9 +425,7 @@ export function menuRepository(db: Executor): MenuRepository {
         .where(
           and(
             catWhere(t, categoryId),
-            expectedVersion !== undefined
-              ? eq(menuCategories.version, expectedVersion)
-              : undefined,
+            expectedVersion !== undefined ? eq(menuCategories.version, expectedVersion) : undefined,
           ),
         )
         .returning();

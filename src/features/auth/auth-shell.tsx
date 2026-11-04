@@ -24,9 +24,12 @@ export function AuthShell({ children }: { children: ReactNode }) {
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 [mask-image:linear-gradient(to_bottom,black,transparent)] bg-[radial-gradient(color-mix(in_oklch,white_22%,transparent)_1px,transparent_1px)] [background-size:22px_22px] opacity-50"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(color-mix(in_oklch,white_22%,transparent)_1px,transparent_1px)] [mask-image:linear-gradient(to_bottom,black,transparent)] [background-size:22px_22px] opacity-50"
         />
-        <BrandLogo className="relative" markClassName="bg-primary-foreground text-primary shadow-none" />
+        <BrandLogo
+          className="relative"
+          markClassName="bg-primary-foreground text-primary shadow-none"
+        />
         <div className="relative flex max-w-md flex-col gap-8">
           <p className="text-3xl leading-tight font-semibold tracking-tight text-balance xl:text-4xl">
             Every table, kitchen and counter — in step.
@@ -53,7 +56,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           </Link>
         </div>
         <main id="main" className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8">
-          <div className="w-full max-w-md motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-500">
+          <div className="w-full max-w-md motion-safe:animate-in motion-safe:duration-500 motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
             {children}
           </div>
         </main>

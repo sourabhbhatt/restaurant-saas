@@ -10,7 +10,10 @@ import type { useAlertSound } from "./alert-sound";
 export function SoundControl({ sound }: { sound: ReturnType<typeof useAlertSound> }) {
   if (!sound.branchEnabled) {
     return (
-      <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex" title="Sound is turned off in branch settings">
+      <span
+        className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex"
+        title="Sound is turned off in branch settings"
+      >
         <VolumeX className="size-4" aria-hidden /> Sound off
       </span>
     );

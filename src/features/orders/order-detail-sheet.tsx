@@ -21,7 +21,11 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { OrderDto } from "@/contracts/orders";
-import { ORDER_PRIORITIES, TERMINAL_ORDER_STATUSES, type OrderPriority } from "@/domain/orders/order-status";
+import {
+  ORDER_PRIORITIES,
+  TERMINAL_ORDER_STATUSES,
+  type OrderPriority,
+} from "@/domain/orders/order-status";
 import { formatMoney } from "@/domain/shared/money";
 import { errorMessage } from "@/lib/api-client";
 
@@ -101,7 +105,9 @@ export function OrderDetailSheet({
         <SheetHeader>
           <SheetTitle>{order ? `Order #${order.orderNumber}` : "Order"}</SheetTitle>
           <SheetDescription>
-            {order ? `${order.tableName} · ${order.source === "STAFF" ? "Staff order" : "QR order"}` : "Loading order"}
+            {order
+              ? `${order.tableName} · ${order.source === "STAFF" ? "Staff order" : "QR order"}`
+              : "Loading order"}
           </SheetDescription>
         </SheetHeader>
         <SheetBody className="flex flex-col gap-5">
@@ -118,11 +124,13 @@ export function OrderDetailSheet({
               <div className="flex flex-wrap items-center gap-2">
                 <OrderStatusBadge status={order.status} />
                 <PriorityBadge priority={order.priority} />
-                {canPriority && !TERMINAL_ORDER_STATUSES.includes(order.status) && order.status !== "SERVED" && (
-                  <div className="ml-auto">
-                    <PrioritySelect branchId={branchId} order={order} />
-                  </div>
-                )}
+                {canPriority &&
+                  !TERMINAL_ORDER_STATUSES.includes(order.status) &&
+                  order.status !== "SERVED" && (
+                    <div className="ml-auto">
+                      <PrioritySelect branchId={branchId} order={order} />
+                    </div>
+                  )}
               </div>
               {order.rejectionReason && (
                 <p className="text-sm text-destructive">Rejected: {order.rejectionReason}</p>
@@ -139,7 +147,9 @@ export function OrderDetailSheet({
                 <Separator />
                 <div className="flex items-center justify-between text-sm font-semibold">
                   <span>Subtotal</span>
-                  <span className="tabular-nums">{formatMoney(order.subtotal, order.currency)}</span>
+                  <span className="tabular-nums">
+                    {formatMoney(order.subtotal, order.currency)}
+                  </span>
                 </div>
               </section>
               <section aria-labelledby="order-times-h" className="flex flex-col gap-2">
@@ -154,7 +164,10 @@ export function OrderDetailSheet({
                 <Stamp label="Completed" at={order.completedAt} />
               </section>
               <section aria-labelledby="order-timeline-h" className="flex flex-col gap-3">
-                <h3 id="order-timeline-h" className="flex items-center gap-1.5 text-sm font-semibold">
+                <h3
+                  id="order-timeline-h"
+                  className="flex items-center gap-1.5 text-sm font-semibold"
+                >
                   <User className="size-4" aria-hidden /> History
                 </h3>
                 <OrderTimeline events={order.timeline ?? []} />

@@ -13,14 +13,14 @@ const SECTIONS: LegalSection[] = [
       <>
         <p>
           {n} is operated by {BRAND.legalEntity}, a company registered in {BRAND.jurisdiction} at
-          [registered address] (&quot;we&quot;, &quot;us&quot;). This policy explains how we
-          process personal data in line with the Digital Personal Data Protection Act, 2023, the
-          Information Technology Act, 2000 and the rules made under them.
+          [registered address] (&quot;we&quot;, &quot;us&quot;). This policy explains how we process
+          personal data in line with the Digital Personal Data Protection Act, 2023, the Information
+          Technology Act, 2000 and the rules made under them.
         </p>
         <ul>
           <li>
-            For <strong>account data</strong> (owners and staff who sign in), we decide how the
-            data is used and act as the Data Fiduciary.
+            For <strong>account data</strong> (owners and staff who sign in), we decide how the data
+            is used and act as the Data Fiduciary.
           </li>
           <li>
             For <strong>restaurant operational data</strong> — menus, tables, orders, bills and the
@@ -56,8 +56,8 @@ const SECTIONS: LegalSection[] = [
           visit, plus any note the guest types.
         </li>
         <li>
-          <strong>Technical data:</strong> IP address, browser and device type, request logs, and
-          an audit trail of important actions taken in a workspace.
+          <strong>Technical data:</strong> IP address, browser and device type, request logs, and an
+          audit trail of important actions taken in a workspace.
         </li>
         <li>
           <strong>Communications:</strong> emails and support requests you send us.
@@ -95,7 +95,9 @@ const SECTIONS: LegalSection[] = [
             kept on the device until they sync or are cleared.
           </li>
         </ul>
-        <p>We do not use advertising cookies. [Update this section if analytics tools are added.]</p>
+        <p>
+          We do not use advertising cookies. [Update this section if analytics tools are added.]
+        </p>
       </>
     ),
   },
@@ -152,7 +154,8 @@ const SECTIONS: LegalSection[] = [
           </li>
           <li>
             <strong>Inactive workspaces:</strong> if a workspace stays expired for more than [24]
-            months, we may delete it after giving the owner at least [30] days&apos; notice by email.
+            months, we may delete it after giving the owner at least [30] days&apos; notice by
+            email.
           </li>
           <li>
             Backups are overwritten on a rolling basis within [35] days. Records we must keep by law
@@ -190,8 +193,8 @@ const SECTIONS: LegalSection[] = [
     title: "Children",
     body: (
       <p>
-        Staff accounts are for adults (18+). The service is not directed at children. Restaurants are
-        responsible for how they serve guests who are minors.
+        Staff accounts are for adults (18+). The service is not directed at children. Restaurants
+        are responsible for how they serve guests who are minors.
       </p>
     ),
   },
@@ -211,8 +214,9 @@ const SECTIONS: LegalSection[] = [
     title: "Changes to this policy",
     body: (
       <p>
-        We will post changes on this page and, for material changes, notify workspace owners by email
-        before they take effect. See also our <Link href="/legal/terms">terms of service</Link>.
+        We will post changes on this page and, for material changes, notify workspace owners by
+        email before they take effect. See also our{" "}
+        <Link href="/legal/terms">terms of service</Link>.
       </p>
     ),
   },

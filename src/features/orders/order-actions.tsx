@@ -68,10 +68,7 @@ export function OrderActionButtons({
   if (actions.length === 0) return null;
 
   const run = (action: Action, reason?: string) =>
-    mutation.mutate(
-      { order, action, reason },
-      { onSettled: () => setReasonFor(null) },
-    );
+    mutation.mutate({ order, action, reason }, { onSettled: () => setReasonFor(null) });
 
   return (
     <div className={cn("flex flex-wrap gap-2", className)}>

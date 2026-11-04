@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { ClockIcon } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 import { ALLERGEN_LABELS, DIETARY_LABELS, type BranchMenuItem } from "@/contracts/menu";
 import { effectiveItemPrice, priceSelection } from "@/domain/menu/pricing";
@@ -47,7 +47,9 @@ export function ItemSheet({ item, open, onOpenChange, ...rest }: ItemSheetProps)
         className="mx-auto max-h-[92dvh] w-full max-w-2xl gap-0 sm:rounded-t-2xl"
         aria-describedby={undefined}
       >
-        {item && <ItemSheetBody key={item.id} item={item} onDone={() => onOpenChange(false)} {...rest} />}
+        {item && (
+          <ItemSheetBody key={item.id} item={item} onDone={() => onOpenChange(false)} {...rest} />
+        )}
       </SheetContent>
     </Sheet>
   );
@@ -77,6 +79,7 @@ function ItemSheetBody({
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   // Validation with the same rules the server applies.
   let errors: Record<string, string[]> = {};
@@ -94,7 +97,8 @@ function ItemSheetBody({
     g.addons.filter((a) => addonIds.includes(a.id)).map((a) => ({ ...a, groupName: g.name })),
   );
   const unitPrice = base + selectedAddons.reduce((acc, a) => acc + a.price, 0);
-  const discounted = !variant && item.discountedPrice !== null && effectiveItemPrice(item) < item.price;
+  const discounted =
+    !variant && item.discountedPrice !== null && effectiveItemPrice(item) < item.price;
 
   const toggleAddon = (groupId: string, addonId: string, checked: boolean) => {
     const group = item.addonGroups.find((g) => g.id === groupId);
@@ -112,7 +116,16 @@ function ItemSheetBody({
 
   const submit = () => {
     setSubmitted(true);
-    if (!valid || !canAdd) return;
+    if (!valid) {
+      // Bring the first problem into view and move focus to it.
+      requestAnimationFrame(() => {
+        const invalid = bodyRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+        invalid?.scrollIntoView({ block: "center" });
+        invalid?.querySelector<HTMLElement>("button:not([disabled])")?.focus();
+      });
+      return;
+    }
+    if (!canAdd) return;
     onAdd({
       menuItemId: item.id,
       variantId: variant?.id ?? null,
@@ -169,7 +182,7 @@ function ItemSheetBody({
         )}
       </SheetHeader>
 
-      <SheetBody className="space-y-6 pb-4">
+      <SheetBody ref={bodyRef} className="space-y-6 pb-4">
         {item.variants.length > 0 && (
           <fieldset className="space-y-2" aria-describedby={`${ids}-variant-error`}>
             <legend className="flex w-full items-center justify-between text-sm font-semibold">
@@ -221,7 +234,11 @@ function ItemSheetBody({
                 ? `Choose ${group.minSelect}–${group.maxSelect}`
                 : `Up to ${group.maxSelect}`;
           return (
-            <fieldset key={group.id} className="space-y-2" aria-describedby={`${ids}-${group.id}-hint`}>
+            <fieldset
+              key={group.id}
+              className="space-y-2"
+              aria-describedby={`${ids}-${group.id}-hint`}
+            >
               <legend className="flex w-full items-center justify-between text-sm font-semibold">
                 {group.name}
                 <span
@@ -279,7 +296,8 @@ function ItemSheetBody({
 
         <div className="space-y-2">
           <label htmlFor={`${ids}-notes`} className="text-sm font-semibold">
-            Notes for the kitchen <span className="font-normal text-muted-foreground">(optional)</span>
+            Notes for the kitchen{" "}
+            <span className="font-normal text-muted-foreground">(optional)</span>
           </label>
           <Textarea
             id={`${ids}-notes`}
@@ -289,7 +307,9 @@ function ItemSheetBody({
             placeholder="e.g. less spicy, no onions"
             rows={2}
           />
-          <p className="text-right text-xs text-muted-foreground tabular-nums">{notes.length}/200</p>
+          <p className="text-right text-xs text-muted-foreground tabular-nums">
+            {notes.length}/200
+          </p>
         </div>
       </SheetBody>
 

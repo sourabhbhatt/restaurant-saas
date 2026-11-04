@@ -1,7 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { GET as getPreferences, PUT as putPreferences } from "@/app/api/v1/notifications/preferences/route";
+import {
+  GET as getPreferences,
+  PUT as putPreferences,
+} from "@/app/api/v1/notifications/preferences/route";
 import { POST as markRead } from "@/app/api/v1/notifications/read/route";
 import { GET as listNotifications } from "@/app/api/v1/notifications/route";
 import { GET as pushConfig } from "@/app/api/v1/push/config/route";
@@ -156,9 +159,9 @@ describe("notification center", () => {
   it("validates mark-read input and blocks cross-site requests", async () => {
     const user = await signUpUser();
     expect((await call(markRead, { cookie: user.cookie, body: {} })).status).toBe(422);
-    expect(
-      (await call(markRead, { cookie: user.cookie, body: { ids: ["nope"] } })).status,
-    ).toBe(422);
+    expect((await call(markRead, { cookie: user.cookie, body: { ids: ["nope"] } })).status).toBe(
+      422,
+    );
     expect(
       (
         await call(markRead, {
@@ -246,7 +249,11 @@ describe("notification preferences", () => {
 });
 
 describe("push subscriptions", () => {
-  const keys = { p256dh: "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM", auth: "tBHItJI5svbpez7KI4CCXg" };
+  const keys = {
+    p256dh:
+      "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM",
+    auth: "tBHItJI5svbpez7KI4CCXg",
+  };
 
   it("reports push disabled with the noop provider", async () => {
     const user = await signUpUser();

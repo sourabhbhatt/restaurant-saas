@@ -162,10 +162,10 @@ export function DefinitionsNote() {
   return (
     <p className="text-xs text-muted-foreground">
       <strong className="font-medium text-foreground">Collected</strong> is confirmed payments minus
-      refunds recorded in the period. <strong className="font-medium text-foreground">Billed</strong>{" "}
-      is the grand total of non-void bills issued in the period. Order value and average order
-      value exclude rejected and cancelled orders and are before tax. Dates are in each branch&apos;s
-      local time.
+      refunds recorded in the period.{" "}
+      <strong className="font-medium text-foreground">Billed</strong> is the grand total of non-void
+      bills issued in the period. Order value and average order value exclude rejected and cancelled
+      orders and are before tax. Dates are in each branch&apos;s local time.
     </p>
   );
 }

@@ -220,7 +220,12 @@ export function createOrderingService(deps: OrderingServiceDeps) {
       lines: priced.lines,
       history: isStaff
         ? [
-            { fromStatus: null, toStatus: "PENDING", actorType: "USER", actorUserId: placedBy.userId },
+            {
+              fromStatus: null,
+              toStatus: "PENDING",
+              actorType: "USER",
+              actorUserId: placedBy.userId,
+            },
             {
               fromStatus: "PENDING",
               toStatus: "ACCEPTED",
@@ -321,12 +326,18 @@ export function createOrderingService(deps: OrderingServiceDeps) {
         }
         const { session, created } = await findOrOpenSession(r, table, null);
         if (created) {
-          await recordAudit(r.audit, guestActor(meta), "session.opened", {
-            workspaceId: table.workspaceId,
-            branchId: table.branchId,
-            targetType: "table_session",
-            targetId: session.id,
-          }, { tableId: table.tableId, via: "qr" });
+          await recordAudit(
+            r.audit,
+            guestActor(meta),
+            "session.opened",
+            {
+              workspaceId: table.workspaceId,
+              branchId: table.branchId,
+              targetType: "table_session",
+              targetId: session.id,
+            },
+            { tableId: table.tableId, via: "qr" },
+          );
         }
         await r.ordering.insertMember({
           workspaceId: table.workspaceId,
@@ -375,9 +386,7 @@ export function createOrderingService(deps: OrderingServiceDeps) {
         allowBillRequest: table.allowCustomerBillRequest,
         canOrder,
         canRequestBill:
-          table.allowCustomerBillRequest &&
-          session.status === "OPEN" &&
-          hasActiveOrders,
+          table.allowCustomerBillRequest && session.status === "OPEN" && hasActiveOrders,
         orders,
         bill,
       };
@@ -403,7 +412,12 @@ export function createOrderingService(deps: OrderingServiceDeps) {
           );
         }
         const order = await tx.read((r) =>
-          r.ordering.getGuestOrder(table.workspaceId, existing.sessionId, guest.memberId, existing.id),
+          r.ordering.getGuestOrder(
+            table.workspaceId,
+            existing.sessionId,
+            guest.memberId,
+            existing.id,
+          ),
         );
         if (!order) throw notFound("Order");
         return order;
@@ -493,7 +507,12 @@ export function createOrderingService(deps: OrderingServiceDeps) {
         sessionId: guest.session.id,
       });
       const order = await tx.read((r) =>
-        r.ordering.getGuestOrder(table.workspaceId, guest.session.id, guest.memberId, created.orderId),
+        r.ordering.getGuestOrder(
+          table.workspaceId,
+          guest.session.id,
+          guest.memberId,
+          created.orderId,
+        ),
       );
       if (!order) throw notFound("Order");
       return { order, replay: false };
@@ -511,7 +530,8 @@ export function createOrderingService(deps: OrderingServiceDeps) {
         billRequestedAt: s.billRequestedAt?.toISOString() ?? null,
         alreadyRequested: true,
       });
-      if (session.status === "BILL_REQUESTED" || session.status === "BILLED") return already(session);
+      if (session.status === "BILL_REQUESTED" || session.status === "BILLED")
+        return already(session);
       if (session.status === "CLOSED") {
         throw new DomainError("INVALID_STATE_TRANSITION", "This table session has already ended.");
       }
@@ -534,12 +554,18 @@ export function createOrderingService(deps: OrderingServiceDeps) {
           body: "A guest asked for the bill.",
           data: { sessionId: session.id, tableId: table.tableId, branchId: table.branchId },
         });
-        await recordAudit(r.audit, guestActor(meta), "session.bill_requested", {
-          workspaceId: table.workspaceId,
-          branchId: table.branchId,
-          targetType: "table_session",
-          targetId: session.id,
-        }, { tableId: table.tableId });
+        await recordAudit(
+          r.audit,
+          guestActor(meta),
+          "session.bill_requested",
+          {
+            workspaceId: table.workspaceId,
+            branchId: table.branchId,
+            targetType: "table_session",
+            targetId: session.id,
+          },
+          { tableId: table.tableId },
+        );
         return { session: updated, changed: true };
       });
 
@@ -602,12 +628,18 @@ export function createOrderingService(deps: OrderingServiceDeps) {
           const locked = (await r.ordering.lockSession(table.workspaceId, session.id)) ?? session;
           assertSessionAcceptsOrders(locked);
           if (sessionCreated) {
-            await recordAudit(r.audit, auditActorFor(scope.actor, meta), "session.opened", {
-              workspaceId: table.workspaceId,
-              branchId: table.branchId,
-              targetType: "table_session",
-              targetId: session.id,
-            }, { tableId: table.tableId, via: "staff" });
+            await recordAudit(
+              r.audit,
+              auditActorFor(scope.actor, meta),
+              "session.opened",
+              {
+                workspaceId: table.workspaceId,
+                branchId: table.branchId,
+                targetType: "table_session",
+                targetId: session.id,
+              },
+              { tableId: table.tableId, via: "staff" },
+            );
           }
           const result = await createOrder(r, {
             table,

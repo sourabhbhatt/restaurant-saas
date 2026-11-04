@@ -54,7 +54,11 @@ export function BillView({
   if (joined && (isError || !session)) {
     return (
       <div className="p-4">
-        <ErrorState title="Couldn't load the bill" message={errorMessage(error)} onRetry={onRetry} />
+        <ErrorState
+          title="Couldn't load the bill"
+          message={errorMessage(error)}
+          onRetry={onRetry}
+        />
       </div>
     );
   }
@@ -86,7 +90,10 @@ export function BillView({
 
   return (
     <div className="p-4">
-      <article className="rounded-2xl border bg-card p-4 shadow-xs" aria-label={`Bill ${bill.billNumber}`}>
+      <article
+        className="rounded-2xl border bg-card p-4 shadow-xs"
+        aria-label={`Bill ${bill.billNumber}`}
+      >
         <header className="flex items-start justify-between gap-3 border-b pb-3">
           <div>
             <h2 className="text-lg font-semibold">Bill #{bill.billNumber}</h2>
@@ -124,7 +131,9 @@ export function BillView({
 
         <dl className="mt-3 space-y-1.5 border-t pt-3 text-sm">
           <Row label="Subtotal" value={money(bill.subtotal)} />
-          {bill.discountAmount > 0 && <Row label="Discount" value={`− ${money(bill.discountAmount)}`} />}
+          {bill.discountAmount > 0 && (
+            <Row label="Discount" value={`− ${money(bill.discountAmount)}`} />
+          )}
           {bill.serviceChargeAmount > 0 && (
             <Row
               label={`Service charge (${bps(bill.serviceChargeBps)})`}
@@ -162,7 +171,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between text-muted-foreground">
       <dt>{label}</dt>
-      <dd className="tabular-nums text-foreground">{value}</dd>
+      <dd className="text-foreground tabular-nums">{value}</dd>
     </div>
   );
 }

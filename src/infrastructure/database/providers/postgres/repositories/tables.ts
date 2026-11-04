@@ -100,9 +100,7 @@ export function tableRepository(db: Executor): TableRepository {
         sortOrder: r.sortOrder,
         version: r.version,
         createdAt: r.createdAt,
-        session: s
-          ? { id: s.id, status: s.status as SessionStatus, openedAt: s.openedAt }
-          : null,
+        session: s ? { id: s.id, status: s.status as SessionStatus, openedAt: s.openedAt } : null,
         bill: b ? { paymentStatus: b.paymentStatus as PaymentStatus } : null,
         qr: { active: Boolean(q), createdAt: q?.createdAt ?? null },
       };

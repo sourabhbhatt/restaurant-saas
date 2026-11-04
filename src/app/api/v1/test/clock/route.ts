@@ -31,6 +31,9 @@ export const POST = route({ auth: "optional" }, async ({ req, actor, c }) => {
   // Parsed here (not via route config) so a disabled hook always answers 404.
   const body = testClockSchema.parse(await req.json().catch(() => ({})));
   c.clock.setOffsetMs(Math.round(body.offsetDays * 86_400_000));
-  c.logger.warn("test_clock_offset_changed", { offsetDays: body.offsetDays, userId: actor!.userId });
+  c.logger.warn("test_clock_offset_changed", {
+    offsetDays: body.offsetDays,
+    userId: actor!.userId,
+  });
   return { data: snapshot(c) };
 });

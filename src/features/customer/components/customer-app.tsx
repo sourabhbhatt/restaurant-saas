@@ -10,7 +10,7 @@ import {
   UtensilsCrossedIcon,
   WifiOffIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import type { BranchMenuItem } from "@/contracts/menu";
@@ -74,7 +74,8 @@ export function CustomerApp() {
   }, []);
 
   // Apply the restaurant's brand colour to portalled sheets/dialogs too.
-  const brand = menu.data ? brandStyle(menu.data.branding.brandColor) : undefined;
+  const brandColor = menu.data?.branding.brandColor ?? null;
+  const brand = useMemo(() => brandStyle(brandColor), [brandColor]);
   useEffect(() => {
     if (!brand) return;
     const body = document.body.style;
@@ -90,8 +91,7 @@ export function CustomerApp() {
     sessionQuery.data && sessionQuery.data.session.id === joined.sessionId
       ? sessionQuery.data
       : undefined;
-  const sessionLost =
-    sessionQuery.error instanceof ApiError && sessionQuery.error.status === 401;
+  const sessionLost = sessionQuery.error instanceof ApiError && sessionQuery.error.status === 401;
   const isJoined = joined.sessionId !== null && !sessionLost && (!sessionQuery.data || !!session);
 
   if (menu.isPending) return <CustomerSkeleton />;
@@ -124,8 +124,9 @@ export function CustomerApp() {
   const { count, subtotal } = cartTotals(lines);
   const canOrder = session ? session.canOrder : true;
   const activeOrders =
-    session?.orders.filter((o) => !["SERVED", "COMPLETED", "REJECTED", "CANCELLED"].includes(o.status))
-      .length ?? 0;
+    session?.orders.filter(
+      (o) => !["SERVED", "COMPLETED", "REJECTED", "CANCELLED"].includes(o.status),
+    ).length ?? 0;
 
   const openItem = (i: BranchMenuItem) => {
     setItem(i);
@@ -150,13 +151,20 @@ export function CustomerApp() {
 
   return (
     <div
-      style={{ ...brand, "--customer-header-h": "64px" } as React.CSSProperties}
+      style={{ ...brand, "--customer-header-h": "64px" } as CSSProperties}
       className="flex min-h-dvh flex-col bg-background"
     >
       <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         {data.branding.logoUrl ? (
           <span className="relative size-10 shrink-0 overflow-hidden rounded-full border bg-muted">
-            <Image src={data.branding.logoUrl} alt="" fill sizes="40px" className="object-cover" unoptimized />
+            <Image
+              src={data.branding.logoUrl}
+              alt=""
+              fill
+              sizes="40px"
+              className="object-cover"
+              unoptimized
+            />
           </span>
         ) : (
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -260,7 +268,12 @@ export function CustomerApp() {
           className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85"
         >
           <div className="mx-auto grid max-w-3xl grid-cols-3">
-            <NavTab icon={<UtensilsCrossedIcon />} label="Menu" active={tab === "menu"} onClick={() => setTab("menu")} />
+            <NavTab
+              icon={<UtensilsCrossedIcon />}
+              label="Menu"
+              active={tab === "menu"}
+              onClick={() => setTab("menu")}
+            />
             <NavTab
               icon={<ClipboardListIcon />}
               label="My orders"
@@ -355,7 +368,7 @@ function NavTab({
   badge = 0,
   dot = false,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;

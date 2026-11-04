@@ -3,12 +3,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
-import { FEATURES, LIMIT_KEYS, type FeatureKey, type LimitKey } from "@/domain/subscriptions/entitlements";
+import {
+  FEATURES,
+  LIMIT_KEYS,
+  type FeatureKey,
+  type LimitKey,
+} from "@/domain/subscriptions/entitlements";
 import { isCurrencyCode, toMajor } from "@/domain/shared/money";
 import { api, ApiError } from "@/lib/api-client";
 
 /**
- * Public plans come from GET /api/v1/public/plans (platform module). Prices and
+ * Public plans come from GET /api/v1/public/plans (platform module, shape
+ * `PublicPlanDto[]` in src/contracts/platform.ts). Prices and
  * limits are data edited by Super Admin, so nothing here is hardcoded. The
  * parser is deliberately tolerant (array or `{ plans }` envelope, optional
  * fields) so a small contract difference degrades gracefully instead of
@@ -27,7 +33,8 @@ const planSchema = z.object({
   annualPrice: z.number().nullish(),
   isTrialEligible: z.boolean().optional(),
   limits: z.record(z.string(), limitValue).nullish(),
-  features: z.array(z.string()).nullish(),
+  /** `PlanFeatureDto[]` ({ key, label }) per src/contracts/platform.ts; bare keys also accepted. */
+  features: z.array(z.union([z.string(), z.object({ key: z.string() }).loose()])).nullish(),
   sortOrder: z.number().optional(),
 });
 
@@ -84,7 +91,9 @@ export function parsePublicPlans(raw: unknown): PublicPlans {
         annualPrice: p.annualPrice ?? null,
         isTrialEligible: p.isTrialEligible ?? true,
         limits,
-        features: (p.features ?? []).filter(isFeatureKey),
+        features: (p.features ?? [])
+          .map((f) => (typeof f === "string" ? f : f.key))
+          .filter(isFeatureKey),
       };
     });
   return { plans, trialDays };
@@ -129,7 +138,7 @@ export function planPrice(plan: PublicPlan, view: BillingView): PlanPriceView {
       return {
         amount: formatPlanPrice(plan.annualPrice, plan.currency),
         period: "/year",
-        note: `≈ ${formatPlanPrice(Math.round(plan.annualPrice / 12), plan.currency)} per month, billed yearly`,
+        note: `≈ ${formatPlanPrice(Math.round(plan.annualPrice / 1200) * 100, plan.currency)} per month, billed yearly`,
       };
     }
     if (plan.monthlyPrice != null) {
@@ -142,7 +151,11 @@ export function planPrice(plan: PublicPlan, view: BillingView): PlanPriceView {
     return { amount: null, period: "", note: null };
   }
   if (plan.monthlyPrice != null) {
-    return { amount: formatPlanPrice(plan.monthlyPrice, plan.currency), period: "/month", note: null };
+    return {
+      amount: formatPlanPrice(plan.monthlyPrice, plan.currency),
+      period: "/month",
+      note: null,
+    };
   }
   if (plan.annualPrice != null) {
     return {

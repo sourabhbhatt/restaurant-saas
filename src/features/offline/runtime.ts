@@ -65,7 +65,9 @@ export function getSyncEngine(): SyncEngine | null {
     withLock: withNavigatorLock,
     onRunStateChange: (syncing) => {
       setSyncState(
-        syncing || !useSyncStore.getState().online ? { syncing } : { syncing, lastSyncAt: Date.now() },
+        syncing || !useSyncStore.getState().online
+          ? { syncing }
+          : { syncing, lastSyncAt: Date.now() },
       );
       if (!syncing) void scheduleWake();
     },

@@ -419,7 +419,9 @@ export function staffOpsRepository(db: Executor): StaffOpsRepository {
       const rows = await db
         .select({ id: orderItems.id, orderId: orderItems.orderId, status: orderItems.status })
         .from(orderItems)
-        .where(and(eq(orderItems.workspaceId, target.workspaceId), eq(orderItems.orderId, orderId)));
+        .where(
+          and(eq(orderItems.workspaceId, target.workspaceId), eq(orderItems.orderId, orderId)),
+        );
       return rows.map((r) => ({ ...r, status: r.status as OrderItemStatus }));
     },
 
@@ -475,7 +477,9 @@ export function staffOpsRepository(db: Executor): StaffOpsRepository {
           ),
         )
         .limit(1);
-      return row ?? { kitchenDelayMinutes: 20, kitchenSoundEnabled: true, waiterSoundEnabled: true };
+      return (
+        row ?? { kitchenDelayMinutes: 20, kitchenSoundEnabled: true, waiterSoundEnabled: true }
+      );
     },
 
     async kitchenFeed(target, recentSince, fallbackPrepMinutes) {
@@ -490,7 +494,10 @@ export function staffOpsRepository(db: Executor): StaffOpsRepository {
             or(
               and(
                 inArray(orders.status, ["SERVED", "COMPLETED"]),
-                gte(sql`coalesce(${orders.servedAt}, ${orders.completedAt}, ${orders.updatedAt})`, recentSince),
+                gte(
+                  sql`coalesce(${orders.servedAt}, ${orders.completedAt}, ${orders.updatedAt})`,
+                  recentSince,
+                ),
               ),
               and(
                 eq(orders.status, "CANCELLED"),

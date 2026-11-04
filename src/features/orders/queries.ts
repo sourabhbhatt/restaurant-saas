@@ -27,8 +27,7 @@ export function useBranchOrders(
   const key = { ...filters } as Record<string, string | number | undefined>;
   return useQuery({
     queryKey: staffOpsKeys.orders(branchId, key),
-    queryFn: ({ signal }) =>
-      api.get<OrderDto[]>(`/branches/${branchId}/orders`, key, signal),
+    queryFn: ({ signal }) => api.get<OrderDto[]>(`/branches/${branchId}/orders`, key, signal),
     refetchInterval: options.refetchInterval,
     enabled: options.enabled ?? true,
     placeholderData: (prev) => prev,

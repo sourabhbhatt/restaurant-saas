@@ -1,9 +1,18 @@
 "use client";
 
-import { ArrowLeft, BellRing, ChefHat, ClipboardCheck, HandPlatter, History, LayoutGrid, Inbox } from "lucide-react";
+import {
+  ArrowLeft,
+  BellRing,
+  ChefHat,
+  ClipboardCheck,
+  HandPlatter,
+  History,
+  LayoutGrid,
+  Inbox,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { EmptyState, ErrorState, PageSkeleton, StatusBadge } from "@/components/shared/feedback";
@@ -78,7 +87,7 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
   const [lane, setLane] = useState<Lane>("new");
   const [tableId, setTableId] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
-  const today = useMemo(startOfToday, []);
+  const [today] = useState(startOfToday);
 
   const active = useBranchOrders(
     branchId,
@@ -92,7 +101,10 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
   const history = useBranchOrders(
     branchId,
     { status: "SERVED,COMPLETED,REJECTED,CANCELLED", from: today, limit: 100 },
-    { refetchInterval: tab === "history" ? realtime.pollInterval : false, enabled: tab === "history" },
+    {
+      refetchInterval: tab === "history" ? realtime.pollInterval : false,
+      enabled: tab === "history",
+    },
   );
 
   const sound = useAlertSound(
@@ -103,34 +115,34 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
   const lanes = useMemo(() => {
     const all = active.data ?? [];
     return {
-      new: all.filter((o) => o.status === "PENDING").sort((a, b) => time(a.createdAt) - time(b.createdAt)),
+      new: all
+        .filter((o) => o.status === "PENDING")
+        .sort((a, b) => time(a.createdAt) - time(b.createdAt)),
       kitchen: all
         .filter((o) => o.status === "ACCEPTED" || o.status === "PREPARING")
         .sort((a, b) => time(a.acceptedAt) - time(b.acceptedAt)),
-      ready: all.filter((o) => o.status === "READY").sort((a, b) => time(a.readyAt) - time(b.readyAt)),
+      ready: all
+        .filter((o) => o.status === "READY")
+        .sort((a, b) => time(a.readyAt) - time(b.readyAt)),
     };
   }, [active.data]);
 
   const [fresh, setFresh] = useState<Set<string>>(new Set());
-  const onNewPending = useCallback(
-    (ids: string[]) => {
-      sound.play("new");
-      const orders = (active.data ?? []).filter((o) => ids.includes(o.id));
-      for (const o of orders) {
-        toast.info(`New order #${o.orderNumber} · ${o.tableName}`, {
-          description: o.items.map((i) => `${i.quantity}× ${i.itemName}`).join(", "),
-          action: { label: "View", onClick: () => setOrderId(o.id) },
-        });
-      }
-      setFresh((s) => new Set([...s, ...ids]));
-      setTimeout(() => setFresh((s) => new Set([...s].filter((x) => !ids.includes(x)))), 15_000);
-    },
-    [active.data, sound],
-  );
+  const onNewPending = (ids: string[]) => {
+    sound.play("new");
+    const orders = (active.data ?? []).filter((o) => ids.includes(o.id));
+    for (const o of orders) {
+      toast.info(`New order #${o.orderNumber} · ${o.tableName}`, {
+        description: o.items.map((i) => `${i.quantity}× ${i.itemName}`).join(", "),
+        action: { label: "View", onClick: () => setOrderId(o.id) },
+      });
+    }
+    setFresh((s) => new Set([...s, ...ids]));
+    setTimeout(() => setFresh((s) => new Set([...s].filter((x) => !ids.includes(x)))), 15_000);
+  };
   useNewIds(active.data ? lanes.new.map((o) => o.id) : undefined, onNewPending);
 
-  const onNewReady = useCallback(() => sound.play("ready"), [sound]);
-  useNewIds(active.data ? lanes.ready.map((o) => o.id) : undefined, onNewReady);
+  useNewIds(active.data ? lanes.ready.map((o) => o.id) : undefined, () => sound.play("ready"));
 
   const tables = sessions.data?.tables ?? [];
   const billRequests = tables
@@ -161,7 +173,11 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
     <ErrorState message={errorMessage(active.error)} onRetry={() => void active.refetch()} />
   ) : (
     <>
-      <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-muted p-1 md:hidden" role="tablist" aria-label="Order lanes">
+      <div
+        className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-muted p-1 md:hidden"
+        role="tablist"
+        aria-label="Order lanes"
+      >
         {(
           [
             ["new", "New", lanes.new.length],
@@ -184,7 +200,9 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
             <span
               className={cn(
                 "min-w-5 rounded-full px-1.5 text-xs tabular-nums",
-                key === "new" && count > 0 ? "bg-warning text-warning-foreground" : "bg-muted-foreground/15",
+                key === "new" && count > 0
+                  ? "bg-warning text-warning-foreground"
+                  : "bg-muted-foreground/15",
               )}
             >
               {count}
@@ -199,7 +217,13 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
           count={lanes.new.length}
           tone="warning"
           className={cn(lane !== "new" && "max-md:hidden")}
-          empty={<EmptyState size="compact" title="No new orders" description="New QR orders appear here for approval." />}
+          empty={
+            <EmptyState
+              size="compact"
+              title="No new orders"
+              description="New QR orders appear here for approval."
+            />
+          }
         >
           {lanes.new.map(card)}
         </LaneColumn>
@@ -254,7 +278,11 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
         </div>
       </header>
 
-      <Tabs value={tab} onValueChange={setTab} className="mx-auto w-full max-w-[1600px] flex-1 gap-4 p-4">
+      <Tabs
+        value={tab}
+        onValueChange={setTab}
+        className="mx-auto w-full max-w-[1600px] flex-1 gap-4 p-4"
+      >
         <TabsList className="w-full sm:w-fit">
           <TabsTrigger value="orders">
             <ClipboardCheck aria-hidden /> Orders
@@ -295,7 +323,10 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
                 ))}
               </div>
             ) : sessions.isError && !sessions.data ? (
-              <ErrorState message={errorMessage(sessions.error)} onRetry={() => void sessions.refetch()} />
+              <ErrorState
+                message={errorMessage(sessions.error)}
+                onRetry={() => void sessions.refetch()}
+              />
             ) : (
               <TablesGrid tables={tables} currency={currency} now={now} onSelect={setTableId} />
             )}
@@ -307,7 +338,10 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
             {sessions.isPending ? (
               <Skeleton className="h-32 rounded-xl" />
             ) : sessions.isError && !sessions.data ? (
-              <ErrorState message={errorMessage(sessions.error)} onRetry={() => void sessions.refetch()} />
+              <ErrorState
+                message={errorMessage(sessions.error)}
+                onRetry={() => void sessions.refetch()}
+              />
             ) : billRequests.length === 0 ? (
               <EmptyState
                 icon={<BellRing />}
@@ -317,7 +351,10 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
             ) : (
               <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {billRequests.map((t) => (
-                  <li key={t.tableId} className="flex flex-col gap-3 rounded-xl border-2 border-warning bg-warning/10 p-4">
+                  <li
+                    key={t.tableId}
+                    className="flex flex-col gap-3 rounded-xl border-2 border-warning bg-warning/10 p-4"
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-lg font-semibold">{t.tableName}</p>
@@ -349,7 +386,10 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
           {history.isPending ? (
             <Skeleton className="h-40 rounded-xl" />
           ) : history.isError && !history.data ? (
-            <ErrorState message={errorMessage(history.error)} onRetry={() => void history.refetch()} />
+            <ErrorState
+              message={errorMessage(history.error)}
+              onRetry={() => void history.refetch()}
+            />
           ) : (history.data ?? []).length === 0 ? (
             <EmptyState icon={<History />} title="Nothing finished yet today" />
           ) : (
@@ -365,10 +405,14 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium">{o.tableName}</span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {o.rejectionReason ?? o.cancellationReason ?? o.items.map((i) => `${i.quantity}× ${i.itemName}`).join(", ")}
+                        {o.rejectionReason ??
+                          o.cancellationReason ??
+                          o.items.map((i) => `${i.quantity}× ${i.itemName}`).join(", ")}
                       </span>
                     </span>
-                    <span className="hidden text-sm text-muted-foreground sm:block">{formatClock(o.createdAt)}</span>
+                    <span className="hidden text-sm text-muted-foreground sm:block">
+                      {formatClock(o.createdAt)}
+                    </span>
                     <OrderStatusBadge status={o.status} />
                   </button>
                 </li>

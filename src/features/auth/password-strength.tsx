@@ -11,8 +11,16 @@ import { cn } from "@/lib/utils";
 export function passwordChecks(value: string) {
   return [
     { label: "At least 10 characters", ok: value.length >= 10, required: true },
-    { label: "A letter and a number", ok: /[A-Za-z]/.test(value) && /[0-9]/.test(value), required: true },
-    { label: "Upper and lower case", ok: /[a-z]/.test(value) && /[A-Z]/.test(value), required: false },
+    {
+      label: "A letter and a number",
+      ok: /[A-Za-z]/.test(value) && /[0-9]/.test(value),
+      required: true,
+    },
+    {
+      label: "Upper and lower case",
+      ok: /[a-z]/.test(value) && /[A-Z]/.test(value),
+      required: false,
+    },
     { label: "A symbol", ok: /[^A-Za-z0-9]/.test(value), required: false },
   ];
 }
@@ -54,7 +62,10 @@ export function PasswordStrength({ value, id }: { value: string; id?: string }) 
         {checks.map((c) => (
           <li
             key={c.label}
-            className={cn("flex items-center gap-1.5 text-muted-foreground", c.ok && "text-success")}
+            className={cn(
+              "flex items-center gap-1.5 text-muted-foreground",
+              c.ok && "text-success",
+            )}
           >
             {c.ok ? (
               <CheckIcon aria-hidden="true" className="size-3.5" />

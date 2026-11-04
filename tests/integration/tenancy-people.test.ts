@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { PATCH as patchProfile } from "@/app/api/v1/account/profile/route";
 import { GET as me } from "@/app/api/v1/auth/me/route";
@@ -47,6 +47,7 @@ import {
   roles,
   subscriptionPlans,
   subscriptions,
+  rateLimitBuckets,
 } from "@/infrastructure/database/providers/postgres/schema";
 import type { Container } from "@/server/container";
 import {
@@ -64,6 +65,10 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await c.close();
+});
+// Every test signs up several users from the same (unknown) IP; keep the signup limiter fresh.
+beforeEach(async () => {
+  await c.db.delete(rateLimitBuckets);
 });
 
 async function systemRoleId(key: string) {

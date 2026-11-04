@@ -7,7 +7,7 @@ export default function WaiterLayout({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      <Toaster position="top-center" richColors closeButton />
+      <Toaster position="top-center" />
     </>
   );
 }

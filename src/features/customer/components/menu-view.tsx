@@ -159,7 +159,7 @@ export function MenuView({
             aria-label="Search the menu"
             className="h-11"
           />
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+          <div className="-mx-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 pb-1">
             <FilterChip pressed={filters.has("veg")} onClick={() => toggleFilter("veg")}>
               <DietaryMark dietary="VEG" /> Veg
             </FilterChip>
@@ -167,7 +167,10 @@ export function MenuView({
               <DietaryMark dietary="NON_VEG" /> Non-veg
             </FilterChip>
             {featured.length > 0 && (
-              <FilterChip pressed={filters.has("featured")} onClick={() => toggleFilter("featured")}>
+              <FilterChip
+                pressed={filters.has("featured")}
+                onClick={() => toggleFilter("featured")}
+              >
                 <SparklesIcon className="size-3.5" aria-hidden /> Chef&apos;s picks
               </FilterChip>
             )}
@@ -177,7 +180,7 @@ export function MenuView({
           <nav aria-label="Menu categories">
             <div
               ref={chipBar}
-              className="flex gap-1 overflow-x-auto px-3 py-2 [scrollbar-width:none]"
+              className="flex [scrollbar-width:none] gap-1 overflow-x-auto px-3 py-2"
             >
               {visible.map((c) => (
                 <button
@@ -303,9 +306,12 @@ function ItemCard({
   const customizable = isCustomizable(item);
   const from = startingPrice(item);
   const showFrom =
-    item.variants.length > 1 || item.addonGroups.some((g) => g.minSelect > 0 && g.addons.length > 1);
+    item.variants.length > 1 ||
+    item.addonGroups.some((g) => g.minSelect > 0 && g.addons.length > 1);
   const discounted =
-    item.variants.length === 0 && item.discountedPrice !== null && effectiveItemPrice(item) < item.price;
+    item.variants.length === 0 &&
+    item.discountedPrice !== null &&
+    effectiveItemPrice(item) < item.price;
 
   return (
     <div className="relative flex gap-3 py-4">
@@ -324,7 +330,7 @@ function ItemCard({
             </span>
           )}
         </div>
-        <h3 className="mt-1 font-medium leading-snug">{item.name}</h3>
+        <h3 className="mt-1 leading-snug font-medium">{item.name}</h3>
         <p className="mt-0.5 text-sm font-semibold tabular-nums">
           {showFrom && <span className="font-normal text-muted-foreground">from </span>}
           {formatMoney(from, currency)}

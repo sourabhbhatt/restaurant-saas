@@ -8,7 +8,13 @@ const LABELS: Record<string, string> = {
 };
 
 /** Indian-menu style dietary marker: outlined square with a coloured dot. */
-export function DietaryMark({ dietary, className }: { dietary: string | null; className?: string }) {
+export function DietaryMark({
+  dietary,
+  className,
+}: {
+  dietary: string | null;
+  className?: string;
+}) {
   if (!dietary || !LABELS[dietary]) return null;
   const tone =
     dietary === "NON_VEG"

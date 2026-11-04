@@ -36,7 +36,10 @@ export function DevMailbox() {
         </p>
       </div>
       <Button variant="outline" onClick={() => void query.refetch()} disabled={query.isFetching}>
-        <RefreshCwIcon aria-hidden="true" className={cn(query.isFetching && "motion-safe:animate-spin")} />
+        <RefreshCwIcon
+          aria-hidden="true"
+          className={cn(query.isFetching && "motion-safe:animate-spin")}
+        />
         Refresh
       </Button>
     </div>
