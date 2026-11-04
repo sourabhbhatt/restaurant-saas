@@ -56,7 +56,7 @@ type DiscountForm = z.input<typeof discountFormSchema>;
 function toDiscount(values: DiscountForm): BillDiscount | null {
   if (values.type === "NONE") return null;
   const value = parseMajor(values.value) ?? 0;
-  return { type: values.type, value, reason: values.reason?.trim() || null };
+  return { type: values.type, value, reason: values.reason?.trim() || undefined };
 }
 
 interface Props {

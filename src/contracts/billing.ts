@@ -15,7 +15,7 @@ export const billDiscountSchema = z
     type: z.enum(DISCOUNT_TYPES),
     /** PERCENT: basis points (1000 = 10%). FLAT: minor units. */
     value: z.number().int().min(0, "Discount cannot be negative"),
-    reason: z.string().trim().max(200).optional(),
+    reason: z.string().trim().max(200).nullish(),
   })
   .refine((d) => d.type !== "PERCENT" || d.value <= 10_000, {
     message: "Discount cannot exceed 100%",

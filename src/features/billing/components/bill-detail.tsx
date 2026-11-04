@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, Printer, Undo2 } from "lucide-react";
+import { Ban, CheckCircle2, Printer, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import {
 import { useVoidBill } from "../queries";
 import { BillBreakdown, discountLabelFor } from "./bill-breakdown";
 import { CloseTable } from "./close-table";
+import { MarkPaidDialog } from "./mark-paid-dialog";
 import { PaymentHistory } from "./payment-history";
 import { ReasonConfirmDialog } from "./reason-confirm-dialog";
 import { RefundDialog } from "./refund-dialog";
@@ -66,9 +67,13 @@ export function BillDetail({
 }: Props) {
   const [refundOpen, setRefundOpen] = useState(false);
   const [voidOpen, setVoidOpen] = useState(false);
+  const [paidOpen, setPaidOpen] = useState(false);
   const voidBill = useVoidBill(branchId);
   const netPaid = bill.amountPaid - bill.amountRefunded;
   const canRefund = can("payments.refund") && bill.status !== "VOID" && netPaid > 0;
+  // The cashier console passes its own payment panel as children; elsewhere offer the shortcut.
+  const canMarkPaid =
+    !children && can("payments.record") && bill.status === "ISSUED" && bill.balanceDue > 0;
   const canVoidBill = can("bills.void") && bill.status === "ISSUED" && netPaid <= 0;
 
   return (
@@ -103,6 +108,12 @@ export function BillDetail({
       )}
 
       {children}
+
+      {canMarkPaid && (
+        <Button size="lg" onClick={() => setPaidOpen(true)} className="self-start">
+          <CheckCircle2 aria-hidden /> Mark as paid
+        </Button>
+      )}
 
       {can("sessions.manage") && (
         <CloseTable
@@ -151,6 +162,14 @@ export function BillDetail({
           branchId={branchId}
           open={refundOpen}
           onOpenChange={setRefundOpen}
+        />
+      )}
+      {canMarkPaid && (
+        <MarkPaidDialog
+          bill={bill}
+          branchId={branchId}
+          open={paidOpen}
+          onOpenChange={setPaidOpen}
         />
       )}
       <ReasonConfirmDialog

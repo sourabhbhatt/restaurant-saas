@@ -15,7 +15,10 @@ import { POST as recordPaymentRoute } from "@/app/api/v1/bills/[billId]/payments
 import { GET as receiptRoute } from "@/app/api/v1/bills/[billId]/receipt/route";
 import { POST as refundRoute } from "@/app/api/v1/bills/[billId]/refunds/route";
 import { POST as voidBillRoute } from "@/app/api/v1/bills/[billId]/void/route";
-import { GET as listBillsRoute, POST as generateRoute } from "@/app/api/v1/branches/[branchId]/bills/route";
+import {
+  GET as listBillsRoute,
+  POST as generateRoute,
+} from "@/app/api/v1/branches/[branchId]/bills/route";
 import { POST as previewRoute } from "@/app/api/v1/branches/[branchId]/bills/preview/route";
 import { GET as queueRoute } from "@/app/api/v1/branches/[branchId]/bills/queue/route";
 import { GET as summaryRoute } from "@/app/api/v1/branches/[branchId]/payments/summary/route";
@@ -158,6 +161,26 @@ describe("bill preview and generation", () => {
     expect(p.existingBillId).toBeNull();
   });
 
+  it("applies a discount sent with a null or missing reason and lowers the grand total", async () => {
+    const base = await preview(b.owner, b.branchId, {
+      sessionId: table.session.sessionId,
+      discount: null,
+    });
+    expect(base.status).toBe(200);
+    for (const discount of [
+      { type: "PERCENT", value: 1_000, reason: null },
+      { type: "PERCENT", value: 1_000 },
+    ]) {
+      const res = await preview(b.owner, b.branchId, {
+        sessionId: table.session.sessionId,
+        discount,
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.data!.discountAmount).toBeGreaterThan(0);
+      expect(res.body.data!.grandTotal).toBeLessThan(base.body.data!.grandTotal);
+    }
+  });
+
   it("requires bills.discount to apply a discount", async () => {
     const waiter = await addBranchStaff(c, b, "waiter");
     const denied = await preview(waiter, b.branchId, {
@@ -221,7 +244,10 @@ describe("bill preview and generation", () => {
     expect(different.status).toBe(409);
     expect(different.body.error!.message).toMatch(/void it to re-issue/);
 
-    const count = await c.db.select().from(bills).where(eq(bills.sessionId, table.session.sessionId));
+    const count = await c.db
+      .select()
+      .from(bills)
+      .where(eq(bills.sessionId, table.session.sessionId));
     expect(count).toHaveLength(1);
   });
 
@@ -333,7 +359,11 @@ describe("payments", () => {
     const [mid] = await c.db.select().from(orders).where(eq(orders.id, order.orderId));
     expect(mid!.status).toBe("SERVED");
 
-    const second = await pay(cashier, bill.id, { method: "UPI", amount: 60_000, reference: "UPI123" });
+    const second = await pay(cashier, bill.id, {
+      method: "UPI",
+      amount: 60_000,
+      reference: "UPI123",
+    });
     expect(second.status).toBe(201);
     expect(second.body.data!.change).toBeNull();
     expect(second.body.data!.bill).toMatchObject({
@@ -349,7 +379,10 @@ describe("payments", () => {
       .where(eq(orderStatusHistory.orderId, order.orderId));
     expect(hist.some((h) => h.actorType === "SYSTEM" && h.toStatus === "COMPLETED")).toBe(true);
 
-    const ledger = await c.db.select().from(paymentHistory).where(eq(paymentHistory.billId, bill.id));
+    const ledger = await c.db
+      .select()
+      .from(paymentHistory)
+      .where(eq(paymentHistory.billId, bill.id));
     expect(ledger.filter((h) => h.action === "RECORDED")).toHaveLength(2);
     const audits = await c.db.select().from(auditLogs).where(eq(auditLogs.targetId, bill.id));
     const recorded = audits.filter((a) => a.action === "payment.recorded");
@@ -497,7 +530,10 @@ describe("payments", () => {
     });
     expect(ok.status).toBe(200);
     expect(ok.body.data!.status).toBe("VOID");
-    const [s] = await c.db.select().from(tableSessions).where(eq(tableSessions.id, session.sessionId));
+    const [s] = await c.db
+      .select()
+      .from(tableSessions)
+      .where(eq(tableSessions.id, session.sessionId));
     expect(s!.status).toBe("OPEN");
     expect((await pay(cashier, bill.id, { method: "CASH", amount: 100 })).status).toBe(409);
 
@@ -518,12 +554,17 @@ describe("payments", () => {
     expect(s.byMethod.CARD).toBe(0);
     expect(s.byMethod.UPI).toBeGreaterThanOrEqual(60_000);
     expect(s.refunds).toBe(5_000);
-    expect(s.totalCollected).toBe(s.byMethod.CASH + s.byMethod.UPI + s.byMethod.CARD + s.byMethod.OTHER);
+    expect(s.totalCollected).toBe(
+      s.byMethod.CASH + s.byMethod.UPI + s.byMethod.CARD + s.byMethod.OTHER,
+    );
     expect(s.billsIssued).toBeGreaterThanOrEqual(6);
     expect(s.partiallyPaidBills).toBeGreaterThanOrEqual(2);
     expect(s.outstanding).toBeGreaterThan(0);
     const waiter = await addBranchStaff(c, b, "waiter");
-    const denied = await call(summaryRoute, { params: { branchId: b.branchId }, cookie: waiter.cookie });
+    const denied = await call(summaryRoute, {
+      params: { branchId: b.branchId },
+      cookie: waiter.cookie,
+    });
     expect(denied.status).toBe(403);
   });
 
@@ -561,7 +602,9 @@ describe("closing a table session", () => {
     });
     const cashier = await addBranchStaff(c, b, "cashier");
     const session = await openSession(c, b, "Patio 1", "BILL_REQUESTED");
-    const order = await insertOrder(c, b, session, "SERVED", [{ name: "Pizza", unitPrice: 30_000 }]);
+    const order = await insertOrder(c, b, session, "SERVED", [
+      { name: "Pizza", unitPrice: 30_000 },
+    ]);
 
     const noBill = await closeSession(cashier, b.branchId, session.sessionId);
     expect(noBill.status).toBe(409);
@@ -597,8 +640,15 @@ describe("closing a table session", () => {
 
     const closed = await closeSession(cashier, b.branchId, session.sessionId);
     expect(closed.status).toBe(200);
-    expect(closed.body.data).toMatchObject({ status: "CLOSED", billId: bill.id, completedOrders: 1 });
-    const [s] = await c.db.select().from(tableSessions).where(eq(tableSessions.id, session.sessionId));
+    expect(closed.body.data).toMatchObject({
+      status: "CLOSED",
+      billId: bill.id,
+      completedOrders: 1,
+    });
+    const [s] = await c.db
+      .select()
+      .from(tableSessions)
+      .where(eq(tableSessions.id, session.sessionId));
     expect(s!.status).toBe("CLOSED");
     expect(s!.closedBy).toBe(cashier.userId);
     const after = await getBill(cashier, bill.id);
@@ -606,7 +656,10 @@ describe("closing a table session", () => {
     expect(after.body.data!.closedAt).not.toBeNull();
     const [o] = await c.db.select().from(orders).where(eq(orders.id, order.orderId));
     expect(o!.status).toBe("COMPLETED");
-    const audits = await c.db.select().from(auditLogs).where(eq(auditLogs.targetId, session.sessionId));
+    const audits = await c.db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.targetId, session.sessionId));
     expect(audits.some((a) => a.action === "session.closed")).toBe(true);
 
     expect((await closeSession(cashier, b.branchId, session.sessionId)).status).toBe(409);
@@ -675,7 +728,10 @@ describe("tenant isolation", () => {
         })
       ).status,
     ).toBe(404);
-    expect((await call(receiptRoute, { params: { billId: bill.id }, cookie: other.owner.cookie })).status).toBe(404);
+    expect(
+      (await call(receiptRoute, { params: { billId: bill.id }, cookie: other.owner.cookie }))
+        .status,
+    ).toBe(404);
     expect(
       (await call(listBillsRoute, { params: { branchId: b.branchId }, cookie: other.owner.cookie }))
         .status,
@@ -695,7 +751,9 @@ describe("tenant isolation", () => {
     const second = await setupBillingBranch(c, { taxes: [], owner: b.owner });
     const foreignCashier = await addBranchStaff(c, second, "cashier");
     expect((await getBill(foreignCashier, bill.id)).status).toBe(404);
-    expect((await pay(foreignCashier, bill.id, { method: "CASH", amount: 1_000 })).status).toBe(404);
+    expect((await pay(foreignCashier, bill.id, { method: "CASH", amount: 1_000 })).status).toBe(
+      404,
+    );
 
     // Unauthenticated.
     const anon = await call(getBillRoute, { params: { billId: bill.id } });
@@ -712,7 +770,10 @@ describe("tenant isolation", () => {
     const session = await openSession(c, b);
     await insertOrder(c, b, session, "SERVED", [{ name: "Dosa", unitPrice: 9_000 }]);
     const bill = (await generate(b.owner, b.branchId, { sessionId: session.sessionId })).body.data!;
-    const res = await call<ReceiptDto>(receiptRoute, { params: { billId: bill.id }, cookie: b.owner.cookie });
+    const res = await call<ReceiptDto>(receiptRoute, {
+      params: { billId: bill.id },
+      cookie: b.owner.cookie,
+    });
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({
       restaurantName: "Spice Garden",
@@ -722,6 +783,9 @@ describe("tenant isolation", () => {
       timezone: "Asia/Kolkata",
     });
     expect(res.body.data!.bill.id).toBe(bill.id);
-    await c.db.update(branchSettings).set({ receiptFooter: null }).where(eq(branchSettings.branchId, b.branchId));
+    await c.db
+      .update(branchSettings)
+      .set({ receiptFooter: null })
+      .where(eq(branchSettings.branchId, b.branchId));
   });
 });
