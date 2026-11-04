@@ -32,6 +32,8 @@
 
 ## 2. Planned repository layout
 
+> **Superseded (2026-11-04):** the project is now one Next.js App Router app rather than a monorepo. See the README "Structure" section and the decision log in `technology-decisions.md`. The layering rules in §1 and §3 still apply: business logic depends on interfaces in `src/infrastructure/*/interfaces`, and only `providers/` import SDKs. The original proposal is kept below for reference.
+
 ```
 apps/
   web/            React PWA (customer, waiter, kitchen, owner, admin areas)
@@ -56,15 +58,15 @@ Feature modules (same names in `core`, `api/http` and `web/features`): `identity
 
 ## 3. Ports (what is abstracted, and nothing more)
 
-| Port | Why it's replaceable |
-|---|---|
-| Repositories (one per aggregate) + `UnitOfWork` (transactions) | Database swap |
-| `AuthProvider` (verify session → identity) | Auth vendor swap |
-| `ObjectStorage` (put/get/delete/signedUrl) | Storage swap |
-| `RealtimePublisher` (server) / `RealtimeClient` (web) | Realtime swap |
-| `PushSender`, `EmailSender`, `InAppNotifier` | Each channel swappable independently |
-| `ErrorReporter`, `Logger` | Monitoring swap |
-| `Clock`, `IdGenerator` | Testability (trial-expiry tests, deterministic IDs) |
+| Port                                                           | Why it's replaceable                                |
+| -------------------------------------------------------------- | --------------------------------------------------- |
+| Repositories (one per aggregate) + `UnitOfWork` (transactions) | Database swap                                       |
+| `AuthProvider` (verify session → identity)                     | Auth vendor swap                                    |
+| `ObjectStorage` (put/get/delete/signedUrl)                     | Storage swap                                        |
+| `RealtimePublisher` (server) / `RealtimeClient` (web)          | Realtime swap                                       |
+| `PushSender`, `EmailSender`, `InAppNotifier`                   | Each channel swappable independently                |
+| `ErrorReporter`, `Logger`                                      | Monitoring swap                                     |
+| `Clock`, `IdGenerator`                                         | Testability (trial-expiry tests, deterministic IDs) |
 
 Not abstracted on purpose: the HTTP framework, React and the validation library. These are application frameworks, not infrastructure providers.
 
@@ -76,7 +78,7 @@ User (global) ──< Membership >── Workspace ──< Restaurant ──< Br
 ```
 
 - Every tenant document carries `workspaceId`; restaurant/branch data also carries `restaurantId` / `branchId`.
-- **Tenant context is resolved on the server** for every request: session → user → memberships → allowed scope. IDs sent by the client are only *requests*. They're checked against memberships before any query runs.
+- **Tenant context is resolved on the server** for every request: session → user → memberships → allowed scope. IDs sent by the client are only _requests_. They're checked against memberships before any query runs.
 - RBAC: roles are named sets of permissions (`order.accept`, `payment.record`, `menu.edit`...). Default roles are seeded; owners can customize permissions per restaurant where it makes sense. Checks live in core policy functions, called by every use case.
 - Customers: a QR token (128-bit random, stored as a SHA-256 hash, revocable) resolves to a branch and table. Internal IDs never appear in public URLs.
 
@@ -88,10 +90,10 @@ Bill: `draft → issued → paid` (or `void`). A payment is a separate record, a
 ## 6. Offline-first (staff devices)
 
 - **Reads:** menu, tables, open orders and recent history are cached in IndexedDB and refreshed on every connection.
-- **Writes:** go to a local **outbox** first (op ID, entity type and ID, op type, idempotency key, payload, createdAt, retryCount, status). The UI updates immediately with a *pending* badge.
+- **Writes:** go to a local **outbox** first (op ID, entity type and ID, op type, idempotency key, payload, createdAt, retryCount, status). The UI updates immediately with a _pending_ badge.
 - The sync engine pushes the outbox in order on reconnect, on an interval, on the Background Sync API (where supported) and on the manual "Sync now" button. It uses backoff retries and resumes after interrupted syncs.
 - The server applies each op idempotently (unique idempotency key) and checks the expected entity `version`. On a mismatch it returns a **conflict**; the client shows the server state and the rejected change.
-- **Server-authoritative actions** (accept order, record payment, permission changes) are stored offline as *requests* and are only shown as done after the server confirms them. A payment is never shown as confirmed from offline state.
+- **Server-authoritative actions** (accept order, record payment, permission changes) are stored offline as _requests_ and are only shown as done after the server confirms them. A payment is never shown as confirmed from offline state.
 - Customer ordering needs connectivity (by requirement). The customer UI says so clearly when offline.
 
 ## 7. Subscriptions
