@@ -72,7 +72,19 @@ export interface SyncRunResult {
 export interface SyncEngineDeps {
   db: OfflineDatabase;
   fetch: (url: string, init: RequestInit) => Promise<Response>;
+  /** The user working on this device (owner of new items; may be restored from cache offline). */
   getUserId: () => string | null;
+  /**
+   * The user the current session cookie belongs to, as confirmed by the server.
+   * Only this user's items are sent. Defaults to `getUserId`.
+   */
+  getSessionUserId?: () => string | null;
+  /**
+   * Ask the server who the session belongs to, right before sending. A run is
+   * skipped unless it matches the session user, so one account's changes can
+   * never be sent with another account's cookie on a shared device.
+   */
+  confirmSession?: () => Promise<string | null>;
   now?: () => number;
   random?: () => number;
   apiBase?: string;
@@ -196,7 +208,7 @@ export class SyncEngine {
   }
 
   private async runOnce(ctx: RunContext): Promise<void> {
-    const userId = this.deps.getUserId();
+    const userId = (this.deps.getSessionUserId ?? this.deps.getUserId)();
     if (!userId) return;
     await this.recoverStuck();
     const items = await this.deps.db.outbox
@@ -204,6 +216,16 @@ export class SyncEngine {
       .equals(userId)
       .filter((i) => i.status !== "synced")
       .sortBy("createdAt");
+    const now = this.now();
+    const anyDue = items.some((i) => i.status === "pending" && (ctx.force || i.nextAttemptAt <= now));
+    if (!anyDue) {
+      await this.prune();
+      return;
+    }
+    if (this.deps.confirmSession) {
+      const confirmed = await this.deps.confirmSession().catch(() => null);
+      if (confirmed !== userId) return;
+    }
     const scopes = new Map<string, OutboxItem[]>();
     for (const item of items) {
       const queue = scopes.get(item.scopeKey) ?? [];

@@ -5,6 +5,7 @@ import {
   PAYMENT_STATUSES,
   type BillStatus,
   type PaymentMethod,
+  type PaymentStatus,
 } from "@/domain/billing/payments";
 
 import type {
@@ -12,7 +13,6 @@ import type {
   BillItemDto,
   BillTotalsDto,
   PaymentDto,
-  PaymentStatus,
 } from "./billing";
 
 /**

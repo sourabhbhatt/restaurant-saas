@@ -328,7 +328,8 @@ export function tenancyRepository(db: Executor): TenancyRepository {
       db
         .select({ ws: invitations.workspaceRoleId, as: invitations.assignmentRoleId })
         .from(invitations)
-        .where(and(eq(invitations.workspaceId, workspaceId), eq(invitations.status, "PENDING"))),
+        // Every invitation row references its roles (FK), whatever its status.
+        .where(eq(invitations.workspaceId, workspaceId)),
     ]);
     const usage = new Map<string, number>();
     const bump = (id: string | null, n = 1) => {

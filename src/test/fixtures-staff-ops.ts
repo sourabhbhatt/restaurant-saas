@@ -20,13 +20,34 @@ import {
 } from "@/infrastructure/database/providers/postgres/schema";
 import type { Container } from "@/server/container";
 
+import { POST as signUp } from "@/app/api/v1/auth/signup/route";
+
 import {
   addStaffMember,
   createWorkspaceAs,
   insertRestaurantWithBranch,
-  signUpUser,
   type TestUser,
 } from "./fixtures";
+import { call, cookieFrom, uniqueEmail } from "./harness";
+
+let ipCounter = 0;
+
+/**
+ * Sign up through the real endpoint, each user from its own client IP so a
+ * suite creating many staff accounts stays under the per-IP signup limit.
+ */
+export async function signUpStaffUser(name = "Staff User"): Promise<TestUser> {
+  ipCounter += 1;
+  const email = uniqueEmail("staff");
+  const password = "correct-horse-42";
+  const res = await call<{ user: { id: string } }>(signUp, {
+    body: { name, email, password, acceptTerms: true },
+    headers: { "x-forwarded-for": `10.77.${Math.floor(ipCounter / 250)}.${ipCounter % 250}` },
+  });
+  if (res.status !== 201)
+    throw new Error(`signup failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return { userId: res.body.data!.user.id, email, password, cookie: cookieFrom(res.setCookie) };
+}
 
 export interface TestBranch {
   workspaceId: string;
@@ -40,7 +61,7 @@ export async function setupBranch(
   c: Container,
   opts: { workspaceName?: string; branchName?: string } = {},
 ): Promise<TestBranch> {
-  const owner = await signUpUser("Owner");
+  const owner = await signUpStaffUser("Owner");
   const ws = await createWorkspaceAs(owner, opts.workspaceName ?? "Staff Ops WS");
   const r = await insertRestaurantWithBranch(c, ws.id, { branchName: opts.branchName });
   return {
@@ -77,7 +98,7 @@ export async function addStaff(
   role: RoleTemplateKey,
   name: string = role,
 ): Promise<TestUser> {
-  const user = await signUpUser(name);
+  const user = await signUpStaffUser(name);
   await addStaffMember(c, {
     workspaceId: branch.workspaceId,
     userId: user.userId,
