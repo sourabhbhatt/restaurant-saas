@@ -17,8 +17,8 @@
     "test:e2e": "playwright test",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts",
+    "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
+    "db:make-admin": "tsx --env-file=.env.local scripts/make-admin.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
