@@ -186,7 +186,7 @@ Every replaceable capability sits behind a port in `packages/core/src/ports`, an
 - MongoDB on Cloudflare Workers (official tutorial): https://developers.cloudflare.com/workers/tutorials/connect-to-mongodb-atlas/
 - Render free tier: https://render.com/docs/free
 - Vercel Hobby fair use: https://vercel.com/docs/limits/fair-use-guidelines
-- Koyeb scale-to-zero: https://www.koyeb.com/docs/run-and-scale/scale-to-zero
+- Koyeb scale-to-zero: https://www.koyeb.com/docs/run-and-scale/scale-to-zero (card/$29 hold: third-party report, https://snapdeploy.dev/koyeb-alternative)
 - Supabase free plan: https://supabase.com/kb/faqs/platform/database-only-cost
 - Neon free plan: https://neon.com/faqs/free-plan-limits-and-quotas
 - Ably free package: https://ably.com/docs/pricing/free
