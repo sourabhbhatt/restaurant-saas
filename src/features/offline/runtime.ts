@@ -59,7 +59,8 @@ export function getSyncEngine(): SyncEngine | null {
     db,
     fetch: (url, init) => fetch(url, init),
     getUserId: () => deviceUserId,
-    getSessionUserId: () => sessionUserId,
+    // Candidate owner; confirmSession() verifies it with the server before sending.
+    getSessionUserId: () => sessionUserId ?? deviceUserId,
     confirmSession,
     withLock: withNavigatorLock,
     onRunStateChange: (syncing) => {

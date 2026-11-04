@@ -16,13 +16,15 @@ import {
 } from "@/infrastructure/database/providers/postgres/schema";
 import type { Container } from "@/server/container";
 
+import { POST as signUp } from "@/app/api/v1/auth/signup/route";
+
 import {
   addStaffMember,
   createWorkspaceAs,
   insertRestaurantWithBranch,
-  signUpUser,
   type TestUser,
 } from "./fixtures";
+import { call, cookieFrom, uniqueEmail } from "./harness";
 
 export interface BillingBranch {
   owner: TestUser;
@@ -33,6 +35,21 @@ export interface BillingBranch {
 }
 
 let seq = 0;
+let ipCounter = 0;
+
+/** Sign up through the real endpoint, each user from its own client IP (per-IP signup limit). */
+export async function signUpBillingUser(name = "Billing User"): Promise<TestUser> {
+  ipCounter += 1;
+  const email = uniqueEmail("billing");
+  const password = "correct-horse-42";
+  const res = await call<{ user: { id: string } }>(signUp, {
+    body: { name, email, password, acceptTerms: true },
+    headers: { "x-forwarded-for": `10.88.${Math.floor(ipCounter / 250)}.${ipCounter % 250}` },
+  });
+  if (res.status !== 201)
+    throw new Error(`signup failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return { userId: res.body.data!.user.id, email, password, cookie: cookieFrom(res.setCookie) };
+}
 
 export async function setupBillingBranch(
   c: Container,
@@ -42,7 +59,7 @@ export async function setupBillingBranch(
     owner?: TestUser;
   } = {},
 ): Promise<BillingBranch> {
-  const owner = opts.owner ?? (await signUpUser("Owner"));
+  const owner = opts.owner ?? (await signUpBillingUser("Owner"));
   const ws = await createWorkspaceAs(owner, `Billing WS ${++seq}`);
   const r = await insertRestaurantWithBranch(c, ws.id, { taxes: opts.taxes });
   if (opts.settings) {
@@ -62,7 +79,7 @@ export async function addBranchStaff(
   b: BillingBranch,
   role: "waiter" | "kitchen_staff" | "cashier" | "restaurant_manager",
 ): Promise<TestUser> {
-  const user = await signUpUser(role);
+  const user = await signUpBillingUser(role);
   await addStaffMember(c, {
     workspaceId: b.workspaceId,
     userId: user.userId,

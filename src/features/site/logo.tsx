@@ -24,7 +24,15 @@ export function BrandMark({ className }: { className?: string }) {
   );
 }
 
-export function BrandLogo({ className, href = "/" }: { className?: string; href?: string }) {
+export function BrandLogo({
+  className,
+  markClassName,
+  href = "/",
+}: {
+  className?: string;
+  markClassName?: string;
+  href?: string;
+}) {
   return (
     <Link
       href={href}
@@ -33,8 +41,9 @@ export function BrandLogo({ className, href = "/" }: { className?: string; href?
         className,
       )}
     >
-      <BrandMark />
+      <BrandMark className={markClassName} />
       <span>{BRAND.name}</span>
+      <span className="sr-only"> — home</span>
     </Link>
   );
 }

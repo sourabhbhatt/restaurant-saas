@@ -58,7 +58,8 @@ const recorder = alias(users, "payment_recorder");
 const billScope = (key: BranchKey) =>
   and(eq(bills.workspaceId, key.workspaceId), eq(bills.branchId, key.branchId));
 
-const itemCountSql = sql<number>`(select count(*)::int from ${billItems} where ${billItems.billId} = ${bills.id})`;
+// Fully qualified: drizzle renders bare column names in single-table selects.
+const itemCountSql = sql<number>`(select count(*)::int from "bill_items" bi where bi."bill_id" = "bills"."id")`;
 
 function toBillRecord(row: typeof bills.$inferSelect & { itemCount: number }): BillRecord {
   return {
@@ -645,7 +646,7 @@ export function billingRepository(db: Executor): BillingRepository {
             eq(tableSessions.workspaceId, key.workspaceId),
             eq(tableSessions.branchId, key.branchId),
             ne(tableSessions.status, "CLOSED"),
-            sql`not exists (select 1 from ${bills} where ${bills.sessionId} = ${tableSessions.id} and ${bills.status} <> 'VOID')`,
+            sql`not exists (select 1 from "bills" lb where lb."session_id" = "table_sessions"."id" and lb."status" <> 'VOID')`,
           ),
         )
         .orderBy(asc(tableSessions.openedAt));

@@ -1,0 +1,11 @@
+import { adminAuditQuerySchema } from "@/contracts/platform";
+import { platformService } from "@/server/composition/platform";
+import { route } from "@/server/http/route";
+
+/** Platform-wide audit log (all workspaces and platform actions). */
+export const GET = route(
+  { auth: "platform", query: adminAuditQuerySchema },
+  async ({ actor, query, c }) => ({
+    data: await platformService(c).listAudit(actor, query),
+  }),
+);

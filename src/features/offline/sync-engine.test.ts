@@ -335,6 +335,28 @@ describe("SyncEngine", () => {
     await expect(engine.enqueue(input())).rejects.toThrow(/sign in/i);
   });
 
+  it("sends nothing when the server says the session belongs to someone else", async () => {
+    await engine.enqueue(input());
+    let sessionOwner: string | null = "user-2";
+    const guarded = new SyncEngine({
+      db,
+      getUserId: () => userId,
+      fetch: async (url) => {
+        calls.push({ url, method: "PATCH", headers: {}, body: undefined });
+        return ok();
+      },
+      confirmSession: async () => sessionOwner,
+    });
+    await guarded.syncNow();
+    expect(calls).toHaveLength(0);
+    sessionOwner = null; // signed out / offline
+    await guarded.syncNow();
+    expect(calls).toHaveLength(0);
+    sessionOwner = "user-1";
+    await guarded.syncNow();
+    expect(calls).toHaveLength(1);
+  });
+
   it("shares one run between concurrent sync calls", async () => {
     await engine.enqueue(input());
     let release!: () => void;
