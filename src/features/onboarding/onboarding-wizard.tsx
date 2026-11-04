@@ -16,7 +16,8 @@ import type { BranchDto, RestaurantDto } from "@/contracts/tenancy";
 import type { WorkspaceDto } from "@/contracts/workspaces";
 import { toMinor } from "@/domain/shared/money";
 import { sessionKeys, useMe } from "@/features/session/queries";
-import { api, ApiError, errorMessage, type FieldErrors } from "@/lib/api-client";
+import { api } from "@/lib/api-client";
+import { useAction } from "@/lib/use-action";
 
 type Step = "workspace" | "restaurant" | "menu" | "tables" | "done";
 const STEPS: { key: Step; label: string }[] = [
@@ -31,30 +32,6 @@ interface Progress {
   workspaceId: string | null;
   restaurantId: string | null;
   branchId: string | null;
-}
-
-/** Runs a server call, mapping its field errors onto inputs and toasting anything else. */
-function useAction() {
-  const [pending, setPending] = useState(false);
-  const [errors, setErrors] = useState<FieldErrors>({});
-  async function run<T>(fn: () => Promise<T>): Promise<T | null> {
-    setPending(true);
-    setErrors({});
-    try {
-      return await fn();
-    } catch (error) {
-      if (error instanceof ApiError && Object.keys(error.fieldErrors).length > 0) {
-        setErrors(error.fieldErrors);
-      } else {
-        toast.error(errorMessage(error));
-      }
-      return null;
-    } finally {
-      setPending(false);
-    }
-  }
-  const err = (...names: string[]) => names.map((n) => errors[n]?.[0]).find(Boolean);
-  return { pending, run, err };
 }
 
 function StepForm(props: {

@@ -26,7 +26,7 @@ Module agents were stopped early at the owner's request (credit limit). Their se
 
 ## Built by stopped agents — needs review ⚠️
 
-- [ ] Tenancy APIs (restaurants, branches, settings, members, invitations, roles) — server + tests present; **UI pages removed**: onboarding wizard, members, workspace settings, branch settings, branch staff, account, invite acceptance. Restaurants list/detail pages present.
+- [ ] Tenancy APIs (restaurants, branches, settings, members, invitations, roles) — server + tests present; UI pages rebuilt (see above); not browser-verified. Role create/edit UI not built (roles are listed read-only).
 - [ ] Menu + tables + QR + uploads — APIs/tests present; menu & tables pages present, QR dialog may be incomplete
 - [ ] Customer QR ordering (`/t/[token]`) — APIs/tests present; UI state unverified
 - [ ] Waiter / kitchen consoles, order transitions, SSE — APIs/tests present; UI unverified
@@ -41,7 +41,7 @@ Module agents were stopped early at the owner's request (credit limit). Their se
    ```bash
    pnpm install && cp .env.example .env.local && pnpm db:migrate && pnpm db:seed && pnpm dev
    ```
-2. Rebuild the other removed tenancy pages: members + invitations, workspace settings, branch settings (tax/hours), branch staff, account, invite acceptance (their APIs exist).
+2. ~~Rebuild removed tenancy pages~~ — done (members/invitations/roles, workspace settings, branch settings incl. taxes & hours, branch staff, account, invite acceptance). Invite create → accept → re-accept rejected verified over HTTP.
 4. Mount `SyncStatusIndicator`/`OfflineBanner` in waiter, kitchen, cashier layouts; mount the announcement bar in shells.
 5. Playwright E2E workflows A–I (only site specs exist).
 6. Hardening: Postgres RLS, S3 storage adapter, multi-instance realtime (LISTEN/NOTIFY), Sentry adapter.
