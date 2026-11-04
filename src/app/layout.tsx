@@ -5,7 +5,7 @@ import { GeistMono } from "geist/font/mono";
 import { AppProviders } from "@/components/shared/app-providers";
 import "./globals.css";
 
-const APP_NAME = "Restaurant SaaS";
+const APP_NAME = "RestaurantOS";
 
 export const metadata: Metadata = {
   applicationName: APP_NAME,
@@ -13,7 +13,8 @@ export const metadata: Metadata = {
     default: APP_NAME,
     template: `%s · ${APP_NAME}`,
   },
-  description: "Restaurant management: QR ordering, waiter and kitchen dashboards, billing.",
+  description:
+    "Restaurant management software: QR table ordering without an app, waiter approval, kitchen display, counter billing and multi-branch management.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

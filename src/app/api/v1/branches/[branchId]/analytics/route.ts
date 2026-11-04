@@ -1,0 +1,14 @@
+import { z } from "zod";
+
+import { analyticsRangeQuerySchema } from "@/contracts/analytics";
+import { analyticsService } from "@/server/composition/analytics";
+import { route } from "@/server/http/route";
+
+/** Branch reports: sales, menu, kitchen, cashier and tables. Requires `reports.view`. */
+export const GET = route(
+  { auth: "user", params: z.object({ branchId: z.uuid() }), query: analyticsRangeQuerySchema },
+  async ({ actor, params, query, c }) => {
+    const scope = await c.access.forBranch(actor, params.branchId);
+    return { data: await analyticsService(c).branch(scope, query) };
+  },
+);
