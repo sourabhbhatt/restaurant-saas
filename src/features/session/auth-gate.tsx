@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, useEffect, type ReactNode } from "react";
+import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 
 import { ErrorState, PageSkeleton } from "@/components/shared/feedback";
 import { ApiError, errorMessage } from "@/lib/api-client";
@@ -12,6 +12,16 @@ import { useMe } from "./queries";
  * Client-side gate for signed-in areas. This is a UX convenience only: every
  * API call is authorized on the server regardless of what the client renders.
  */
+const subscribeNoop = () => () => {};
+/** false on the server and during hydration, true afterwards. */
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+}
+
 function AuthGateInner({
   children,
   requirePlatformAdmin = false,
@@ -19,6 +29,9 @@ function AuthGateInner({
   children: ReactNode;
   requirePlatformAdmin?: boolean;
 }) {
+  // Cached data (offline restore) can exist before hydration finishes; render the same
+  // skeleton as the server until then so the first client render matches.
+  const hydrated = useHydrated();
   const me = useMe();
   const router = useRouter();
   const pathname = usePathname();
@@ -28,7 +41,7 @@ function AuthGateInner({
     if (unauthenticated) router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
   }, [unauthenticated, router, pathname]);
 
-  if (me.isPending || unauthenticated) return <PageSkeleton variant="detail" />;
+  if (!hydrated || me.isPending || unauthenticated) return <PageSkeleton variant="detail" />;
   if (me.isError) {
     return (
       <ErrorState
