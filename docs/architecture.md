@@ -1,103 +1,101 @@
-# Architecture Overview
+# Architecture
 
-**Status:** PROPOSED (Phase 1). This is the high-level shape for approval. The detailed design spec comes after approval.
+RestaurantOS is a **modular monolith**: one Next.js 16 App Router application that serves the web UI (all roles), a versioned REST API under `/api/v1`, and the service worker. Business rules live outside React and outside provider SDKs.
 
-## 1. Shape of the system
-
-```
- Browser (installable PWA, one app, role-based areas)
- ┌─────────────────────────────────────────────────────────────┐
- │ UI (React, design system)                                   │
- │   └─ feature hooks ─► application client (typed API client) │
- │                     └─► LocalStore (Dexie/IndexedDB)        │
- │                     └─► Sync engine (outbox, retry, pull)   │
- │                     └─► RealtimeClient port (Ably adapter)  │
- └───────────────┬─────────────────────────────────────────────┘
-                 │ HTTPS (JSON, zod-validated, OpenAPI)
- ┌───────────────▼─────────────────────────────────────────────┐
- │ API (Hono) — transport only: auth session, tenant context,  │
- │              validation, rate limit, error mapping          │
- │   └─► Application use cases (packages/core)                 │
- │         └─► Domain (entities, state machines, pricing, RBAC │
- │              policy, entitlements) — no I/O, no SDKs        │
- │         └─► Ports (interfaces)                              │
- │   └─► Infrastructure adapters (only place SDKs are imported)│
- │         mongo/ · better-auth/ · ably/ · s3/ · web-push/ ·   │
- │         brevo/ · resend/ · sentry/                          │
- │   └─► container.ts — composition root, picks adapters by env│
- └─────────────────────────────────────────────────────────────┘
-```
-
-**Rule:** `packages/core` has zero provider dependencies. It doesn't import `mongodb`, `ably`, `@aws-sdk/*`, `better-auth` or any other SDK. A dependency lint rule enforces this in CI.
-
-## 2. Planned repository layout
-
-> **Superseded (2026-11-04):** the project is now one Next.js App Router app rather than a monorepo. See the README "Structure" section and the decision log in `technology-decisions.md`. The layering rules in §1 and §3 still apply: business logic depends on interfaces in `src/infrastructure/*/interfaces`, and only `providers/` import SDKs. The original proposal is kept below for reference.
+## Layers and dependency rules
 
 ```
-apps/
-  web/            React PWA (customer, waiter, kitchen, owner, admin areas)
-    src/features/<feature>/   UI + hooks per feature
-    src/local/                LocalStore interface + Dexie implementation
-    src/sync/                 sync engine (outbox, retry, conflict handling)
-  api/            Hono server
-    src/http/<module>/        routes per module (thin)
-    src/infrastructure/<provider>/   adapters
-    src/container.ts          dependency wiring
-    migrations/               MongoDB migrations (indexes, validators, data)
-  jobs/           Cloudflare Cron Worker (calls signed API endpoints)
-packages/
-  core/           domain + application use cases + ports (pure TS)
-  contracts/      zod schemas = API DTOs + sync operation schema (shared by web & api)
-  ui/             design system (shadcn/ui + Tailwind tokens)
-  config/         shared tsconfig / eslint / vitest presets
-docs/             required documentation set
+src/
+  domain/            Pure business rules. No I/O, no framework, no SDKs. Unit tested.
+                     money, pricing, order state machine, bill calculator, payments,
+                     entitlements/trial lifecycle, permissions/roles, table status.
+  contracts/         Zod input schemas + DTO types shared by API handlers and UI forms.
+  server/            Application layer (server only).
+    container.ts     Composition root: chooses providers from env (see provider docs).
+    composition/     Per-module wiring: binds module ports to the Postgres adapters.
+    http/            route() wrapper, cookies, error mapping.
+    authz/           Access service: tenant scopes + permission + subscription checks.
+    auth/            Auth use cases (sign up/in/out, reset, verify).
+    subscriptions/   Entitlement service (getWorkspaceEntitlements).
+    audit/           recordAudit()
+    notifications/   Email sending through the outbox.
+    modules/<m>/     ports.ts (repository interfaces, domain types) + service.ts (use cases).
+    ports/           Cross-cutting repository/observability ports.
+  infrastructure/    The ONLY place provider SDKs are imported.
+    database/providers/postgres/   schema/, migrations/, repositories/<module>.ts, client.ts
+    auth/ email/ storage/ realtime/ push/ logging/   interfaces/ + providers/
+  features/<f>/      Client UI per feature: components, TanStack Query hooks, Zustand stores.
+  components/        ui/ (design system), shared/feedback/, layouts/
+  app/               Routes only. Pages render feature components; route.ts files call route().
 ```
 
-Feature modules (same names in `core`, `api/http` and `web/features`): `identity`, `workspaces`, `restaurants` (incl. branches, hours, tax, rules), `staff`, `tables` (incl. QR), `menu`, `ordering` (table sessions, orders), `kitchen`, `billing` (bills, payments), `subscriptions` (plans, trials, entitlements), `notifications`, `audit`, `platform-admin`.
+Rules (lint-enforced where possible):
 
-## 3. Ports (what is abstracted, and nothing more)
+1. `app/`, `features/`, `components/` never import `@/infrastructure/*/providers`.
+2. UI never talks to the database. UI → `@/lib/api-client` → `/api/v1/*` → service → repository port → adapter.
+3. Services depend on ports (`TransactionRunner<Repos>`, `Clock`, `EntitlementService`, ...), never on Drizzle.
+4. Every tenant query takes the IDs from a **server-resolved scope**, never raw client IDs.
 
-| Port                                                           | Why it's replaceable                                |
-| -------------------------------------------------------------- | --------------------------------------------------- |
-| Repositories (one per aggregate) + `UnitOfWork` (transactions) | Database swap                                       |
-| `AuthProvider` (verify session → identity)                     | Auth vendor swap                                    |
-| `ObjectStorage` (put/get/delete/signedUrl)                     | Storage swap                                        |
-| `RealtimePublisher` (server) / `RealtimeClient` (web)          | Realtime swap                                       |
-| `PushSender`, `EmailSender`, `InAppNotifier`                   | Each channel swappable independently                |
-| `ErrorReporter`, `Logger`                                      | Monitoring swap                                     |
-| `Clock`, `IdGenerator`                                         | Testability (trial-expiry tests, deterministic IDs) |
+## Request lifecycle
 
-Not abstracted on purpose: the HTTP framework, React and the validation library. These are application frameworks, not infrastructure providers.
+`route({ auth, params, query, body, rateLimit, idempotency }, handler)` in `src/server/http/route.ts`:
 
-## 4. Multi-tenancy model
+1. request id → 2. same-origin check for mutations (CSRF; cookies are `SameSite=Lax`, `HttpOnly`) → 3. rate limit (DB-backed fixed window) → 4. session → `UserActor` → 5. zod validation (422 with field errors) → 6. optional `Idempotency-Key` replay → 7. handler → 8. `{ data }` envelope or `{ error: { code, message, fieldErrors, requestId } }`.
 
-```
-User (global) ──< Membership >── Workspace ──< Restaurant ──< Branch ──< Table
-                    role scope:  workspace | restaurant | branch
+Inside the handler, authorization:
+
+```ts
+const scope = await c.access.forBranch(actor, params.branchId); // 404 if not a member / other tenant
+scope.require("orders.approve"); // permission + subscription access level
 ```
 
-- Every tenant document carries `workspaceId`; restaurant/branch data also carries `restaurantId` / `branchId`.
-- **Tenant context is resolved on the server** for every request: session → user → memberships → allowed scope. IDs sent by the client are only _requests_. They're checked against memberships before any query runs.
-- RBAC: roles are named sets of permissions (`order.accept`, `payment.record`, `menu.edit`...). Default roles are seeded; owners can customize permissions per restaurant where it makes sense. Checks live in core policy functions, called by every use case.
-- Customers: a QR token (128-bit random, stored as a SHA-256 hash, revocable) resolves to a branch and table. Internal IDs never appear in public URLs.
+`scope.require` checks the permission at the right level (workspace role, restaurant assignment, branch assignment) **and** the workspace's entitlement access level (`operate` / `grow` / `settle` / `read`, see `domain/access/operation-kinds.ts`). Resources in another workspace return **404**, so IDs can't be probed.
 
-## 5. Order and billing flow (authoritative on the server)
+## Tenancy model
 
-`pending_approval → accepted → preparing → ready → served` (or `rejected` / `cancelled`). This is enforced by a domain state machine and by conditional database updates (`status` + `version`).
-Bill: `draft → issued → paid` (or `void`). A payment is a separate record, and confirming it is a single transaction.
+```
+User ──< WorkspaceMembership (workspace role) >── Workspace ──< Restaurant ──< Branch
+                    └──< RoleAssignment (role @ restaurant | branch)
+```
 
-## 6. Offline-first (staff devices)
+- Workspace role (owner/admin/member/custom) grants workspace-wide permissions.
+- Role assignments grant restaurant-wide (all branches) or single-branch permissions.
+- Every tenant table carries `workspace_id`; branch data also carries `branch_id`.
+- Platform Super Admin (`users.platform_role`) has **no implicit tenant access**; admin APIs live under `/api/v1/admin/*`.
 
-- **Reads:** menu, tables, open orders and recent history are cached in IndexedDB and refreshed on every connection.
-- **Writes:** go to a local **outbox** first (op ID, entity type and ID, op type, idempotency key, payload, createdAt, retryCount, status). The UI updates immediately with a _pending_ badge.
-- The sync engine pushes the outbox in order on reconnect, on an interval, on the Background Sync API (where supported) and on the manual "Sync now" button. It uses backoff retries and resumes after interrupted syncs.
-- The server applies each op idempotently (unique idempotency key) and checks the expected entity `version`. On a mismatch it returns a **conflict**; the client shows the server state and the rejected change.
-- **Server-authoritative actions** (accept order, record payment, permission changes) are stored offline as _requests_ and are only shown as done after the server confirms them. A payment is never shown as confirmed from offline state.
-- Customer ordering needs connectivity (by requirement). The customer UI says so clearly when offline.
+## Data access pattern (per module)
 
-## 7. Subscriptions
+```ts
+// server/modules/menu/ports.ts
+export interface MenuRepository { listCategories(workspaceId: string, restaurantId: string): Promise<CategoryDto[]>; ... }
+export interface MenuRepos { menu: MenuRepository; audit: AuditRepository }
 
-Plans, prices, trial length, grace length, limits and feature flags are **data** (editable by Super Admin), not code.
-Workspace status is **computed** from `trialEndsAt`, `currentPeriodEnd` and `graceEndsAt`: `trial_active → trial_expiring → trial_expired → grace → restricted (read-only) → reactivated | retention_scheduled`.
-Every write use case calls `entitlements.assert(workspace, feature)`. Data is never deleted on expiry. Deletion only happens after the disclosed retention period, and an export is available first.
+// server/modules/menu/service.ts
+export function createMenuService(deps: { tx: TransactionRunner<MenuRepos>; clock: Clock; entitlements: EntitlementService }) { ... }
+
+// infrastructure/database/providers/postgres/repositories/menu.ts
+export function menuRepository(db: Executor): MenuRepository { ... drizzle ... }
+
+// server/composition/menu.ts
+export const menuService = (c: Container) => createMenuService({ tx: createTransactionRunner(c.db, (db) => ({ menu: menuRepository(db), audit: auditRepository(db) })), ... });
+```
+
+`tx.run()` is atomic; `tx.read()` is not. Audit rows and in-app notifications are written in the same transaction as the change.
+
+## Concurrency and money
+
+- Order/bill/payment state changes use conditional updates (`WHERE status = ... AND version = ...`); a lost race returns 409.
+- Partial unique indexes guarantee one open session per table, one live bill per session, one active QR per table.
+- Money is integer minor units (`bigint`), rates are basis points. Orders and bills snapshot names, prices and taxes.
+
+## Realtime
+
+Realtime is a "refetch" hint only: `c.realtime.publish("branch:<id>", { type, data })` after commit, delivered over SSE by the in-process bus; clients also poll, so a lost message never loses data.
+
+## Frontend
+
+- Server state: TanStack Query (`networkMode: offlineFirst`). Query keys per feature.
+- Client state: Zustand (cart, UI prefs). Local persistence: Dexie (see `docs/offline-sync.md`).
+- Forms: React Hook Form + zodResolver with the shared contracts; server field errors mapped via `applyFieldErrors`.
+- Distinct layouts: public site, auth, workspace dashboard, branch management, waiter, kitchen, cashier, customer QR, Super Admin.
+- Signed-in areas use `AuthGate` (UX only) and `proxy.ts` (optimistic redirect). The server enforces everything.
