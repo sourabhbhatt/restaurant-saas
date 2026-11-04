@@ -24,6 +24,10 @@ Module agents were stopped early at the owner's request (credit limit). Their se
 - [x] `pnpm db:seed` (demo owner/staff/admin, 2 branches, 6-category menu with variants and add-ons, 12 tables each with QR) and `pnpm db:make-admin <email>`
 - [x] **Verified end to end over HTTP against the running server:** QR scan → session → order → waiter accept → kitchen start/ready → serve → bill with GST → two partial payments (UPI + cash) → PAID → idempotent payment replay → session closed; role denials (cashier/waiter/kitchen) confirmed
 
+## Browser walkthrough (headless Chromium, production build, seeded data)
+
+Signed in as owner and Super Admin and opened every main screen: workspace (overview, restaurants, members, analytics, subscription, audit, support, settings), branch (overview, menu, tables, orders, bills, staff, settings, reports), waiter, kitchen, cashier, notifications, account, admin (overview, workspaces, plans, support, settings). All render with no 404s or server errors. Fixed in this pass: missing route files for subscription/support/audit/admin pages and the admin layout; added admin workspace detail, read-only plans page and platform settings form. Known: an intermittent React hydration warning (#418) on some pages; admin plan editing and announcements UI are not built (APIs exist); screens were checked for loading/errors, not pixel-reviewed.
+
 ## Built by stopped agents — needs review ⚠️
 
 - [ ] Tenancy APIs (restaurants, branches, settings, members, invitations, roles) — server + tests present; UI pages rebuilt (see above); not browser-verified. Role create/edit UI not built (roles are listed read-only).

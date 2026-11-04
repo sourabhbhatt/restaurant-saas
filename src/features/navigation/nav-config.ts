@@ -106,7 +106,6 @@ export function adminNav(): NavItem[] {
     { label: "Workspaces", href: "/admin/workspaces", icon: Building2 },
     { label: "Plans", href: "/admin/plans", icon: CreditCard },
     { label: "Support", href: "/admin/support", icon: LifeBuoy },
-    { label: "Announcements", href: "/admin/announcements", icon: ScrollText },
     { label: "Audit log", href: "/admin/audit", icon: ShieldCheck },
     { label: "Settings", href: "/admin/settings", icon: Settings },
   ];
