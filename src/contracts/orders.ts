@@ -62,6 +62,8 @@ export const orderPrioritySchema = z.object({
 
 export const orderItemStatusSchema = z.object({
   status: z.enum(["PREPARING", "READY"]),
+  /** Optional optimistic concurrency (queued offline changes send it): the order version seen. */
+  expectedVersion: z.number().int().positive().optional(),
 });
 
 export interface OrderItemAddonDto {

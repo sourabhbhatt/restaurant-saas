@@ -306,9 +306,11 @@ export function stopOfflineRuntime(): void {
 
 /**
  * Queue a mutation that may be applied later (draft-able operations ONLY:
- * menu availability toggles, menu item edits, settings drafts). Never use it
- * for customer order submission, order acceptance or payments: those are
- * server-authoritative and must not appear confirmed while offline.
+ * menu availability toggles, menu item edits, settings drafts, kitchen item
+ * status and start/ready, staff-entered orders — see queued-ops.ts). Never use
+ * it for guest order submission, order acceptance/rejection, bills, payments,
+ * refunds or closing sessions: those are server-authoritative and must not
+ * appear confirmed while offline.
  *
  * Use an endpoint that declares idempotency, or a naturally idempotent
  * PUT/PATCH with `expectedVersion`. Sync starts immediately when online.

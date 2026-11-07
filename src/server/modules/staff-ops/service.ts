@@ -359,7 +359,7 @@ export function createStaffOpsService(deps: StaffOpsServiceDeps) {
       actor: UserActor,
       orderId: string,
       itemId: string,
-      input: { status: "PREPARING" | "READY" },
+      input: { status: "PREPARING" | "READY"; expectedVersion?: number },
       meta: RequestMeta,
     ): Promise<OrderDto> {
       const scope = await scopeForOrder(actor, orderId);
@@ -381,6 +381,11 @@ export function createStaffOpsService(deps: StaffOpsServiceDeps) {
         const item = items.find((i) => i.id === itemId);
         if (!item) throw notFound("Order item");
         if (item.status === input.status) return [];
+        if (input.expectedVersion !== undefined && order.version !== input.expectedVersion) {
+          throw new DomainError("STALE_VERSION", STALE_MESSAGE, {
+            details: { status: order.status, version: order.version },
+          });
+        }
         if (!canTransitionItem(item.status, input.status)) {
           throw new DomainError(
             "INVALID_STATE_TRANSITION",

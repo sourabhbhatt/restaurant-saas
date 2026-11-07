@@ -1,8 +1,8 @@
 "use client";
 
-import { BellRing, Plus, Receipt } from "lucide-react";
+import { BellRing, CloudUpload, Plus, Receipt } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,12 @@ import {
 import type { BranchTableDto } from "@/contracts/staff-ops";
 import { formatMoney } from "@/domain/shared/money";
 import { errorMessage } from "@/lib/api-client";
+import {
+  NeedsConnectionNote,
+  queuedStaffOrders,
+  useSyncStore,
+  type OutboxItem,
+} from "@/features/offline";
 import { OrderActionButtons } from "@/features/orders/order-actions";
 import { OrderItemsList, OrderStatusBadge, PriorityBadge } from "@/features/orders/order-ui";
 import { formatClock, formatElapsed } from "@/features/orders/use-now";
@@ -26,6 +32,40 @@ import { AddItemsDialog } from "./add-items-dialog";
 import { GenerateBillDialog } from "./generate-bill-dialog";
 import { useSessionDetail } from "./queries";
 import { TABLE_STATUS_META } from "./table-status";
+
+/** Staff orders saved on this device that the server has not confirmed yet. */
+function UnsentOrders({ items }: { items: OutboxItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <ul className="flex flex-col gap-2" aria-label="Orders not sent yet">
+      {items.map((i) => {
+        const refused = i.status === "failed" || i.status === "conflict";
+        return (
+          <li
+            key={i.id}
+            className={
+              refused
+                ? "flex flex-col gap-1 rounded-xl border-2 border-destructive/60 bg-destructive/5 p-3 text-sm"
+                : "flex flex-col gap-1 rounded-xl border-2 border-dashed border-warning bg-warning/10 p-3 text-sm"
+            }
+          >
+            <p className="flex items-center gap-2 font-semibold">
+              <CloudUpload className="size-4" aria-hidden />
+              {refused ? "Not sent — needs attention" : "Not sent — will send when online"}
+            </p>
+            {i.meta?.summary && <p>{i.meta.summary}</p>}
+            <p className="text-xs text-muted-foreground">
+              {refused
+                ? (i.lastError ?? "The server refused this order.") +
+                  " Open the sync status to retry or discard it."
+                : "Saved on this device. The kitchen gets it, with prices set by the server, once it is sent."}
+            </p>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 /** Table drawer: session orders, add items, and bill generation. */
 export function TableDrawer({
@@ -50,6 +90,12 @@ export function TableDrawer({
   const [adding, setAdding] = useState(false);
   const [billing, setBilling] = useState(false);
   const meta = table ? TABLE_STATUS_META[table.status] : null;
+  const online = useSyncStore((s) => s.online);
+  const outbox = useSyncStore((s) => s.items);
+  const unsent = useMemo(
+    () => (table ? queuedStaffOrders(outbox, table.tableId) : []),
+    [outbox, table],
+  );
   const bill = detail.data?.bill ?? table?.bill ?? null;
   const billable = table?.session?.billableSubtotal ?? 0;
 
@@ -79,6 +125,7 @@ export function TableDrawer({
           </SheetDescription>
         </SheetHeader>
         <SheetBody className="flex flex-col gap-4">
+          <UnsentOrders items={unsent} />
           {bill && (
             <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/40 p-3 text-sm">
               <div>
@@ -162,10 +209,14 @@ export function TableDrawer({
                 className="flex-1"
                 size="lg"
                 variant="outline"
+                disabled={!online}
                 onClick={() => setBilling(true)}
               >
                 <Receipt aria-hidden /> Generate bill
               </Button>
+            )}
+            {canBill && (
+              <NeedsConnectionNote>Generating a bill needs a connection.</NeedsConnectionNote>
             )}
             {bill && can("bills.view") && (
               <Button className="flex-1" size="lg" variant="outline" asChild>

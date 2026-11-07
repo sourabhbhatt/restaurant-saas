@@ -27,6 +27,7 @@ import { ApiError, applyFieldErrors, errorMessage, newIdempotencyKey } from "@/l
 
 import { METHOD_LABEL, money, parseMajor, toMajorText } from "../format";
 import { useRefund } from "../queries";
+import { NeedsConnectionNote, useIsOffline } from "@/features/offline";
 
 const refundFormSchema = z.object({
   method: refundSchema.shape.method,
@@ -78,6 +79,7 @@ function RefundBody({
   const [idempotencyKey] = useState(newIdempotencyKey);
   const [networkError, setNetworkError] = useState(false);
   const refund = useRefund(branchId);
+  const offline = useIsOffline();
 
   const form = useForm<RefundForm>({
     resolver: zodResolver(refundFormSchema),
@@ -177,11 +179,12 @@ function RefundBody({
       <FormField label="Reason" error={formState.errors.note?.message} required>
         <Textarea maxLength={200} placeholder="e.g. Dish returned" {...register("note")} />
       </FormField>
+      <NeedsConnectionNote>Recording a refund needs a connection.</NeedsConnectionNote>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDone} disabled={formState.isSubmitting}>
           Cancel
         </Button>
-        <Button type="submit" variant="destructive" disabled={formState.isSubmitting}>
+        <Button type="submit" variant="destructive" disabled={formState.isSubmitting || offline}>
           {formState.isSubmitting && <Spinner decorative />}
           {networkError ? "Retry refund" : "Record refund"}
         </Button>

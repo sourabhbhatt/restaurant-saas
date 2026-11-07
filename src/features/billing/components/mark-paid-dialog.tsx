@@ -21,6 +21,7 @@ import { ApiError, errorMessage, newIdempotencyKey } from "@/lib/api-client";
 
 import { METHOD_LABEL, money } from "../format";
 import { useRecordPayment } from "../queries";
+import { NeedsConnectionNote, useIsOffline } from "@/features/offline";
 
 /**
  * "Mark as paid": records one confirmed payment for the whole outstanding
@@ -41,6 +42,7 @@ export function MarkPaidDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const record = useRecordPayment(branchId);
+  const offline = useIsOffline();
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [reference, setReference] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -95,12 +97,13 @@ export function MarkPaidDialog({
             </p>
           )}
         </div>
+        <NeedsConnectionNote>Recording a payment needs a connection.</NeedsConnectionNote>
         <DialogFooter>
           <Button variant="outline" onClick={() => close(false)} disabled={record.isPending}>
             Cancel
           </Button>
           <Button
-            disabled={record.isPending}
+            disabled={record.isPending || offline}
             onClick={async () => {
               setError(null);
               try {

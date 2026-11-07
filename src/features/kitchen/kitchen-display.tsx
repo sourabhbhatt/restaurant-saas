@@ -107,7 +107,6 @@ function CompletedTicket({ order }: { order: KitchenOrderDto }) {
           </span>
         </div>
       </header>
-      <OfflineBanner />
       <OrderItemsList items={order.items} />
       {order.cancellationReason && (
         <p className="text-sm text-destructive">Reason: {order.cancellationReason}</p>
@@ -258,6 +257,7 @@ function KitchenScreen({ branchId, ctx }: { branchId: string; ctx: BranchContext
           </div>
         </div>
       </header>
+      <OfflineBanner />
 
       <main className="flex-1 p-4">
         {feed.isPending ? (

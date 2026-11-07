@@ -56,6 +56,16 @@ export interface EnqueueInput {
   body?: unknown;
   scopeKey: string;
   expectedVersion?: number;
+  /** Body field for `expectedVersion` (default `version`, e.g. `expectedVersion` for orders). */
+  versionField?: string;
+  /** See OutboxItem.chainVersion. Use only when the scope is a single record. */
+  chainVersion?: boolean;
+  /**
+   * Reuse a key the caller already owns (e.g. a draft's body `idempotencyKey`)
+   * instead of generating one, so every attempt is the same request.
+   */
+  idempotencyKey?: string;
+  meta?: Record<string, string>;
   /** Query keys to invalidate once this change reached the server. */
   invalidateKeys?: unknown[][];
 }
@@ -146,8 +156,11 @@ export class SyncEngine {
       method: input.method,
       path: input.path,
       body: input.body,
-      idempotencyKey: (this.deps.newIdempotencyKey ?? randomKey)(),
+      idempotencyKey: input.idempotencyKey ?? (this.deps.newIdempotencyKey ?? randomKey)(),
       expectedVersion: input.expectedVersion,
+      versionField: input.versionField,
+      chainVersion: input.chainVersion,
+      meta: input.meta,
       status: "pending",
       attempts: 0,
       nextAttemptAt: now,
@@ -257,9 +270,35 @@ export class SyncEngine {
 
   private buildBody(item: OutboxItem): unknown {
     if (item.expectedVersion === undefined) return item.body;
-    if (item.body === undefined) return { version: item.expectedVersion };
-    if (isPlainObject(item.body)) return { ...item.body, version: item.expectedVersion };
+    const field = item.versionField ?? "version";
+    if (item.body === undefined) return { [field]: item.expectedVersion };
+    if (isPlainObject(item.body)) return { ...item.body, [field]: item.expectedVersion };
     return item.body;
+  }
+
+  /**
+   * After a chained item synced: later pending items of the scope that were
+   * made on the same version the server just accepted now build on the
+   * version it returned.
+   */
+  private async rebaseScope(item: OutboxItem, data: unknown): Promise<void> {
+    if (!item.chainVersion || item.expectedVersion === undefined) return;
+    if (!isPlainObject(data) || typeof data.version !== "number") return;
+    const base = item.expectedVersion;
+    const next = data.version;
+    await this.deps.db.outbox
+      .where("scopeKey")
+      .equals(item.scopeKey)
+      .filter(
+        (i) =>
+          i.id !== item.id &&
+          i.userId === item.userId &&
+          i.status === "pending" &&
+          i.chainVersion === true &&
+          i.expectedVersion === base &&
+          i.createdAt > item.createdAt,
+      )
+      .modify({ expectedVersion: next });
   }
 
   private async send(
@@ -334,20 +373,25 @@ export class SyncEngine {
     const now = this.now();
 
     switch (outcome) {
-      case "synced":
-        await db.outbox.update(claimed.id, {
-          status: "synced",
-          updatedAt: now,
-          syncedAt: now,
-          lastError: null,
-          lastErrorCode: null,
-          lastStatus: status,
-          serverResponse: isPlainObject(payload) ? payload.data : undefined,
+      case "synced": {
+        const data = isPlainObject(payload) ? payload.data : undefined;
+        await db.transaction("rw", db.outbox, async () => {
+          await db.outbox.update(claimed.id, {
+            status: "synced",
+            updatedAt: now,
+            syncedAt: now,
+            lastError: null,
+            lastErrorCode: null,
+            lastStatus: status,
+            serverResponse: data,
+          });
+          await this.rebaseScope(claimed, data);
         });
         ctx.result.synced += 1;
         this.deps.onAuthRequired?.(false);
         this.deps.onItemSynced?.({ ...claimed, status: "synced", syncedAt: now });
         break;
+      }
       case "retry":
       case "auth":
         await db.outbox.update(claimed.id, {
@@ -421,8 +465,10 @@ export class SyncEngine {
 
   /**
    * User action on a conflict: re-apply this change on top of the latest
-   * server state (drops the version check). A new idempotency key is used
-   * because the request differs from the one that conflicted.
+   * server state. The version check is dropped, except for chained records
+   * (orders), whose API requires one: those are resent against the version
+   * the conflict reported. A new idempotency key is used because the request
+   * differs from the one that conflicted.
    */
   async retryWithLatest(id: string): Promise<boolean> {
     const userId = this.deps.getUserId();
@@ -430,15 +476,21 @@ export class SyncEngine {
     return db.transaction("rw", db.outbox, async () => {
       const item = await db.outbox.get(id);
       if (!item || item.userId !== userId || item.status !== "conflict") return false;
+      const field = item.versionField ?? "version";
       let body = item.body;
-      if (isPlainObject(body) && "version" in body) {
-        const { version: _version, ...rest } = body;
+      if (isPlainObject(body) && field in body) {
+        const { [field]: _version, ...rest } = body;
         body = rest;
       }
+      const details = isPlainObject(item.serverResponse) ? item.serverResponse.details : null;
+      const latest =
+        item.chainVersion && isPlainObject(details) && typeof details.version === "number"
+          ? details.version
+          : undefined;
       await db.outbox.put({
         ...item,
         body,
-        expectedVersion: undefined,
+        expectedVersion: latest,
         idempotencyKey: (this.deps.newIdempotencyKey ?? randomKey)(),
         status: "pending",
         nextAttemptAt: this.now(),

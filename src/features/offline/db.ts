@@ -4,8 +4,8 @@ import Dexie, { type EntityTable } from "dexie";
  * Per-device local database for staff devices (IndexedDB via Dexie).
  *
  * This is a cache and a queue, never shared storage: other devices never see
- * it, and the server stays the source of truth. Customer order submission,
- * order acceptance and payments are never queued here.
+ * it, and the server stays the source of truth. Guest order submission,
+ * order acceptance, bills and payments are never queued here.
  */
 
 export const OFFLINE_DB_NAME = "restaurantos-staff";
@@ -33,8 +33,18 @@ export interface OutboxItem {
   body?: unknown;
   /** Sent as Idempotency-Key on every attempt (reused across retries). */
   idempotencyKey: string;
-  /** Optimistic concurrency: the version the user edited. Sent as `version` in the body. */
+  /** Optimistic concurrency: the version the user edited. Sent in the body as `versionField`. */
   expectedVersion?: number;
+  /** Body field that carries `expectedVersion` (default `version`). */
+  versionField?: string;
+  /**
+   * Every item of this scope edits one record whose new `version` comes back
+   * in the response. Later queued items made on the same version are rebased
+   * on it, so a chain of offline changes doesn't conflict with itself.
+   */
+  chainVersion?: boolean;
+  /** Local-only details for the UI (never sent), e.g. which order/item it changes. */
+  meta?: Record<string, string>;
   status: OutboxStatus;
   attempts: number;
   /** Epoch ms before which the item is not retried automatically. */

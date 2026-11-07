@@ -37,6 +37,7 @@ import { formatMoney, isCurrencyCode, toMinor } from "@/domain/shared/money";
 import { applyFieldErrors, errorMessage, newIdempotencyKey } from "@/lib/api-client";
 
 import { useBillPreview, useGenerateBill, type DiscountInput } from "./queries";
+import { NeedsConnectionNote, useIsOffline } from "@/features/offline";
 
 /** Discount entered in display units: percent (e.g. 10) or amount in major units (e.g. 50). */
 const discountFormSchema = z
@@ -103,6 +104,7 @@ export function GenerateBillDialog({
   const [issued, setIssued] = useState<BillDto | null>(null);
   const preview = useBillPreview(branchId, sessionId, applied, open && !issued);
   const generate = useGenerateBill(branchId);
+  const offline = useIsOffline();
   const form = useForm<DiscountForm>({
     resolver: zodResolver(discountFormSchema),
     defaultValues: { enabled: false, type: "PERCENT", amount: "", reason: "" },
@@ -274,6 +276,7 @@ export function GenerateBillDialog({
             </>
           ) : (
             <>
+              <NeedsConnectionNote>Issuing a bill needs a connection.</NeedsConnectionNote>
               <Button variant="outline" onClick={() => close(false)} disabled={generate.isPending}>
                 Cancel
               </Button>
@@ -281,6 +284,7 @@ export function GenerateBillDialog({
                 onClick={() => void issue()}
                 disabled={
                   generate.isPending ||
+                  offline ||
                   !p ||
                   preview.isFetching ||
                   Boolean(p.existingBillId) ||

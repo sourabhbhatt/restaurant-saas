@@ -212,8 +212,8 @@ function SyncPanel() {
             <CloudOffIcon aria-hidden="true" />
             <AlertTitle>Working offline</AlertTitle>
             <AlertDescription>
-              Menu availability, menu edits and settings drafts are saved here and sent
-              automatically when you reconnect. New orders, accepting orders and payments need a
+              Menu edits, settings drafts, kitchen ticket updates and staff orders are saved here
+              and sent automatically when you reconnect. Accepting orders, bills and payments need a
               connection.
             </AlertDescription>
           </Alert>

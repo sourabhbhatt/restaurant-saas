@@ -38,6 +38,13 @@ import { DomainError } from "@/domain/shared/errors";
 import { formatMoney } from "@/domain/shared/money";
 import { ApiError, applyFieldErrors, errorMessage, newIdempotencyKey } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import {
+  enqueueMutation,
+  scopeHasUnsynced,
+  staffOrderMutation,
+  tableScope,
+  useSyncStore,
+} from "@/features/offline";
 
 import { useBranchMenu, useStaffOrder } from "./queries";
 
@@ -226,8 +233,9 @@ function QuantityStepper({
 
 /**
  * Staff order for a table (orders.create). Prices shown here are a preview;
- * the server reprices every line. One idempotency key per dialog session makes
- * retries after a network error safe.
+ * the server reprices every line. One idempotency key per draft makes retries
+ * safe: offline (or after a network error) the draft is queued with that key
+ * and shown as "Not sent" until the server answers 2xx.
  */
 export function AddItemsDialog({
   branchId,
@@ -246,6 +254,9 @@ export function AddItemsDialog({
 }) {
   const menu = useBranchMenu(branchId, open);
   const mutation = useStaffOrder(branchId);
+  const online = useSyncStore((s) => s.online);
+  const outbox = useSyncStore((s) => s.items);
+  const [queueing, setQueueing] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [search, setSearch] = useState("");
   const [configuring, setConfiguring] = useState<BranchMenuItem | null>(null);
@@ -326,27 +337,61 @@ export function AddItemsDialog({
   const total = cart.reduce((s, l) => s + linePrice(l).unit * l.quantity, 0);
   const menuMissing = menu.error instanceof ApiError && [403, 404].includes(menu.error.status);
 
-  const submit = form.handleSubmit(async (values) => {
+  /** Save the draft (same idempotency key) to the outbox; never shown as sent. */
+  const queueDraft = async (body: FormOut) => {
+    setQueueing(true);
     try {
-      const order = await mutation.mutateAsync({
-        ...values,
-        specialInstructions: values.specialInstructions || undefined,
+      await enqueueMutation(
+        staffOrderMutation({
+          branchId,
+          tableName,
+          body,
+          summary: cart.map((l) => `${l.quantity}× ${l.item.name}`).join(", "),
+        }),
+      );
+      toast.warning("Not sent — will send when online", {
+        description: `The order for ${tableName} is saved on this device.`,
       });
+      reset();
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setQueueing(false);
+    }
+  };
+
+  const submit = form.handleSubmit(async (values) => {
+    const body = { ...values, specialInstructions: values.specialInstructions || undefined };
+    // Earlier unsent orders of this table go first, so this one queues behind them.
+    if (!online || scopeHasUnsynced(outbox, tableScope(tableId))) {
+      await queueDraft(body);
+      return;
+    }
+    try {
+      const order = await mutation.mutateAsync(body);
       toast.success(`Order #${order.orderNumber} sent for ${tableName}`);
       reset();
       onOpenChange(false);
     } catch (error) {
+      if (error instanceof ApiError && error.isNetworkError) {
+        // The server may or may not have it: the same key makes the resend safe.
+        await queueDraft(body);
+        return;
+      }
       if (!applyFieldErrors(error, form.setError, ["specialInstructions", "lines", "priority"])) {
         toast.error(errorMessage(error));
       }
     }
   });
+  const sending = mutation.isPending || queueing;
+  const menuPaused = menu.isPending && menu.fetchStatus === "paused";
 
   return (
     <Dialog
       open={open}
       onOpenChange={(o) => {
-        if (mutation.isPending) return;
+        if (sending) return;
         if (!o) reset();
         onOpenChange(o);
       }}
@@ -370,6 +415,13 @@ export function AddItemsDialog({
                 currency={currency}
                 onAdd={addLine}
                 onCancel={() => setConfiguring(null)}
+              />
+            ) : menuPaused ? (
+              <EmptyState
+                size="compact"
+                icon={<UtensilsCrossed />}
+                title="Menu not saved on this device"
+                description="Connect once to load the menu. After that, orders can be taken offline."
               />
             ) : menu.isPending ? (
               <LoadingState label="Loading menu…" />
@@ -543,14 +595,14 @@ export function AddItemsDialog({
             <Button
               type="button"
               variant="outline"
-              disabled={mutation.isPending}
+              disabled={sending}
               onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending || cart.length === 0}>
-              {mutation.isPending && <Spinner decorative />}
-              Send order
+            <Button type="submit" disabled={sending || cart.length === 0}>
+              {sending && <Spinner decorative />}
+              {online ? "Send order" : "Save order — send when online"}
             </Button>
           </DialogFooter>
         </form>

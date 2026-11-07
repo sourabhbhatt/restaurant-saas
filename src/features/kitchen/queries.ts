@@ -13,5 +13,7 @@ export function useKitchenFeed(branchId: string, refetchInterval: number) {
       api.get<KitchenFeedDto>(`/branches/${branchId}/kitchen`, undefined, signal),
     refetchInterval,
     refetchIntervalInBackground: true,
+    // Kept on this device so a reloaded kitchen screen still shows tickets offline.
+    meta: { persist: true },
   });
 }
