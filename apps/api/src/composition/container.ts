@@ -2,14 +2,12 @@ import "server-only";
 
 import { sql } from "drizzle-orm";
 
-import type { IdentityProvider } from "@ros/adapters/auth/interfaces/identity-provider";
 import { createLocalIdentityProvider } from "@ros/adapters/auth/providers/local-identity";
 import {
   connectPglite,
   connectPostgres,
   runMigrations,
   type DatabaseHandle,
-  type Executor,
 } from "@ros/database/providers/postgres/client";
 import {
   accessRepository,
@@ -34,7 +32,6 @@ import {
   createLogErrorReporter,
   silentLogger,
 } from "@ros/adapters/logging/console-logger";
-import type { PushSender } from "@ros/adapters/push/interfaces/push-sender";
 import { createNoopPushSender } from "@ros/adapters/push/providers/noop-push";
 import type { RealtimeBus } from "@ros/adapters/realtime/interfaces/realtime";
 import { createMemoryBus, createNoopBus } from "@ros/adapters/realtime/providers/memory-bus";
@@ -46,7 +43,7 @@ import { createS3Storage } from "@ros/adapters/storage/providers/s3-storage";
 
 import { createAccessService } from "@ros/application/authz/access-service";
 import { appOriginAllowed, getEnv, tenantRole, type ServerEnv } from "@ros/application/config/env";
-import type { ErrorReporter, Logger } from "@ros/application/ports/observability";
+import type { Logger } from "@ros/application/ports/observability";
 import type { PaymentGateway } from "@ros/application/ports/payment-gateway";
 import { createEntitlementService } from "@ros/application/subscriptions/entitlement-service";
 import {
@@ -169,7 +166,7 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
 
     // System (owner, bypasses row-level security): authentication, the authorization lookup itself,
     // entitlement resolution, rate limits, idempotency and the outbox run before or outside a tenant
-    // scope. Module compositions use the tenant runner instead (src/server/composition/runners.ts).
+    // scope. Module compositions use the tenant runner instead (apps/api/src/composition/runners.ts).
     const entitlements = createEntitlementService({ repo: entitlementRepository(db), clock });
     const access = createAccessService({ repo: accessRepository(db), entitlements });
     realtime = selectRealtime(env, logger);

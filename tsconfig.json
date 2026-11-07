@@ -7,9 +7,6 @@
       }
     ],
     "paths": {
-      "@/composition/*": ["./apps/api/src/composition/*"],
-      "@/handlers/*": ["./apps/api/src/handlers/*"],
-      "@/test/*": ["./apps/api/src/test/*"],
       "@/*": ["./src/*"]
     }
   },

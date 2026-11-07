@@ -10,7 +10,7 @@ const serverOnlyStub = path.resolve(here, "../testing/src/server-only-stub.ts");
 
 /** Fixtures give each user its own client IP through a one-entry X-Forwarded-For. */
 export const SERVER_TEST_ENV = {
-  NODE_ENV: "test",
+  NODE_ENV: "test" as const,
   APP_URL: "http://localhost:3000",
   TRUSTED_PROXY_HOPS: "1",
 };

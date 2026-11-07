@@ -4,7 +4,7 @@
  * to the transaction; those handed to `read` are not.
  *
  * `R` is the set of repositories a module needs, so each module declares its
- * own narrow repository interfaces (see src/server/modules/<module>/ports.ts).
+ * own narrow repository interfaces (see packages/application/src/modules/<module>/ports.ts).
  */
 export interface TransactionRunner<R> {
   run<T>(work: (repos: R) => Promise<T>): Promise<T>;

@@ -25,8 +25,12 @@ export interface DatabaseHandle {
   close(): Promise<void>;
 }
 
-/** Ships with the package, so it resolves the same from any cwd (CLI, tests, Docker). */
-export const MIGRATIONS_DIR = fileURLToPath(new URL("./migrations", import.meta.url));
+/**
+ * Ships with the package, so it resolves the same from any cwd (CLI, tests,
+ * Docker). Written with path.join rather than `new URL("./migrations",
+ * import.meta.url)`, which Turbopack would try to bundle as an asset.
+ */
+export const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "migrations");
 
 /** node-postgres pool (production and local dev against a real Postgres). */
 export async function connectPostgres(url: string, poolMax = 10): Promise<DatabaseHandle> {

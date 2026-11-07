@@ -128,7 +128,11 @@ function sourceFiles(dir: string): string[] {
 
 describe("feature catalogue truth", () => {
   it("every advertised feature has an enforcement call site", () => {
-    const source = sourceFiles(join(process.cwd(), "src/server"))
+    // Enforcement lives in the application package and the API composition root.
+    const source = [
+      ...sourceFiles(join(import.meta.dirname, "../../../../packages/application/src")),
+      ...sourceFiles(join(import.meta.dirname, "../../src/composition")),
+    ]
       .map((f) => readFileSync(f, "utf8"))
       .join("\n");
     for (const key of ADVERTISED_FEATURES) {

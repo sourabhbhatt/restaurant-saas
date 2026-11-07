@@ -15,28 +15,26 @@ import { call, createTestContainer } from "@/test/harness";
  * row-level security. Each entry states why it cannot use the tenant runner.
  */
 const SYSTEM_ALLOW_LIST: Record<string, string> = {
-  "src/server/container.ts":
+  "src/composition/container.ts":
     "core repos (identity, access, audit, idempotency, rate limit, outbox) and entitlements: authentication and the authorization lookup itself",
-  "src/server/composition/platform.ts": "Super Admin console and scheduled jobs span workspaces",
-  "src/server/composition/dev-mailbox.ts": "local/test mailbox reads the outbox",
-  "src/server/composition/ordering.ts":
+  "src/composition/platform.ts": "Super Admin console and scheduled jobs span workspaces",
+  "src/composition/dev-mailbox.ts": "local/test mailbox reads the outbox",
+  "src/composition/ordering.ts":
     "lookup runner: QR token and guest token resolve the workspace, then bind it",
-  "src/server/composition/tenancy.ts":
+  "src/composition/tenancy.ts":
     "lookup runner: invitation token resolves the workspace, then binds it",
-  "src/server/composition/workspaces.ts":
-    "bootstrap: the workspace does not exist yet when it is created",
+  "src/composition/workspaces.ts": "bootstrap: the workspace does not exist yet when it is created",
   // Authorization lookups: an id from the URL is resolved to its owning branch/restaurant
   // before the access service can verify membership and bind the workspace.
-  "src/server/composition/billing.ts": "lookup: bill/payment id → branch, then access.forBranch",
-  "src/server/composition/menu.ts":
-    "lookup: category/item id → restaurant, then access.forRestaurant",
-  "src/server/composition/staff-ops.ts": "lookup: order id → branch, then access.forBranch",
-  "src/server/composition/tables.ts": "lookup: table id → branch, then access.forBranch",
-  "src/server/composition/analytics.ts":
+  "src/composition/billing.ts": "lookup: bill/payment id → branch, then access.forBranch",
+  "src/composition/menu.ts": "lookup: category/item id → restaurant, then access.forRestaurant",
+  "src/composition/staff-ops.ts": "lookup: order id → branch, then access.forBranch",
+  "src/composition/tables.ts": "lookup: table id → branch, then access.forBranch",
+  "src/composition/analytics.ts":
     "Super Admin platform aggregates (route auth platform) count across workspaces",
-  "src/server/composition/notifications.ts":
+  "src/composition/notifications.ts":
     "the actor's own notification writes span workspaces and workspace-less rows; filtered by user",
-  "src/server/composition/payments.ts":
+  "src/composition/payments.ts":
     "payment orders/events are tenant read-only and activation rewrites the organization's subscription; the webhook has no user. Checkout/verify first pass a tenant-scoped membership check",
 };
 
@@ -59,7 +57,9 @@ const ROUTE_CORE_REPO_USES: Record<string, string[]> = {
   "src/app/api/v1/workspaces/[workspaceId]/structure/route.ts": ["access.listStructure"],
 };
 
-const ROOT = process.cwd();
+/** apps/api; the application package is scanned through the repo root. */
+const ROOT = path.resolve(import.meta.dirname, "../..");
+const APPLICATION_SRC = "../../packages/application/src";
 
 async function sourceFiles(dir: string): Promise<string[]> {
   const out: string[] = [];
@@ -83,7 +83,12 @@ function usesSystemAccess(source: string): boolean {
 
 describe("system runner allow-list", () => {
   it("createSystemRunner is only used in allow-listed files", async () => {
-    const files = [...(await sourceFiles("src/server")), ...(await sourceFiles("src/app"))];
+    const files = [
+      ...(await sourceFiles(APPLICATION_SRC)),
+      ...(await sourceFiles("src/composition")),
+      ...(await sourceFiles("src/handlers")),
+      ...(await sourceFiles("src/app")),
+    ];
     const system: string[] = [];
     for (const file of files) {
       if (usesSystemAccess(await readFile(path.join(ROOT, file), "utf8"))) system.push(file);

@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "dev": "next dev -p 4000",
+    "build": "next build",
+    "start": "next start -p 4000",
+    "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint --max-warnings=0 .",
     "test": "vitest run",
     "seed": "tsx --conditions=react-server --env-file-if-exists=../../.env.local scripts/seed.ts"

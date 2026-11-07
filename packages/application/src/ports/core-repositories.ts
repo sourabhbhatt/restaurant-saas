@@ -1,7 +1,7 @@
 /**
  * Repository ports for cross-cutting concerns (identity, access, audit,
  * entitlements, idempotency, rate limiting). Module-specific repositories are
- * declared next to their services in src/server/modules/<module>/ports.ts.
+ * declared next to their services in packages/application/src/modules/<module>/ports.ts.
  * Implementations live in src/infrastructure/database/providers/postgres.
  */
 import type {
