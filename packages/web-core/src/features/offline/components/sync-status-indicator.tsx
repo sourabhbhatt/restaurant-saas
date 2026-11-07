@@ -38,6 +38,7 @@ import {
   retryOutboxItemWithLatest,
   syncNow,
 } from "../runtime";
+import { needsSendConfirmation } from "../queued-ops";
 import { canRetryWithLatest } from "../sync-engine";
 import { attentionCount, useSyncStore, waitingCount } from "../sync-store";
 
@@ -307,10 +308,18 @@ function ItemSection({
   );
 }
 
+function isSessionChanged(item: OutboxItem): boolean {
+  const response = item.serverResponse as { details?: { reason?: unknown } } | null | undefined;
+  return response?.details?.reason === "SESSION_CHANGED";
+}
+
 function OutboxRow({ item }: { item: OutboxItem }) {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [busy, setBusy] = useState(false);
-  const badge = STATUS_BADGE[item.status];
+  const confirm = needsSendConfirmation(item);
+  const badge = confirm
+    ? { label: "Confirm", variant: "warning" as const }
+    : STATUS_BADGE[item.status];
 
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
@@ -361,7 +370,18 @@ function OutboxRow({ item }: { item: OutboxItem }) {
         </p>
       )}
       {item.status === "conflict" &&
-        (canRetryWithLatest(item) ? (
+        (confirm ? (
+          <p className="text-xs text-muted-foreground">
+            The table may have moved on since. <em>Send now</em> sends it as it is; <em>Discard</em>{" "}
+            drops it.
+          </p>
+        ) : isSessionChanged(item) ? (
+          <p className="text-xs text-muted-foreground">
+            The table was closed or reopened after this order was composed.{" "}
+            <em>Retry with latest</em> sends it to the table&apos;s current session;{" "}
+            <em>Discard</em> drops it.
+          </p>
+        ) : canRetryWithLatest(item) ? (
           <p className="text-xs text-muted-foreground">
             This was changed elsewhere after you edited it. <em>Retry with latest</em> applies your
             change on top of the latest version; <em>Discard</em> keeps the other change.
@@ -384,6 +404,17 @@ function OutboxRow({ item }: { item: OutboxItem }) {
             >
               <RotateCcwIcon aria-hidden="true" />
               Retry with latest
+            </Button>
+          )}
+          {confirm && (
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void run(() => retryOutboxItem(item.id))}
+            >
+              <RotateCcwIcon aria-hidden="true" />
+              Send now
             </Button>
           )}
           {(item.status === "failed" || (item.status === "pending" && item.attempts > 0)) && (

@@ -36,6 +36,7 @@ import { SoundControl } from "@ros/web-core/features/realtime/sound-control";
 import { useBranchEvents } from "@ros/web-core/features/realtime/use-branch-events";
 import { AuthGate } from "@ros/web-core/features/session/auth-gate";
 import { permissionChecker, useBranchContext } from "@ros/web-core/features/session/queries";
+import { appHref, useAppLinks } from "@ros/web-core/app-links";
 
 import { WaiterOrderCard } from "./order-card";
 import { useBranchSessions } from "./queries";
@@ -82,6 +83,7 @@ function LaneColumn({
 }
 
 function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextDto }) {
+  const links = useAppLinks();
   const can = permissionChecker(ctx.permissions);
   const realtime = useBranchEvents(branchId);
   const now = useNow(5_000);
@@ -260,7 +262,10 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4">
           <Button variant="ghost" size="icon-sm" asChild>
-            <Link href={`/app/b/${branchId}`} aria-label="Back to branch dashboard">
+            <Link
+              href={appHref(links.console, `/app/b/${branchId}`)}
+              aria-label="Back to branch dashboard"
+            >
               <ArrowLeft aria-hidden />
             </Link>
           </Button>
@@ -453,6 +458,7 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
 
 function WaiterGate() {
   const { branchId } = useParams<{ branchId: string }>();
+  const links = useAppLinks();
   const ctx = useBranchContext(branchId);
   if (ctx.isPending) return <PageSkeleton variant="cards" />;
   if (ctx.isError) {
@@ -476,7 +482,7 @@ function WaiterGate() {
         />
         <div className="mt-4 text-center">
           <Button variant="outline" asChild>
-            <Link href={`/app/b/${branchId}`}>Back to branch</Link>
+            <Link href={appHref(links.console, `/app/b/${branchId}`)}>Back to branch</Link>
           </Button>
         </div>
       </div>

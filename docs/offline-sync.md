@@ -10,9 +10,9 @@ connection drops. This document describes what the code in `packages/web-core/sr
 - **Server-authoritative operations are never queued.** Guest (QR) order submission, order
   acceptance/rejection, bill generation, payments, refunds, voids and closing a session always
   need a live response. Offline their buttons are disabled and say why (`NeedsConnectionNote`).
-  Only operations that are safe to apply later go through the outbox: menu availability toggles,
-  menu item edits, settings drafts, kitchen item status and start/ready, and staff-entered
-  orders (see [Queued staff operations](#queued-staff-operations)).
+  Only operations that are safe to apply later go through the outbox: kitchen item status and
+  start/ready, and staff-entered orders (see [Queued staff operations](#queued-staff-operations)).
+  Menu, availability and settings screens do not queue anything today; they need a connection.
 - **Nothing queued is shown as confirmed.** A queued change reads "Waiting to sync" (kitchen) or
   "Not sent — will send when online" (staff orders) until the server answered 2xx. Prices and
   order numbers always come from the server response.
@@ -27,24 +27,32 @@ Dexie database `restaurantos-staff`, schema version 1 (unchanged by the queued s
 their new fields are not indexed, so no upgrade is needed and rows written by older releases sync
 as before; `queued-ops.test.ts` opens a database created with the original schema to check this):
 
-| Table        | Key                    | Contents                                                         |
-| ------------ | ---------------------- | ---------------------------------------------------------------- |
-| `queryCache` | `key` (JSON query key) | `queryKey, data, updatedAt, userId` — persisted TanStack queries |
-| `outbox`     | `id`                   | queued mutations (see below)                                     |
-| `drafts`     | `${userId}:${key}`     | `value, updatedAt, userId` — form drafts                         |
-| `meta`       | `key`                  | `currentUserId` — last server-confirmed user on this device      |
+| Table        | Key                    | Contents                                                                                                                |
+| ------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `queryCache` | `key` (JSON query key) | `queryKey, data, updatedAt, userId` — persisted TanStack queries                                                        |
+| `outbox`     | `id`                   | queued mutations (see below)                                                                                            |
+| `drafts`     | `${userId}:${key}`     | `value, updatedAt, userId` — form drafts                                                                                |
+| `meta`       | `key`                  | `currentUserId` — last server-confirmed user on this device; `signedOutAt` — last sign-out or account switch (epoch ms) |
 
 Outbox item: `id, createdAt, updatedAt, userId, scopeKey, kind, label, method, path, body,
 idempotencyKey, expectedVersion?, versionField?, chainVersion?, meta?, status
 (pending|syncing|synced|failed|conflict), attempts, nextAttemptAt, lastError, lastErrorCode,
-lastStatus, serverResponse?, syncedAt, invalidateKeys?`. `meta` holds local-only UI details
-(e.g. which order item a change is for) and is never sent.
+lastStatus, serverResponse?, syncedAt, invalidateKeys?, confirmedAt?`. `meta` holds local-only UI
+details (e.g. which order item a change is for) and is never sent. `confirmedAt` is set when the
+user explicitly retries or confirms an item (see [stale staff orders](#queued-staff-operations)).
 
 **Shared devices.** When the server confirms a _different_ user than the last one (live
 `/auth/me`), the previous user's `queryCache` rows, drafts and synced history are deleted. Their
 **unsynced** outbox items are kept but are never sent with another account's session; the sync
 sheet shows only a count ("N changes saved by another account") and an explicit Discard. When
-`/auth/me` returns 401 the whole `queryCache` is cleared.
+the `["me"]` query fails with 401 the whole `queryCache` is cleared (the sync engine's own
+session check does not clear it; it only marks "sign in to continue syncing").
+
+**Sign-out.** If the outbox holds unsent changes, signing out first asks "You have N unsent
+changes. They will be sent only after you sign in again on this device." Signing out clears the
+cache, drafts and stored user, records `signedOutAt`, and resets the device user and the sync
+store (items, counts), so the next account neither sees the previous one's items nor queues
+under it. The unsynced items stay in IndexedDB, hidden and counted as another account's.
 
 ## Public API (`@/features/offline`)
 
@@ -57,16 +65,17 @@ import {
   OfflineBanner,
 } from "@/features/offline";
 
-// Draft-able operations ONLY.
+// Draft-able operations ONLY (normally built by queued-ops.ts).
 await enqueueMutation({
-  kind: "menu.availability",
-  label: "Mark Paneer Tikka unavailable", // shown to the user, be specific
-  method: "PATCH",
-  path: `/menu/items/${itemId}/availability`, // relative to /api/v1
-  body: { isAvailable: false },
-  scopeKey: `branch:${branchId}`, // ordering unit (see FIFO)
-  expectedVersion: item.version, // optional, sent as body.version
-  invalidateKeys: [["branch", branchId, "menu"]], // refetched after it synced
+  kind: "kitchen.transition",
+  label: "#12 · start cooking", // shown to the user, be specific
+  method: "POST",
+  path: `/orders/${order.id}/transition`, // relative to /api/v1
+  body: { action: "start" },
+  scopeKey: `order:${order.id}`, // ordering unit (see FIFO)
+  expectedVersion: order.version, // optional, sent as body.version (or versionField)
+  versionField: "expectedVersion",
+  invalidateKeys: [["staff-ops", branchId]], // refetched after it synced
 });
 ```
 
@@ -129,11 +138,11 @@ A screen queues instead of calling the API directly when the device is offline *
 still has unsynced items (so a new change never overtakes queued ones). Online, with nothing
 queued, the usual direct request is used.
 
-| Operation (builder)                                 | Request                                         | Scope             | Duplicate / conflict handling                                                                                                                                                                                                                                                           |
-| --------------------------------------------------- | ----------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Kitchen item status (`kitchenItemStatusMutation`)   | `PATCH /orders/:id/items/:itemId` `{ status }`  | `order:<id>`      | Sends `expectedVersion` (order version seen) with `chainVersion`. Route declares `idempotency` (resend replays the first answer); an item already at the target status is a no-op 200. 409 `STALE_VERSION`/`INVALID_STATE_TRANSITION` → conflict                                        |
-| Kitchen start / ready (`kitchenTransitionMutation`) | `POST /orders/:id/transition` `{ action }`      | `order:<id>`      | Same as above. **Retry with latest** resends against the version the conflict reported (`error.details.version`), because the endpoint requires one. A conflict without a version (e.g. `INVALID_STATE_TRANSITION` on a cancelled order) offers only **Discard** (`canRetryWithLatest`) |
-| Staff-entered order (`staffOrderMutation`)          | `POST /branches/:id/orders` (`staffPlaceOrder`) | `table:<tableId>` | Body `idempotencyKey` generated once per draft (dialog session) and reused as the outbox key on every retry; the server answers 201 (new) or 200 (replay) and creates at most one order per key. A network error on a live submit queues the same draft                                 |
+| Operation (builder)                                 | Request                                         | Scope             | Duplicate / conflict handling                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------------------------- | ----------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kitchen item status (`kitchenItemStatusMutation`)   | `PATCH /orders/:id/items/:itemId` `{ status }`  | `order:<id>`      | Sends `expectedVersion` (order version seen) with `chainVersion`. Route declares `idempotency` (resend replays the first answer); an item already at the target status is a no-op 200. 409 `STALE_VERSION`/`INVALID_STATE_TRANSITION` → conflict                                                                                                  |
+| Kitchen start / ready (`kitchenTransitionMutation`) | `POST /orders/:id/transition` `{ action }`      | `order:<id>`      | Same as above. **Retry with latest** resends against the version the conflict reported (`error.details.version`), because the endpoint requires one. A conflict without a version (e.g. `INVALID_STATE_TRANSITION` on a cancelled order) offers only **Discard** (`canRetryWithLatest`)                                                           |
+| Staff-entered order (`staffOrderMutation`)          | `POST /branches/:id/orders` (`staffPlaceOrder`) | `table:<tableId>` | Body `idempotencyKey` generated once per draft (dialog session) and reused as the outbox key on every retry; the server answers 201 (new) or 200 (replay) and creates at most one order per key. A network error on a live submit queues the same draft. Body `expectedSessionId` binds the order to the table session the waiter saw (see below) |
 
 - The kitchen ticket shows the server status plus a "Waiting to sync" badge (per item and per
   ticket); a queued item is never drawn as done and "Ready"/"Waiting for pickup" appear only
@@ -143,6 +152,20 @@ queued, the usual direct request is used.
 - The kitchen feed, branch orders, table sessions, session detail and the branch menu are
   persisted queries, so a reloaded staff screen keeps its data and a waiter can compose orders
   offline from the last menu the device loaded. Without a saved menu the dialog says so.
+- **Session binding.** A staff order carries `expectedSessionId`: the open session of the table
+  when the order was composed, or `null` when the table was free. If the table's current session
+  differs when the request arrives (a session is open but `null` was expected, or the expected
+  session closed so a new one would be opened), the server refuses it with 409 `CONFLICT`,
+  `details: { reason: "SESSION_CHANGED", currentSessionId }`, and opens no session. Replays of an
+  order that was already created still return it. **Retry with latest** resends the order to
+  `currentSessionId` (or `null`, opening a session) with a new idempotency key. Callers that omit
+  `expectedSessionId` get no check.
+- **Stale staff orders.** A queued staff order composed more than 10 minutes ago
+  (`STAFF_ORDER_MAX_AGE_MS`), or queued before a sign-out / account switch on this device, is
+  not sent automatically. The engine moves it to `conflict` with `lastErrorCode
+NEEDS_CONFIRMATION` and the prompt "This order was composed N minutes ago. Send it now?"; the
+  sync sheet offers **Send now** (a retry, which records `confirmedAt`) or **Discard**. The rule
+  lives in `staffOrderHoldReason` (`queued-ops.ts`).
 - Selectors: `queuedKitchenState(items, orderId)`, `queuedStaffOrders(items, tableId)`,
   `scopeHasUnsynced(items, scopeKey)` over `useSyncStore((s) => s.items)`.
 
@@ -155,7 +178,10 @@ A framework-free class with injectable `db`, `fetch`, clock, randomness and lock
   resolved. Different scopes run in parallel. Pick a narrow scope (e.g. `menuItem:<id>`) for
   changes that don't depend on each other.
 - **Session check.** Before sending, the runtime asks `/api/v1/auth/me` who the session cookie
-  belongs to. If it is not the item's user, nothing is sent.
+  belongs to. If it is not the item's user, nothing is sent. A failed check (401, 5xx, offline)
+  backs off 1 s, 2 s, 4 s … up to 5 min before the next check; `online`, the tab becoming
+  visible, manual **Sync now** and any successful `/auth/me` answer reset it. While the session
+  is expired (401) no wake-up is scheduled at all; signing in again restarts syncing.
 - **Response handling**
 
   | Response                                                      | Result                                                                                                                                                                                                                         |
@@ -208,13 +234,13 @@ Wi-Fi. Background Sync API is not used.
 
 ## What works offline, per role
 
-| Role            | Works offline                                                                                                                                                                                             | Needs a connection (disabled offline, reason shown)                                                    |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Owner / manager | Previously opened dashboards, workspace structure, branch context; menu availability toggles, menu item edits and settings drafts (queued, shown as waiting); everything the waiter and kitchen rows list | Creating restaurants/branches, staff invites, billing, subscription, and the waiter/cashier rows' list |
-| Waiter          | Saved orders, tables and menu. **Composing staff orders** (queued per table, "Not sent — will send when online", sent once with the draft's idempotency key)                                              | **Accepting/rejecting** (and serving/cancelling) orders, generating bills                              |
-| Kitchen         | Saved kitchen feed. **Item status and Start / Mark ready** (queued per order with the order version, "Waiting to sync"; conflicts kept for the user)                                                      | Nothing else on the kitchen screen                                                                     |
-| Cashier         | Saved queue and bills (read-only)                                                                                                                                                                         | **Generating bills, recording payments**, refunds, voids, closing tables                               |
-| Customer (QR)   | Cached page shell/assets of `/t/*`                                                                                                                                                                        | Viewing live menu data, placing orders (submit says it is not sent), requesting the bill               |
+| Role            | Works offline                                                                                                                                                | Needs a connection (disabled offline, reason shown)                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owner / manager | Previously opened dashboards, workspace structure, branch context (read-only); everything the waiter and kitchen rows list                                   | Menu, availability and settings changes, creating restaurants/branches, staff invites, billing, subscription, and the waiter/cashier rows' list |
+| Waiter          | Saved orders, tables and menu. **Composing staff orders** (queued per table, "Not sent — will send when online", sent once with the draft's idempotency key) | **Accepting/rejecting** (and serving/cancelling) orders, generating bills                                                                       |
+| Kitchen         | Saved kitchen feed. **Item status and Start / Mark ready** (queued per order with the order version, "Waiting to sync"; conflicts kept for the user)         | Nothing else on the kitchen screen                                                                                                              |
+| Cashier         | Saved queue and bills (read-only)                                                                                                                            | **Generating bills, recording payments**, refunds, voids, closing tables                                                                        |
+| Customer (QR)   | Cached page shell/assets of `/t/*`                                                                                                                           | Viewing live menu data, placing orders (submit says it is not sent), requesting the bill                                                        |
 
 Feature modules add to the "works offline" column only by using `enqueueMutation`,
 `useOfflineDraft` or `meta: { persist: true }`.
@@ -244,8 +270,11 @@ returns `{ enabled: false }` with the noop provider, and no opt-in button is ren
   **Generate bill** is disabled ("N orders not sent yet — resolve them first"), so a bill never
   silently leaves them out. This only sees this device's outbox.
 - Shared devices: an unsent staff order saved by another account stays hidden (only counted in
-  the sync sheet) and is not sent or shown on its table until that user signs in again, so the
-  next user cannot see it or bill around it.
+  the sync sheet) and is not sent or shown on its table until that user signs in again. The next
+  user's bill gate does not see it, so they **can** bill and close the table around it. When the
+  owner signs in again the order is held for "Send now?" (queued before a sign-out), and even if
+  sent, the server's session check refuses it (409 `SESSION_CHANGED`) instead of adding it to a
+  billed session or opening a phantom one.
 - Persisted data is not encrypted at rest. It relies on the device/browser profile. It is
-  cleared on user change and on sign-out detection (401 from `/auth/me`).
+  cleared on user change, on explicit sign-out and when the `["me"]` query gets a 401.
 - iOS Safari may evict IndexedDB for sites not added to the home screen after a period of no use.

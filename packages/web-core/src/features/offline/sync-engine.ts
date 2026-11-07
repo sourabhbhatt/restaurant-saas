@@ -1,4 +1,10 @@
-import type { OfflineDatabase, OutboxItem, OutboxMethod } from "./db";
+import { getSignedOutAt, type OfflineDatabase, type OutboxItem, type OutboxMethod } from "./db";
+import {
+  NEEDS_CONFIRMATION,
+  sendConfirmationPrompt,
+  staffOrderHoldReason,
+  type HoldReason,
+} from "./queued-ops";
 
 /**
  * Outbox sync engine. Sends locally queued mutations to the API in order,
@@ -48,6 +54,14 @@ export function classifyResponse(status: number, code: string | null): Outcome {
   return "failed";
 }
 
+/** The table session a SESSION_CHANGED conflict reported as current (null: no open session). */
+function changedSession(item: OutboxItem): { currentSessionId: string | null } | null {
+  const details = isPlainObject(item.serverResponse) ? item.serverResponse.details : null;
+  if (!isPlainObject(details) || details.reason !== "SESSION_CHANGED") return null;
+  const current = details.currentSessionId;
+  return { currentSessionId: typeof current === "string" ? current : null };
+}
+
 /** The version a conflict reported as current (STALE_VERSION details), if any. */
 function conflictVersion(item: OutboxItem): number | undefined {
   const details = isPlainObject(item.serverResponse) ? item.serverResponse.details : null;
@@ -62,7 +76,7 @@ function conflictVersion(item: OutboxItem): number | undefined {
  * INVALID_STATE_TRANSITION on a cancelled order) can only be discarded.
  */
 export function canRetryWithLatest(item: OutboxItem): boolean {
-  if (item.status !== "conflict") return false;
+  if (item.status !== "conflict" || item.lastErrorCode === NEEDS_CONFIRMATION) return false;
   return !item.chainVersion || conflictVersion(item) !== undefined;
 }
 
@@ -254,6 +268,7 @@ export class SyncEngine {
       .filter((i) => i.status !== "synced")
       .sortBy("createdAt");
     const now = this.now();
+    await this.holdForConfirmation(items, now);
     const anyDue = items.some(
       (i) => i.status === "pending" && (ctx.force || i.nextAttemptAt <= now),
     );
@@ -273,6 +288,33 @@ export class SyncEngine {
     }
     await Promise.all([...scopes.values()].map((queue) => this.drainScope(queue, userId, ctx)));
     await this.prune();
+  }
+
+  /**
+   * Stale staff orders (see staffOrderHoldReason) are moved to "conflict"
+   * with code NEEDS_CONFIRMATION instead of being sent; the user chooses
+   * Send now (retry) or Discard. Mutates `items` to match.
+   */
+  private async holdForConfirmation(items: OutboxItem[], now: number): Promise<void> {
+    const signedOutAt = await getSignedOutAt(this.deps.db);
+    for (const item of items) {
+      const reason: HoldReason | null = staffOrderHoldReason(item, { now, signedOutAt });
+      if (!reason) continue;
+      const meta = { ...item.meta, holdReason: reason };
+      const patch: Partial<OutboxItem> = {
+        status: "conflict",
+        updatedAt: now,
+        lastError: sendConfirmationPrompt({ ...item, meta }, now),
+        lastErrorCode: NEEDS_CONFIRMATION,
+        meta,
+      };
+      const changed = await this.deps.db.outbox
+        .where("id")
+        .equals(item.id)
+        .filter((i) => i.status === "pending")
+        .modify(patch);
+      if (changed > 0) Object.assign(item, patch);
+    }
   }
 
   private async drainScope(queue: OutboxItem[], userId: string, ctx: RunContext): Promise<void> {
@@ -477,7 +519,13 @@ export class SyncEngine {
           i.userId === userId &&
           (i.status === "failed" || i.status === "conflict" || i.status === "pending"),
       )
-      .modify({ status: "pending", nextAttemptAt: this.now(), updatedAt: this.now() });
+      .modify({
+        status: "pending",
+        nextAttemptAt: this.now(),
+        updatedAt: this.now(),
+        // An explicit retry is the user's confirmation to send (see holdForConfirmation).
+        confirmedAt: this.now(),
+      });
     return changed > 0;
   }
 
@@ -501,9 +549,16 @@ export class SyncEngine {
         body = rest;
       }
       const latest = item.chainVersion ? conflictVersion(item) : undefined;
+      // A staff order refused because the table's session changed is resent
+      // to the session that is current now (or opens one if the table is free).
+      const session = changedSession(item);
+      if (session && isPlainObject(body) && "expectedSessionId" in body) {
+        body = { ...body, expectedSessionId: session.currentSessionId };
+      }
       await db.outbox.put({
         ...item,
         body,
+        confirmedAt: this.now(),
         expectedVersion: latest,
         idempotencyKey: (this.deps.newIdempotencyKey ?? randomKey)(),
         status: "pending",

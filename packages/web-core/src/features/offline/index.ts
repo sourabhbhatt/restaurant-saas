@@ -12,6 +12,11 @@ export { shouldPersistQuery } from "./persist-queries";
 export {
   kitchenItemStatusMutation,
   kitchenTransitionMutation,
+  needsSendConfirmation,
+  NEEDS_CONFIRMATION,
+  sendConfirmationPrompt,
+  STAFF_ORDER_MAX_AGE_MS,
+  staffOrderHoldReason,
   orderScope,
   queuedKitchenState,
   queuedStaffOrders,
@@ -31,6 +36,7 @@ export {
   retryOutboxItem,
   retryOutboxItemWithLatest,
   syncNow,
+  unsentChangesCount,
 } from "./runtime";
 export type { EnqueueInput } from "./sync-engine";
 export { attentionCount, useSyncStore, waitingCount } from "./sync-store";

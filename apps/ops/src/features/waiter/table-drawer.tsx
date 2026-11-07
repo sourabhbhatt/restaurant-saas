@@ -31,6 +31,7 @@ import {
   PriorityBadge,
 } from "@ros/web-core/features/orders/order-ui";
 import { formatClock, formatElapsed } from "@ros/web-core/features/orders/use-now";
+import { appHref, useAppLinks } from "@ros/web-core/app-links";
 
 import { AddItemsDialog } from "./add-items-dialog";
 import { GenerateBillDialog } from "./generate-bill-dialog";
@@ -89,6 +90,7 @@ export function TableDrawer({
   pollInterval: number;
   onOpenChange: (open: boolean) => void;
 }) {
+  const links = useAppLinks();
   const sessionId = table?.session?.id ?? null;
   const detail = useSessionDetail(branchId, sessionId, pollInterval);
   const [adding, setAdding] = useState(false);
@@ -232,7 +234,7 @@ export function TableDrawer({
             )}
             {bill && can("bills.view") && (
               <Button className="flex-1" size="lg" variant="outline" asChild>
-                <Link href={`/app/b/${branchId}/bills`}>
+                <Link href={appHref(links.console, `/app/b/${branchId}/bills`)}>
                   <Receipt aria-hidden /> View bill
                 </Link>
               </Button>
@@ -244,6 +246,7 @@ export function TableDrawer({
             key={table.tableId}
             branchId={branchId}
             tableId={table.tableId}
+            sessionId={sessionId}
             tableName={table.tableName}
             currency={currency}
             open={adding}

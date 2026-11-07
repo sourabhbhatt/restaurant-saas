@@ -11,8 +11,8 @@ import {
   type OutboxItem,
 } from "./db";
 import { hydrateQueries, startQueryPersistence } from "./persist-queries";
-import { SyncEngine, type EnqueueInput } from "./sync-engine";
-import { countItems, setSyncState, useSyncStore } from "./sync-store";
+import { backoffDelay, SyncEngine, type EnqueueInput } from "./sync-engine";
+import { countItems, EMPTY_COUNTS, setSyncState, useSyncStore } from "./sync-store";
 
 /**
  * Browser runtime for the offline layer: one sync engine per tab, the query
@@ -34,6 +34,24 @@ let stopFns: (() => void)[] = [];
 let outboxSubscription: { unsubscribe(): void } | null = null;
 let wakeTimer: ReturnType<typeof setTimeout> | null = null;
 let hydratedKeys: QueryKey[] = [];
+/** Consecutive failed session checks (401, 5xx, offline) and when the next may run. */
+let confirmFailures = 0;
+let confirmBackoffUntil = 0;
+
+/**
+ * Forget the session-check backoff: called on `online`, `visibilitychange`,
+ * manual sync and any successful /auth/me answer.
+ */
+export function resetSessionBackoff(): void {
+  confirmFailures = 0;
+  confirmBackoffUntil = 0;
+}
+
+function sessionCheckFailed(): null {
+  confirmFailures += 1;
+  confirmBackoffUntil = Date.now() + backoffDelay(confirmFailures);
+  return null;
+}
 
 async function withNavigatorLock(work: () => Promise<void>): Promise<boolean> {
   const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
@@ -90,8 +108,13 @@ export function getSyncEngine(): SyncEngine | null {
   return engine;
 }
 
-/** Live check of the session owner before a sync run (null when signed out/offline). */
+/**
+ * Live check of the session owner before a sync run (null when signed out/offline).
+ * After a failure further checks back off (1 s doubling to 5 min) instead of
+ * re-asking the server on every wake-up.
+ */
 async function confirmSession(): Promise<string | null> {
+  if (Date.now() < confirmBackoffUntil) return null;
   try {
     const res = await fetch("/api/v1/auth/me", {
       cache: "no-store",
@@ -101,28 +124,36 @@ async function confirmSession(): Promise<string | null> {
     });
     if (res.status === 401) {
       setSyncState({ authRequired: true });
-      return null;
+      return sessionCheckFailed();
     }
-    if (!res.ok) return null;
+    if (!res.ok) return sessionCheckFailed();
     const body = (await res.json()) as { data?: { user?: { id?: string } } };
     const id = body.data?.user?.id ?? null;
     if (id && id !== sessionUserId) {
       await setCurrentUser(id, true);
     }
+    if (!id) return sessionCheckFailed();
+    resetSessionBackoff();
     setSyncState({ authRequired: false });
     return id;
   } catch {
-    return null;
+    return sessionCheckFailed();
   }
 }
 
-/** Wake up when the earliest backed-off item becomes due. */
+/**
+ * Wake up when the earliest backed-off item becomes due (not before the
+ * session-check backoff ends). Nothing is scheduled while the session expired:
+ * signing in again restarts syncing.
+ */
 async function scheduleWake(): Promise<void> {
   if (wakeTimer) clearTimeout(wakeTimer);
   wakeTimer = null;
+  if (useSyncStore.getState().authRequired) return;
   const due = await engine?.nextDueAt();
   if (due == null) return;
-  const delay = Math.max(250, due - Date.now());
+  const now = Date.now();
+  const delay = Math.max(250, due - now, confirmBackoffUntil - now);
   if (delay > SYNC_INTERVAL_MS) return; // the interval covers it
   wakeTimer = setTimeout(() => void getSyncEngine()?.syncNow(), delay);
 }
@@ -172,15 +203,31 @@ function watchOutbox(db: OfflineDatabase): void {
   });
 }
 
-/** Called on explicit sign-out so the next account never sees this one's cached data. */
+/**
+ * Called on explicit sign-out so the next account never sees this one's cached
+ * data, outbox items or counts, and never queues changes under this account.
+ * Its unsynced items stay in IndexedDB (hidden, counted as another account's).
+ */
 export async function clearDeviceUserData(): Promise<void> {
   const db = getOfflineDb();
   hydratedKeys = [];
   sessionUserId = null;
+  deviceUserId = null;
+  resetSessionBackoff();
+  if (wakeTimer) clearTimeout(wakeTimer);
+  wakeTimer = null;
+  setSyncState({ userId: null, items: [], counts: EMPTY_COUNTS, authRequired: false });
   if (!db) return;
+  watchOutbox(db);
   await clearUserData(db).catch(() => {
     // IndexedDB unavailable: nothing cached to clear.
   });
+}
+
+/** Unsent changes of the signed-in user on this device (for the sign-out warning). */
+export function unsentChangesCount(): number {
+  const { counts } = useSyncStore.getState();
+  return counts.pending + counts.syncing + counts.failed + counts.conflict;
 }
 
 /**
@@ -228,6 +275,7 @@ function trackUser(queryClient: QueryClient): () => void {
     }
     if (event.type !== "updated") return;
     if (event.action.type === "success") {
+      if (!event.action.manual) resetSessionBackoff();
       const id = (event.action.data as { user?: { id?: string } } | undefined)?.user?.id ?? null;
       void setCurrentUser(id, !event.action.manual);
     } else if (event.action.type === "error") {
@@ -269,10 +317,15 @@ export function startOfflineRuntime(queryClient: QueryClient): () => void {
       if (reachable) void sync.syncNow();
     });
   };
-  const onOnline = () => syncSoon();
+  const onOnline = () => {
+    resetSessionBackoff();
+    syncSoon();
+  };
   const onOffline = () => setOnline(false);
   const onVisible = () => {
-    if (document.visibilityState === "visible") syncSoon();
+    if (document.visibilityState !== "visible") return;
+    resetSessionBackoff();
+    syncSoon();
   };
   window.addEventListener("online", onOnline);
   window.addEventListener("offline", onOffline);
@@ -305,8 +358,7 @@ export function stopOfflineRuntime(): void {
 
 /**
  * Queue a mutation that may be applied later (draft-able operations ONLY:
- * menu availability toggles, menu item edits, settings drafts, kitchen item
- * status and start/ready, staff-entered orders — see queued-ops.ts). Never use
+ * kitchen item status and start/ready, staff-entered orders — see queued-ops.ts). Never use
  * it for guest order submission, order acceptance/rejection, bills, payments,
  * refunds or closing sessions: those are server-authoritative and must not
  * appear confirmed while offline.
@@ -326,6 +378,7 @@ export async function enqueueMutation(input: EnqueueInput): Promise<OutboxItem> 
 export async function syncNow(): Promise<void> {
   const sync = getSyncEngine();
   if (!sync) return;
+  resetSessionBackoff();
   await probeConnectivity();
   await sync.syncNow({ force: true });
 }

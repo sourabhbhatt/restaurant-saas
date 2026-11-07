@@ -58,6 +58,11 @@ export interface OutboxItem {
   syncedAt?: number | null;
   /** TanStack query keys to invalidate after the item synced. */
   invalidateKeys?: unknown[][];
+  /**
+   * Epoch ms when the user explicitly asked to send this item (Retry / Send
+   * now). Such an item is no longer held for confirmation (see queued-ops).
+   */
+  confirmedAt?: number | null;
 }
 
 export interface QueryCacheRow {
@@ -111,6 +116,13 @@ export function getOfflineDb(): OfflineDatabase | null {
 }
 
 const CURRENT_USER_KEY = "currentUserId";
+const SIGNED_OUT_AT_KEY = "signedOutAt";
+
+/** Epoch ms of the last sign-out (or account switch) on this device, if any. */
+export async function getSignedOutAt(db: OfflineDatabase): Promise<number | null> {
+  const row = await db.meta.get(SIGNED_OUT_AT_KEY);
+  return typeof row?.value === "number" ? row.value : null;
+}
 
 export async function getStoredUserId(db: OfflineDatabase): Promise<string | null> {
   const row = await db.meta.get(CURRENT_USER_KEY);
@@ -132,6 +144,8 @@ export async function switchUser(db: OfflineDatabase, userId: string): Promise<b
     await db.drafts.where("userId").notEqual(userId).delete();
     await db.outbox.filter((item) => item.userId !== userId && item.status === "synced").delete();
     await db.meta.put({ key: CURRENT_USER_KEY, value: userId });
+    // Another account took over: the previous one is signed out on this device.
+    if (previous !== null) await db.meta.put({ key: SIGNED_OUT_AT_KEY, value: Date.now() });
     return previous !== null;
   });
 }
@@ -141,10 +155,12 @@ export async function switchUser(db: OfflineDatabase, userId: string): Promise<b
  * user on this device. Unsynced outbox items are kept (never silently discarded);
  * they stay unsent until their owner signs in again.
  */
-export async function clearUserData(db: OfflineDatabase): Promise<void> {
+export async function clearUserData(db: OfflineDatabase, now: number = Date.now()): Promise<void> {
   await db.transaction("rw", [db.meta, db.queryCache, db.drafts], async () => {
     await db.queryCache.clear();
     await db.drafts.clear();
     await db.meta.delete(CURRENT_USER_KEY);
+    // Staff orders queued before this are held for an explicit "Send now?".
+    await db.meta.put({ key: SIGNED_OUT_AT_KEY, value: now });
   });
 }

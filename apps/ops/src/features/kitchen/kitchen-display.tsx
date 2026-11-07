@@ -25,6 +25,7 @@ import { OfflineBanner, SyncStatusIndicator } from "@ros/web-core/features/offli
 import { ProfileMenu } from "@ros/web-core/features/navigation/profile-menu";
 import { AuthGate } from "@ros/web-core/features/session/auth-gate";
 import { permissionChecker, useBranchContext } from "@ros/web-core/features/session/queries";
+import { appHref, useAppLinks } from "@ros/web-core/app-links";
 
 import { useKitchenFeed } from "./queries";
 import { TicketCard, ticketIsDelayed } from "./ticket-card";
@@ -116,6 +117,7 @@ function CompletedTicket({ order }: { order: KitchenOrderDto }) {
 }
 
 function KitchenScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextDto }) {
+  const links = useAppLinks();
   const can = permissionChecker(ctx.permissions);
   const realtime = useBranchEvents(branchId);
   const feed = useKitchenFeed(branchId, realtime.pollInterval);
@@ -180,7 +182,10 @@ function KitchenScreen({ branchId, ctx }: { branchId: string; ctx: BranchContext
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2">
           <Button variant="ghost" size="icon-sm" asChild>
-            <Link href={`/app/b/${branchId}`} aria-label="Back to branch dashboard">
+            <Link
+              href={appHref(links.console, `/app/b/${branchId}`)}
+              aria-label="Back to branch dashboard"
+            >
               <ArrowLeft aria-hidden />
             </Link>
           </Button>
@@ -316,6 +321,7 @@ function KitchenScreen({ branchId, ctx }: { branchId: string; ctx: BranchContext
 
 function KitchenGate() {
   const { branchId } = useParams<{ branchId: string }>();
+  const links = useAppLinks();
   const ctx = useBranchContext(branchId);
   if (ctx.isPending) return <PageSkeleton variant="cards" />;
   if (ctx.isError) {
@@ -338,7 +344,7 @@ function KitchenGate() {
         />
         <div className="mt-4 text-center">
           <Button variant="outline" asChild>
-            <Link href={`/app/b/${branchId}`}>Back to branch</Link>
+            <Link href={appHref(links.console, `/app/b/${branchId}`)}>Back to branch</Link>
           </Button>
         </div>
       </div>

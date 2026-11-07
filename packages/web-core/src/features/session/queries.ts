@@ -6,7 +6,7 @@ import { useCallback } from "react";
 
 import type { MeResponse } from "@ros/contracts/auth";
 import type { BranchContextDto, WorkspaceStructureDto } from "@ros/contracts/structure";
-import { clearDeviceUserData } from "../offline";
+import { clearDeviceUserData, unsentChangesCount } from "../offline";
 import { api, ApiError } from "@ros/api-client";
 
 /** Shared query keys for session-level data. Feature modules define their own keys. */
@@ -84,6 +84,16 @@ export function useSignOut() {
   const qc = useQueryClient();
   const router = useRouter();
   return useCallback(async () => {
+    const unsent = unsentChangesCount();
+    if (
+      unsent > 0 &&
+      !window.confirm(
+        `You have ${unsent} unsent ${unsent === 1 ? "change" : "changes"}. ` +
+          "They will be sent only after you sign in again on this device. Sign out anyway?",
+      )
+    ) {
+      return;
+    }
     try {
       await api.post("/auth/signout");
     } finally {

@@ -1,12 +1,22 @@
 import Dexie from "dexie";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { createOfflineDb, OFFLINE_DB_NAME, type OfflineDatabase, type OutboxItem } from "./db";
+import {
+  clearUserData,
+  createOfflineDb,
+  OFFLINE_DB_NAME,
+  type OfflineDatabase,
+  type OutboxItem,
+} from "./db";
 import {
   kitchenItemStatusMutation,
   kitchenTransitionMutation,
+  NEEDS_CONFIRMATION,
+  needsSendConfirmation,
   queuedKitchenState,
   queuedStaffOrders,
+  STAFF_ORDER_MAX_AGE_MS,
+  staffOrderHoldReason,
   staffOrderMutation,
 } from "./queued-ops";
 import { canRetryWithLatest, SyncEngine } from "./sync-engine";
@@ -238,6 +248,7 @@ const orderBody = (idempotencyKey = "draftKey_0001") => ({
   tableId: "table-5",
   priority: "NORMAL" as const,
   idempotencyKey,
+  expectedSessionId: "session-1" as string | null,
   specialInstructions: "e2e",
   lines: [{ menuItemId: "menu-1", addonIds: [], quantity: 2 }],
 });
@@ -316,6 +327,116 @@ describe("queued staff orders", () => {
     expect(queuedStaffOrders(items, "table-5").map((i) => i.id)).toEqual([a.id]);
     await db.outbox.update(a.id, { status: "synced" });
     expect(queuedStaffOrders(await db.outbox.toArray(), "table-5")).toEqual([]);
+  });
+});
+
+describe("staff orders bound to the table session", () => {
+  it("sends the session the waiter saw (null for a free table)", async () => {
+    await engine.enqueue(
+      staffOrderMutation({ branchId: BRANCH, tableName: "T5", body: orderBody("draftKey_000S") }),
+    );
+    await engine.enqueue(
+      staffOrderMutation({
+        branchId: BRANCH,
+        tableName: "T6",
+        body: { ...orderBody("draftKey_000F"), tableId: "table-6", expectedSessionId: null },
+      }),
+    );
+    responder = () => json(201, { data: { id: "o-1" } });
+    await engine.syncNow();
+    const sent = Object.fromEntries(calls.map((c) => [c.body?.tableId, c.body?.expectedSessionId]));
+    expect(sent).toEqual({ "table-5": "session-1", "table-6": null });
+  });
+
+  it("retry with latest after SESSION_CHANGED resends to the table's current session", async () => {
+    const queued = await engine.enqueue(
+      staffOrderMutation({ branchId: BRANCH, tableName: "T5", body: orderBody() }),
+    );
+    responder = () =>
+      apiError(409, "CONFLICT", { reason: "SESSION_CHANGED", currentSessionId: "session-2" });
+    await engine.syncNow();
+    const conflicted = (await db.outbox.get(queued.id))!;
+    expect(conflicted.status).toBe("conflict");
+    expect(canRetryWithLatest(conflicted)).toBe(true);
+
+    responder = () => json(201, { data: { id: "o-1" } });
+    await engine.retryWithLatest(queued.id);
+    await engine.syncNow();
+    expect(calls.at(-1)!.body?.expectedSessionId).toBe("session-2");
+    expect((await db.outbox.get(queued.id))!.status).toBe("synced");
+  });
+});
+
+describe("stale staff orders need confirmation", () => {
+  const item = (overrides: Partial<OutboxItem> = {}): OutboxItem => ({
+    id: "x",
+    createdAt: 1_000_000,
+    updatedAt: 1_000_000,
+    userId: "user-1",
+    scopeKey: "table:table-5",
+    kind: "orders.staff-create",
+    label: "New order",
+    method: "POST",
+    path: "/branches/b/orders",
+    idempotencyKey: "draftKey_0001",
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    lastError: null,
+    ...overrides,
+  });
+
+  it("holds orders older than 10 minutes or queued before a sign-out", () => {
+    const fresh = { now: 1_000_000 + STAFF_ORDER_MAX_AGE_MS, signedOutAt: null };
+    expect(staffOrderHoldReason(item(), fresh)).toBeNull();
+    expect(staffOrderHoldReason(item(), { ...fresh, now: fresh.now + 1 })).toBe("too-old");
+    expect(staffOrderHoldReason(item(), { now: 1_000_001, signedOutAt: 1_000_001 })).toBe(
+      "signed-out",
+    );
+    expect(staffOrderHoldReason(item(), { now: 1_000_001, signedOutAt: 999_999 })).toBeNull();
+    // Only pending staff orders the user has not confirmed yet.
+    const old = { now: 1_000_000 + 60 * 60_000, signedOutAt: null };
+    expect(staffOrderHoldReason(item({ confirmedAt: 1_500_000 }), old)).toBeNull();
+    expect(staffOrderHoldReason(item({ kind: "kitchen.transition" }), old)).toBeNull();
+    expect(staffOrderHoldReason(item({ status: "failed" }), old)).toBeNull();
+  });
+
+  it("the engine asks before sending an old order and sends it once confirmed", async () => {
+    const queued = await engine.enqueue(
+      staffOrderMutation({ branchId: BRANCH, tableName: "T5", body: orderBody() }),
+    );
+    now += 12 * 60_000;
+    await engine.syncNow();
+    expect(calls).toHaveLength(0);
+    const held = (await db.outbox.get(queued.id))!;
+    expect(held.status).toBe("conflict");
+    expect(held.lastErrorCode).toBe(NEEDS_CONFIRMATION);
+    expect(held.lastError).toBe("This order was composed 12 minutes ago. Send it now?");
+    expect(needsSendConfirmation(held)).toBe(true);
+    expect(canRetryWithLatest(held)).toBe(false);
+
+    // Send now = an explicit retry.
+    responder = () => json(201, { data: { id: "o-1" } });
+    await engine.retry(queued.id);
+    await engine.syncNow();
+    expect(calls).toHaveLength(1);
+    expect((await db.outbox.get(queued.id))!.status).toBe("synced");
+  });
+
+  it("the engine asks before sending an order queued before a sign-out", async () => {
+    now = Date.now();
+    const queued = await engine.enqueue(
+      staffOrderMutation({ branchId: BRANCH, tableName: "T5", body: orderBody() }),
+    );
+    await clearUserData(db, now + 1);
+    now += 2 * 60_000;
+    await engine.syncNow();
+    expect(calls).toHaveLength(0);
+    const held = (await db.outbox.get(queued.id))!;
+    expect(held.lastErrorCode).toBe(NEEDS_CONFIRMATION);
+    expect(held.lastError).toBe(
+      "This order was composed 2 minutes ago, before a sign-out on this device. Send it now?",
+    );
   });
 });
 

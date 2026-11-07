@@ -12,6 +12,8 @@ import {
   useSyncStore,
 } from "@ros/web-core/features/offline/sync-store";
 
+import { DEFAULT_APP_LINKS } from "@ros/web-core/app-links";
+
 import { TableDrawer } from "./table-drawer";
 
 const BRANCH = "b1";
@@ -53,7 +55,7 @@ const unsent = (status: OutboxItem["status"], id: string): OutboxItem => ({
   meta: { tableId: "t5", tableName: "T5", summary: "1× Masala Chai" },
 });
 
-function renderDrawer(items: OutboxItem[]) {
+function renderDrawer(items: OutboxItem[], table: BranchTableDto = TABLE) {
   setSyncState({ userId: "u", online: true, items, counts: countItems(items) });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
@@ -70,7 +72,7 @@ function renderDrawer(items: OutboxItem[]) {
     <QueryClientProvider client={client}>
       <TableDrawer
         branchId={BRANCH}
-        table={TABLE}
+        table={table}
         currency="INR"
         can={() => true}
         now={Date.now()}
@@ -99,4 +101,26 @@ describe("TableDrawer bill generation", () => {
       expect(screen.getByText("2 orders not sent yet — resolve them first.")).toBeInTheDocument();
     },
   );
+});
+
+describe("TableDrawer links", () => {
+  it("opens the bill on the console origin (the ops app has no /app/b routes)", () => {
+    renderDrawer([], {
+      ...TABLE,
+      status: "BILL_GENERATED",
+      bill: {
+        billId: "bill1",
+        billNumber: 7,
+        status: "ISSUED",
+        paymentStatus: "UNPAID",
+        currency: "INR",
+        grandTotal: 15800,
+        balanceDue: 15800,
+      },
+    });
+    expect(screen.getByRole("link", { name: /View bill/ })).toHaveAttribute(
+      "href",
+      `${DEFAULT_APP_LINKS.console}/app/b/${BRANCH}/bills`,
+    );
+  });
 });

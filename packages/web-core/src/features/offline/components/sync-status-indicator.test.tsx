@@ -99,6 +99,35 @@ describe("SyncStatusIndicator conflicts without a server version", () => {
   });
 });
 
+describe("SyncStatusIndicator stale staff orders", () => {
+  it("asks Send now / Discard for an order held for confirmation", async () => {
+    seed(
+      [
+        {
+          ...base,
+          id: "4",
+          scopeKey: "table:t5",
+          kind: "orders.staff-create",
+          label: "New order for T5 (2 items)",
+          status: "conflict",
+          lastError: "This order was composed 14 minutes ago. Send it now?",
+          lastErrorCode: "NEEDS_CONFIRMATION",
+          meta: { holdReason: "too-old" },
+        },
+      ],
+      true,
+    );
+    render(<SyncStatusIndicator />);
+    await userEvent.click(screen.getByRole("button", { name: /Sync status/ }));
+    expect(
+      await screen.findByText("This order was composed 14 minutes ago. Send it now?"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Send now/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Discard/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Retry with latest/ })).toBeNull();
+  });
+});
+
 describe("OfflineBanner", () => {
   it("renders only when offline", () => {
     seed([base], true);
