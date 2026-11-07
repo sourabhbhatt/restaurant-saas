@@ -20,9 +20,13 @@
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
     "db:seed": "tsx --conditions=react-server --env-file=.env.local scripts/seed.ts",
     "db:snapshot": "tsx --env-file=.env.local scripts/db-snapshot.ts",
+    "db:dump": "tsx --env-file=.env.local scripts/db-dump.ts",
+    "db:restore": "tsx --env-file=.env.local scripts/db-restore.ts",
+    "db:verify": "tsx --env-file=.env.local scripts/db-verify.ts",
     "db:revoke-cookie-jar": "tsx --env-file=.env.local scripts/revoke-cookie-jar.ts",
     "db:make-admin": "tsx --env-file=.env.local scripts/make-admin.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.2",
@@ -49,6 +53,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.15",
+    "@electric-sql/pglite-tools": "0.4.15",
     "@playwright/test": "1.63.0",
     "@serwist/turbopack": "^9.5.13",
     "@tailwindcss/turbopack": "^4",

@@ -75,6 +75,9 @@ importers:
       '@electric-sql/pglite':
         specifier: 0.5.15
         version: 0.5.15
+      '@electric-sql/pglite-tools':
+        specifier: 0.4.15
+        version: 0.4.15(@electric-sql/pglite@0.5.15)
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
@@ -300,6 +303,11 @@ packages:
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
+
+  '@electric-sql/pglite-tools@0.4.15':
+    resolution: {integrity: sha512-VqKRGOgCLWUfZrfSxfVXm0OCawGMiUPf7TzPhSNOddEDiNbd9KLYfygvcL141wXSCPdlo/pr9Jsf1DlFozTR7g==}
+    peerDependencies:
+      '@electric-sql/pglite': 0.5.15
 
   '@electric-sql/pglite@0.5.15':
     resolution: {integrity: sha512-ERZWgaRTxueGV4cvL1tfpAOzFCWTXoUtbCBqnf2FhHDVs/so9eAKaanvrwWF9Dntx7BYsmFQujVQ0/B4S8Mmiw==}
@@ -4882,6 +4890,10 @@ snapshots:
   '@csstools/css-tokenizer@4.0.2': {}
 
   '@drizzle-team/brocli@0.10.2': {}
+
+  '@electric-sql/pglite-tools@0.4.15(@electric-sql/pglite@0.5.15)':
+    dependencies:
+      '@electric-sql/pglite': 0.5.15
 
   '@electric-sql/pglite@0.5.15': {}
 
