@@ -1,0 +1,22 @@
+# Cloud Build upload filter (same rules as .dockerignore). Never upload local data or secrets.
+.data
+**/.data
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+!infra/compose/.env.compose.example
+*.cookies
+*.jar
+**/node_modules
+**/.next
+**/.turbo
+**/coverage
+.worktrees
+.superpowers
+.claude
+.git
+test-results
+playwright-report
+backups

@@ -1,0 +1,22 @@
+# Never send local data, secrets or build output to a Docker or Cloud Build context.
+.data
+**/.data
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+!infra/compose/.env.compose.example
+*.cookies
+*.jar
+**/node_modules
+**/.next
+**/.turbo
+**/coverage
+.worktrees
+.superpowers
+.claude
+.git
+test-results
+playwright-report
+backups

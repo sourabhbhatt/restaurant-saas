@@ -39,6 +39,7 @@ import { createPostgresBus } from "@ros/adapters/realtime/providers/postgres-bus
 import type { ObjectStorage } from "@ros/adapters/storage/interfaces/object-storage";
 import { createRazorpayGateway } from "@ros/adapters/payments/providers/razorpay";
 import { createLocalStorage } from "@ros/adapters/storage/providers/local-storage";
+import { createGcsStorage } from "@ros/adapters/storage/providers/gcs-storage";
 import { createS3Storage } from "@ros/adapters/storage/providers/s3-storage";
 
 import { createAccessService } from "@ros/application/authz/access-service";
@@ -72,6 +73,10 @@ function selectEmail(env: ServerEnv, logger: Logger): EmailSender {
 }
 
 export function selectStorage(env: ServerEnv, _logger: Logger): ObjectStorage {
+  if (env.STORAGE_PROVIDER === "gcs") {
+    if (!env.GCS_BUCKET) throw new Error("GCS storage selected but GCS_BUCKET is required");
+    return createGcsStorage({ bucket: env.GCS_BUCKET });
+  }
   if (env.STORAGE_PROVIDER === "s3") {
     if (!env.S3_BUCKET || !env.S3_REGION || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY)
       throw new Error(

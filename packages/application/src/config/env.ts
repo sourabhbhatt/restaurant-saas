@@ -73,7 +73,9 @@ const fields = z.object({
   RESEND_API_KEY: z.string().optional(),
   BREVO_API_KEY: z.string().optional(),
 
-  STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local"),
+  STORAGE_PROVIDER: z.enum(["local", "s3", "gcs"]).default("local"),
+  /** Bucket for STORAGE_PROVIDER=gcs (keyless: the runtime's service account). */
+  GCS_BUCKET: z.string().optional(),
   STORAGE_LOCAL_DIR: z.string().default(".data/uploads"),
   S3_ENDPOINT: z.string().optional(),
   S3_BUCKET: z.string().optional(),
