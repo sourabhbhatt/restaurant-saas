@@ -386,6 +386,8 @@ export async function syncNow(): Promise<void> {
 export async function retryOutboxItem(id: string): Promise<void> {
   const sync = getSyncEngine();
   if (!sync) return;
+  // A user tap must send now, not wait out a session-check backoff.
+  resetSessionBackoff();
   await sync.retry(id);
   await sync.syncNow();
 }
@@ -393,6 +395,8 @@ export async function retryOutboxItem(id: string): Promise<void> {
 export async function retryOutboxItemWithLatest(id: string): Promise<void> {
   const sync = getSyncEngine();
   if (!sync) return;
+  // A user tap must send now, not wait out a session-check backoff.
+  resetSessionBackoff();
   await sync.retryWithLatest(id);
   await sync.syncNow();
 }
