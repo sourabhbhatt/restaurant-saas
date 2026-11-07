@@ -58,27 +58,28 @@ With a wrong value, every per-IP rate limit (sign-up, guest ordering, uploads, c
 
 Read at request time (`connection()` / per-request handlers), never inlined at build time, so one image runs in every environment. No `NEXT_PUBLIC_*` value is required.
 
-| Variable           | Default                 | Purpose                                                                                            |
-| ------------------ | ----------------------- | -------------------------------------------------------------------------------------------------- |
-| `API_INTERNAL_URL` | `http://localhost:4000` | Where the `/api/v1/*` proxy sends requests (an internal URL such as `http://api:4000`)             |
-| `CONSOLE_URL`      | `http://localhost:3000` | Public console origin for cross-app links (sign-up, password reset, dashboard)                     |
-| `OPS_URL`          | `http://localhost:3001` | Public ops origin for the Waiter / Kitchen / Cashier links                                         |
-| `ADMIN_URL`        | `http://localhost:3002` | Public admin origin for the Super Admin link                                                       |
-| `APP_VERSION`      | —                       | Reported by `/healthz`                                                                             |
-| `PORT`             | per app                 | Listening port of the standalone server (compose runs every frontend on 3000 inside its container) |
+| Variable            | Default                 | Purpose                                                                                            |
+| ------------------- | ----------------------- | -------------------------------------------------------------------------------------------------- |
+| `API_INTERNAL_URL`  | `http://localhost:4000` | Where the `/api/v1/*` proxy sends requests (an internal URL such as `http://api:4000`)             |
+| `ENABLE_TEST_HOOKS` | `false`                 | Lets the proxy relay `/api/v1/test/*` and `/api/v1/dev/*` (local only; the API gates them too)     |
+| `CONSOLE_URL`       | `http://localhost:3000` | Public console origin for cross-app links (sign-up, password reset, dashboard)                     |
+| `OPS_URL`           | `http://localhost:3001` | Public ops origin for the Waiter / Kitchen / Cashier links                                         |
+| `ADMIN_URL`         | `http://localhost:3002` | Public admin origin for the Super Admin link                                                       |
+| `APP_VERSION`       | —                       | Reported by `/healthz`                                                                             |
+| `PORT`              | per app                 | Listening port of the standalone server (compose runs every frontend on 3000 inside its container) |
 
 Optional site text (console): `NEXT_PUBLIC_LEGAL_ENTITY` and `NEXT_PUBLIC_SUPPORT_EMAIL` fill the legal templates and contact details (`packages/web-core/src/features/site/brand.ts`); being `NEXT_PUBLIC_`, they are baked in at build time.
 
 ## Scripts and tests
 
-| Variable                                                                         | Used by                                     | Purpose                                                                                          |
-| -------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `SNAPSHOT_DIR`                                                                   | `db:snapshot`, `db:migrate` (PGlite)        | Overrides the snapshots root (default `<PGLITE_DATA_DIR parent>/snapshots`)                      |
-| `PG_DOCKER_CONTAINER`                                                            | `db:dump`, `db:restore`, restore tests      | Runs `pg_dump`/`pg_restore`/`psql` inside that container, so the client matches the server major |
-| `SMOKE_EMAIL`, `SMOKE_PASSWORD`                                                  | `pnpm smoke`                                | Owner login used by the smoke run (defaults to the seeded demo owner)                            |
-| `PG_TEST_URL`                                                                    | `db-restore-postgres`, `postgres-bus` tests | Superuser URL of a throwaway Postgres 18 for what PGlite cannot cover; skipped when unset        |
-| `S3_TEST_ENDPOINT`, `S3_TEST_BUCKET`, `S3_TEST_ACCESS_KEY`, `S3_TEST_SECRET_KEY` | `s3-storage.test.ts`                        | S3 contract test against MinIO; skipped when unset                                               |
-| `E2E_BASE_URL`, `E2E_PORT`, `E2E_API_PORT`                                       | Playwright                                  | Test an existing deployment, or the ports of the servers Playwright starts (3100 / 4100)         |
+| Variable                                                                         | Used by                                     | Purpose                                                                                             |
+| -------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `SNAPSHOT_DIR`                                                                   | `db:snapshot`, `db:migrate` (PGlite)        | Overrides the snapshots root (default `<PGLITE_DATA_DIR parent>/snapshots`)                         |
+| `PG_DOCKER_CONTAINER`                                                            | `db:dump`, `db:restore`, restore tests      | Runs `pg_dump`/`pg_restore`/`psql` inside that container, so the client matches the server major    |
+| `SMOKE_EMAIL`, `SMOKE_PASSWORD`                                                  | `pnpm smoke`                                | Owner login used by the smoke run (defaults to the seeded demo owner)                               |
+| `PG_TEST_URL`                                                                    | `db-restore-postgres`, `postgres-bus` tests | Superuser URL of a throwaway Postgres 18 for what PGlite cannot cover; skipped when unset           |
+| `S3_TEST_ENDPOINT`, `S3_TEST_BUCKET`, `S3_TEST_ACCESS_KEY`, `S3_TEST_SECRET_KEY` | `s3-storage.test.ts`                        | S3 contract test against MinIO; skipped when unset                                                  |
+| `E2E_BASE_URL`, `E2E_PORT`, `E2E_API_PORT`, `E2E_OPS_URL`, `E2E_OPS_PORT`        | Playwright                                  | Test an existing deployment, or the ports of the servers Playwright starts (3100 / 4100 / 3101 ops) |
 
 ## Compose
 
