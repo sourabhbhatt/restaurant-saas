@@ -70,6 +70,35 @@ describe("SyncStatusIndicator", () => {
   });
 });
 
+describe("SyncStatusIndicator conflicts without a server version", () => {
+  it("offers only Discard for a chained change the server could not version", async () => {
+    seed(
+      [
+        {
+          ...base,
+          id: "3",
+          scopeKey: "order:o1",
+          kind: "kitchen.transition",
+          label: "#12 · mark ready",
+          status: "conflict",
+          chainVersion: true,
+          versionField: "expectedVersion",
+          lastError: "Cannot mark a cancelled order ready",
+          lastErrorCode: "INVALID_STATE_TRANSITION",
+          serverResponse: { code: "INVALID_STATE_TRANSITION", message: "x" },
+        },
+      ],
+      true,
+    );
+    render(<SyncStatusIndicator />);
+    await userEvent.click(screen.getByRole("button", { name: /Sync status/ }));
+    expect(await screen.findByText("#12 · mark ready")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Retry with latest/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Discard/ })).toBeInTheDocument();
+    expect(screen.getByText(/can no longer be applied/)).toBeInTheDocument();
+  });
+});
+
 describe("OfflineBanner", () => {
   it("renders only when offline", () => {
     seed([base], true);

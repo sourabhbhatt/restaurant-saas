@@ -209,11 +209,19 @@ export function TableDrawer({
                 className="flex-1"
                 size="lg"
                 variant="outline"
-                disabled={!online}
+                disabled={!online || unsent.length > 0}
                 onClick={() => setBilling(true)}
               >
                 <Receipt aria-hidden /> Generate bill
               </Button>
+            )}
+            {canBill && unsent.length > 0 && (
+              // A bill now would silently leave these orders out.
+              <p className="w-full text-xs text-muted-foreground">
+                {unsent.length === 1
+                  ? "1 order not sent yet — resolve it first."
+                  : `${unsent.length} orders not sent yet — resolve them first.`}
+              </p>
             )}
             {canBill && (
               <NeedsConnectionNote>Generating a bill needs a connection.</NeedsConnectionNote>

@@ -129,11 +129,11 @@ A screen queues instead of calling the API directly when the device is offline *
 still has unsynced items (so a new change never overtakes queued ones). Online, with nothing
 queued, the usual direct request is used.
 
-| Operation (builder)                                 | Request                                         | Scope             | Duplicate / conflict handling                                                                                                                                                                                                                           |
-| --------------------------------------------------- | ----------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Kitchen item status (`kitchenItemStatusMutation`)   | `PATCH /orders/:id/items/:itemId` `{ status }`  | `order:<id>`      | Sends `expectedVersion` (order version seen) with `chainVersion`. Route declares `idempotency` (resend replays the first answer); an item already at the target status is a no-op 200. 409 `STALE_VERSION`/`INVALID_STATE_TRANSITION` → conflict        |
-| Kitchen start / ready (`kitchenTransitionMutation`) | `POST /orders/:id/transition` `{ action }`      | `order:<id>`      | Same as above. **Retry with latest** resends against the version the conflict reported (`error.details.version`), because the endpoint requires one                                                                                                     |
-| Staff-entered order (`staffOrderMutation`)          | `POST /branches/:id/orders` (`staffPlaceOrder`) | `table:<tableId>` | Body `idempotencyKey` generated once per draft (dialog session) and reused as the outbox key on every retry; the server answers 201 (new) or 200 (replay) and creates at most one order per key. A network error on a live submit queues the same draft |
+| Operation (builder)                                 | Request                                         | Scope             | Duplicate / conflict handling                                                                                                                                                                                                                                                           |
+| --------------------------------------------------- | ----------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kitchen item status (`kitchenItemStatusMutation`)   | `PATCH /orders/:id/items/:itemId` `{ status }`  | `order:<id>`      | Sends `expectedVersion` (order version seen) with `chainVersion`. Route declares `idempotency` (resend replays the first answer); an item already at the target status is a no-op 200. 409 `STALE_VERSION`/`INVALID_STATE_TRANSITION` → conflict                                        |
+| Kitchen start / ready (`kitchenTransitionMutation`) | `POST /orders/:id/transition` `{ action }`      | `order:<id>`      | Same as above. **Retry with latest** resends against the version the conflict reported (`error.details.version`), because the endpoint requires one. A conflict without a version (e.g. `INVALID_STATE_TRANSITION` on a cancelled order) offers only **Discard** (`canRetryWithLatest`) |
+| Staff-entered order (`staffOrderMutation`)          | `POST /branches/:id/orders` (`staffPlaceOrder`) | `table:<tableId>` | Body `idempotencyKey` generated once per draft (dialog session) and reused as the outbox key on every retry; the server answers 201 (new) or 200 (replay) and creates at most one order per key. A network error on a live submit queues the same draft                                 |
 
 - The kitchen ticket shows the server status plus a "Waiting to sync" badge (per item and per
   ticket); a queued item is never drawn as done and "Ready"/"Waiting for pickup" appear only
@@ -240,6 +240,12 @@ returns `{ enabled: false }` with the noop provider, and no opt-in button is ren
   conflict (the server auto-readies the order); the ticket hides that button in that case.
 - Two devices changing the same order offline: whichever syncs second gets a conflict and
   its user decides (retry against the latest version, or discard). No field-level merge.
+- While a table has unsent staff orders (waiting, failed or in conflict), the waiter's
+  **Generate bill** is disabled ("N orders not sent yet — resolve them first"), so a bill never
+  silently leaves them out. This only sees this device's outbox.
+- Shared devices: an unsent staff order saved by another account stays hidden (only counted in
+  the sync sheet) and is not sent or shown on its table until that user signs in again, so the
+  next user cannot see it or bill around it.
 - Persisted data is not encrypted at rest. It relies on the device/browser profile. It is
   cleared on user change and on sign-out detection (401 from `/auth/me`).
 - iOS Safari may evict IndexedDB for sites not added to the home screen after a period of no use.

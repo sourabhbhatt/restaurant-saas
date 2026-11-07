@@ -48,6 +48,24 @@ export function classifyResponse(status: number, code: string | null): Outcome {
   return "failed";
 }
 
+/** The version a conflict reported as current (STALE_VERSION details), if any. */
+function conflictVersion(item: OutboxItem): number | undefined {
+  const details = isPlainObject(item.serverResponse) ? item.serverResponse.details : null;
+  return isPlainObject(details) && typeof details.version === "number"
+    ? details.version
+    : undefined;
+}
+
+/**
+ * Whether "Retry with latest" can work for this conflict. Chained records
+ * (orders) need a version to resend against; a conflict without one (e.g.
+ * INVALID_STATE_TRANSITION on a cancelled order) can only be discarded.
+ */
+export function canRetryWithLatest(item: OutboxItem): boolean {
+  if (item.status !== "conflict") return false;
+  return !item.chainVersion || conflictVersion(item) !== undefined;
+}
+
 export interface EnqueueInput {
   kind: string;
   label: string;
@@ -475,18 +493,14 @@ export class SyncEngine {
     const { db } = this.deps;
     return db.transaction("rw", db.outbox, async () => {
       const item = await db.outbox.get(id);
-      if (!item || item.userId !== userId || item.status !== "conflict") return false;
+      if (!item || item.userId !== userId || !canRetryWithLatest(item)) return false;
       const field = item.versionField ?? "version";
       let body = item.body;
       if (isPlainObject(body) && field in body) {
         const { [field]: _version, ...rest } = body;
         body = rest;
       }
-      const details = isPlainObject(item.serverResponse) ? item.serverResponse.details : null;
-      const latest =
-        item.chainVersion && isPlainObject(details) && typeof details.version === "number"
-          ? details.version
-          : undefined;
+      const latest = item.chainVersion ? conflictVersion(item) : undefined;
       await db.outbox.put({
         ...item,
         body,

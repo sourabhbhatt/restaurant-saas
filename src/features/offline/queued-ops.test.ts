@@ -9,7 +9,7 @@ import {
   queuedStaffOrders,
   staffOrderMutation,
 } from "./queued-ops";
-import { SyncEngine } from "./sync-engine";
+import { canRetryWithLatest, SyncEngine } from "./sync-engine";
 
 interface Call {
   url: string;
@@ -169,6 +169,46 @@ describe("queued kitchen operations", () => {
     expect((await db.outbox.get(item.id))!.status).toBe("synced");
   });
 
+  it("refuses retry with latest when a chained conflict reports no version", async () => {
+    const item = await engine.enqueue(
+      kitchenTransitionMutation({ branchId: BRANCH, order: ORDER, action: "ready" }),
+    );
+    // e.g. the order was cancelled meanwhile: no version to resend against.
+    responder = () => apiError(409, "INVALID_STATE_TRANSITION");
+    await engine.syncNow();
+    const stored = (await db.outbox.get(item.id))!;
+    expect(stored.status).toBe("conflict");
+    expect(canRetryWithLatest(stored)).toBe(false);
+    expect(await engine.retryWithLatest(item.id)).toBe(false);
+    await engine.syncNow({ force: true });
+    expect(calls).toHaveLength(1);
+    expect((await db.outbox.get(item.id))!.status).toBe("conflict");
+    // Discard stays available.
+    expect(await engine.discard(item.id)).toBe(true);
+  });
+
+  it("allows retry with latest for unchained conflicts and versioned chained ones", async () => {
+    const menu = await engine.enqueue({
+      kind: "menu.edit",
+      label: "Rename Dal",
+      method: "PATCH",
+      path: "/menu-items/1",
+      body: { name: "Dal" },
+      scopeKey: "menuItem:1",
+      expectedVersion: 2,
+    });
+    const chained = await engine.enqueue(
+      kitchenTransitionMutation({ branchId: BRANCH, order: ORDER, action: "ready" }),
+    );
+    responder = (call) =>
+      call.url.includes("menu-items")
+        ? apiError(409, "STALE_VERSION")
+        : apiError(409, "STALE_VERSION", { status: "PREPARING", version: 9 });
+    await engine.syncNow();
+    expect(canRetryWithLatest((await db.outbox.get(menu.id))!)).toBe(true);
+    expect(canRetryWithLatest((await db.outbox.get(chained.id))!)).toBe(true);
+  });
+
   it("derives the queued item and order state for the ticket", async () => {
     await engine.enqueue(
       kitchenItemStatusMutation({
@@ -280,7 +320,7 @@ describe("queued staff orders", () => {
 });
 
 describe("local database upgrade", () => {
-  it("dexie v1→v2 upgrade keeps pending items", async () => {
+  it("opening a database created with the original v1 schema keeps and syncs its pending items", async () => {
     const name = `${OFFLINE_DB_NAME}-upgrade-${crypto.randomUUID()}`;
     // The schema exactly as the first release shipped it.
     const v1 = new Dexie(name);
