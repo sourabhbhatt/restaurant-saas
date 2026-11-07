@@ -1,13 +1,28 @@
 "use client";
 
-import { Check, ChefHat, CircleCheckBig, Clock, Flame } from "lucide-react";
+import { Check, ChefHat, CircleCheckBig, Clock, CloudUpload, Flame } from "lucide-react";
+import { useMemo } from "react";
+import { toast } from "sonner";
 
+import { StatusBadge } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { OrderItemDto } from "@/contracts/orders";
 import type { KitchenOrderDto } from "@/contracts/staff-ops";
 import { isDelayed, minutesSince } from "@/domain/orders/order-status";
+import { errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import {
+  enqueueMutation,
+  kitchenItemStatusMutation,
+  kitchenTransitionMutation,
+  orderScope,
+  queuedKitchenState,
+  scopeHasUnsynced,
+  useSyncStore,
+  type EnqueueInput,
+  type KitchenAction,
+} from "@/features/offline";
 import { OrderStatusBadge, PriorityBadge } from "@/features/orders/order-ui";
 import { useItemStatus, useOrderAction } from "@/features/orders/queries";
 import { formatClock, formatElapsed } from "@/features/orders/use-now";
@@ -32,19 +47,31 @@ const NEXT_ITEM_STATUS: Partial<Record<OrderItemDto["status"], "PREPARING" | "RE
   READY: "PREPARING",
 };
 
+function WaitingToSync({ className }: { className?: string }) {
+  return (
+    <StatusBadge tone="warning" className={className}>
+      <CloudUpload aria-hidden /> Waiting to sync
+    </StatusBadge>
+  );
+}
+
 function ItemRow({
   item,
+  queuedStatus,
   interactive,
   pending,
   onToggle,
 }: {
   item: OrderItemDto;
+  /** Status a change saved on this device will set once it reaches the server. */
+  queuedStatus?: "PREPARING" | "READY";
   interactive: boolean;
   pending: boolean;
   onToggle: () => void;
 }) {
-  const done = item.status === "READY" || item.status === "SERVED";
-  const cooking = item.status === "PREPARING";
+  // A queued change is never shown as done: only the server's status counts.
+  const done = !queuedStatus && (item.status === "READY" || item.status === "SERVED");
+  const cooking = !queuedStatus && item.status === "PREPARING";
   const cancelled = item.status === "CANCELLED";
   const content = (
     <>
@@ -58,6 +85,8 @@ function ItemRow({
       >
         {pending ? (
           <Spinner decorative />
+        ) : queuedStatus ? (
+          <CloudUpload className="size-4 text-warning" />
         ) : done ? (
           <Check className="size-5" />
         ) : cooking ? (
@@ -87,19 +116,22 @@ function ItemRow({
             {item.notes}
           </span>
         )}
+        {queuedStatus && <WaitingToSync className="mt-1" />}
       </span>
     </>
   );
   if (!interactive || cancelled)
     return <li className="flex items-start gap-3 py-1.5">{content}</li>;
-  const next = NEXT_ITEM_STATUS[item.status];
+  const effective = queuedStatus ?? item.status;
+  const next = NEXT_ITEM_STATUS[effective];
+  const state = queuedStatus ? "waiting to sync" : item.status.toLowerCase();
   return (
     <li>
       <button
         type="button"
         disabled={pending || !next}
         onClick={onToggle}
-        aria-label={`${item.quantity} ${item.itemName}: ${item.status.toLowerCase()}. Tap to mark ${next?.toLowerCase()}`}
+        aria-label={`${item.quantity} ${item.itemName}: ${state}. Tap to mark ${next?.toLowerCase()}`}
         className="flex min-h-12 w-full items-start gap-3 rounded-lg py-1.5 text-left outline-none hover:bg-muted/60 focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         {content}
@@ -108,7 +140,12 @@ function ItemRow({
   );
 }
 
-/** One kitchen ticket. Large type, per-item toggles, Start / Mark ready. */
+/**
+ * One kitchen ticket. Large type, per-item toggles, Start / Mark ready.
+ * Offline (or while earlier changes of this order are still queued) changes
+ * go to the outbox with the order version, and show "Waiting to sync" until
+ * the server confirms them.
+ */
 export function TicketCard({
   branchId,
   order,
@@ -126,10 +163,31 @@ export function TicketCard({
 }) {
   const action = useOrderAction(branchId);
   const item = useItemStatus(branchId);
+  const online = useSyncStore((s) => s.online);
+  const outbox = useSyncStore((s) => s.items);
+  const queued = useMemo(() => queuedKitchenState(outbox, order.id), [outbox, order.id]);
+  // Behind queued changes of this order, new ones must queue too (FIFO per order).
+  const mustQueue = !online || scopeHasUnsynced(outbox, orderScope(order.id));
   const delayed = ticketIsDelayed(order, kitchenDelayMinutes, now);
   const elapsedMin = order.acceptedAt ? minutesSince(new Date(order.acceptedAt), new Date(now)) : 0;
   const active = order.status === "ACCEPTED" || order.status === "PREPARING";
   const busy = action.isPending || item.isPending;
+  const readyQueued = queued.actions.includes("ready");
+  const liveItems = order.items.filter((i) => i.status !== "CANCELLED");
+  const allItemsQueuedReady =
+    liveItems.length > 0 &&
+    liveItems.every((i) => (queued.itemStatus[i.id] ?? i.status) === "READY") &&
+    Object.keys(queued.itemStatus).length > 0;
+  const startQueued =
+    queued.actions.includes("start") || Object.values(queued.itemStatus).length > 0;
+
+  const queue = (input: EnqueueInput) => {
+    enqueueMutation(input).catch((error: unknown) => toast.error(errorMessage(error)));
+  };
+  const runAction = (kind: KitchenAction) => {
+    if (mustQueue) queue(kitchenTransitionMutation({ branchId, order, action: kind }));
+    else action.mutate({ order, action: kind });
+  };
 
   return (
     <article
@@ -162,9 +220,10 @@ export function TicketCard({
           <span className="text-sm text-muted-foreground">
             In {formatClock(order.acceptedAt)} · ~{order.expectedPrepMinutes}m
           </span>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap justify-end gap-1">
             <PriorityBadge priority={order.priority} className="text-sm" />
             <OrderStatusBadge status={order.status} className="text-sm" />
+            {queued.waiting && <WaitingToSync className="text-sm" />}
           </div>
         </div>
       </header>
@@ -174,6 +233,11 @@ export function TicketCard({
           role="status"
         >
           Delayed · {elapsedMin} min
+        </p>
+      )}
+      {queued.needsAttention && (
+        <p className="rounded-lg bg-destructive/10 px-3 py-1 text-base font-semibold text-destructive">
+          A change to this ticket was not saved. Open the sync status to retry or discard it.
         </p>
       )}
       {order.specialInstructions && (
@@ -186,23 +250,29 @@ export function TicketCard({
           <ItemRow
             key={i.id}
             item={i}
-            interactive={canUpdate && active}
+            queuedStatus={queued.itemStatus[i.id]}
+            interactive={canUpdate && active && !readyQueued}
             pending={item.isPending && item.variables?.itemId === i.id}
             onToggle={() => {
-              const next = NEXT_ITEM_STATUS[i.status];
-              if (next) item.mutate({ orderId: order.id, itemId: i.id, status: next });
+              const next = NEXT_ITEM_STATUS[queued.itemStatus[i.id] ?? i.status];
+              if (!next) return;
+              if (mustQueue) {
+                queue(kitchenItemStatusMutation({ branchId, order, item: i, status: next }));
+              } else {
+                item.mutate({ orderId: order.id, itemId: i.id, status: next });
+              }
             }}
           />
         ))}
       </ul>
       {canUpdate && active && (
         <div className="mt-auto flex gap-2">
-          {order.status === "ACCEPTED" && (
+          {order.status === "ACCEPTED" && !startQueued && (
             <Button
               size="lg"
               className="h-14 flex-1 text-lg"
               disabled={busy}
-              onClick={() => action.mutate({ order, action: "start" })}
+              onClick={() => runAction("start")}
             >
               {action.isPending && action.variables?.action === "start" ? (
                 <Spinner decorative />
@@ -216,8 +286,8 @@ export function TicketCard({
             size="lg"
             variant="success"
             className="h-14 flex-1 text-lg"
-            disabled={busy}
-            onClick={() => action.mutate({ order, action: "ready" })}
+            disabled={busy || readyQueued || allItemsQueuedReady}
+            onClick={() => runAction("ready")}
           >
             {action.isPending && action.variables?.action === "ready" ? (
               <Spinner decorative />

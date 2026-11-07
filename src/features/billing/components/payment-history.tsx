@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { formatDateTime, METHOD_LABEL, money } from "../format";
 import { useVoidPayment } from "../queries";
 import { ReasonConfirmDialog } from "./reason-confirm-dialog";
+import { useIsOffline } from "@/features/offline";
 
 interface Props {
   bill: BillDto;
@@ -24,6 +25,7 @@ interface Props {
 export function PaymentHistory({ bill, branchId, timezone, canVoid }: Props) {
   const [target, setTarget] = useState<PaymentDto | null>(null);
   const voidPayment = useVoidPayment(branchId);
+  const offline = useIsOffline();
   const editable = bill.status !== "VOID";
 
   if (bill.payments.length === 0) {
@@ -95,6 +97,7 @@ export function PaymentHistory({ bill, branchId, timezone, canVoid }: Props) {
                     <Button
                       variant="ghost"
                       size="xs"
+                      disabled={offline}
                       onClick={() => setTarget(p)}
                       aria-label={`Void ${p.kind === "REFUND" ? "refund" : "payment"} of ${money(p.amount, bill.currency)}`}
                     >

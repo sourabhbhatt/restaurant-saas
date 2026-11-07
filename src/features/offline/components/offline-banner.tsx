@@ -26,10 +26,10 @@ export function OfflineBanner({ className }: { className?: string }) {
     >
       <CloudOffIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 sm:mt-0" />
       <p className="text-balance">
-        <strong className="font-semibold">You&apos;re offline.</strong> Saved screens stay visible
-        and menu or settings edits are kept on this device
-        {waiting > 0 ? ` (${waiting} waiting)` : ""}. New orders, accepting orders and payments need
-        a connection.
+        <strong className="font-semibold">You&apos;re offline.</strong> Saved screens stay visible;
+        edits, kitchen updates and staff orders are kept on this device
+        {waiting > 0 ? ` (${waiting} waiting)` : ""}. Accepting orders, bills and payments need a
+        connection.
       </p>
     </div>
   );

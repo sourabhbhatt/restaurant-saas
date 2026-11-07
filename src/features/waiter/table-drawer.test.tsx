@@ -1,0 +1,102 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+
+import type { BranchTableDto, SessionDetailDto } from "@/contracts/staff-ops";
+import type { OutboxItem } from "@/features/offline";
+import { staffOpsKeys } from "@/features/orders/keys";
+import {
+  countItems,
+  initialSyncState,
+  setSyncState,
+  useSyncStore,
+} from "@/features/offline/sync-store";
+
+import { TableDrawer } from "./table-drawer";
+
+const BRANCH = "b1";
+const TABLE: BranchTableDto = {
+  tableId: "t5",
+  tableName: "T5",
+  section: null,
+  capacity: 4,
+  isActive: true,
+  status: "OCCUPIED",
+  session: {
+    id: "s1",
+    status: "OPEN",
+    openedAt: new Date().toISOString(),
+    billRequestedAt: null,
+    orderCounts: {},
+    pendingCount: 0,
+    activeCount: 1,
+    billableSubtotal: 15800,
+  },
+  bill: null,
+};
+
+const unsent = (status: OutboxItem["status"], id: string): OutboxItem => ({
+  id,
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+  userId: "u",
+  scopeKey: "table:t5",
+  kind: "orders.staff-create",
+  label: "New order for T5 (1 item)",
+  method: "POST",
+  path: `/branches/${BRANCH}/orders`,
+  idempotencyKey: `key_${id}_000000`,
+  status,
+  attempts: 1,
+  nextAttemptAt: 0,
+  lastError: status === "failed" ? "Item unavailable" : null,
+  meta: { tableId: "t5", tableName: "T5", summary: "1× Masala Chai" },
+});
+
+function renderDrawer(items: OutboxItem[]) {
+  setSyncState({ userId: "u", online: true, items, counts: countItems(items) });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  });
+  const detail = {
+    table: { id: "t5", name: "T5", section: null, capacity: 4 },
+    session: TABLE.session,
+    status: "OCCUPIED",
+    orders: [],
+    bill: null,
+  } as unknown as SessionDetailDto;
+  client.setQueryData(staffOpsKeys.session(BRANCH, "s1"), detail);
+  return render(
+    <QueryClientProvider client={client}>
+      <TableDrawer
+        branchId={BRANCH}
+        table={TABLE}
+        currency="INR"
+        can={() => true}
+        now={Date.now()}
+        pollInterval={0}
+        onOpenChange={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+}
+
+afterEach(() => {
+  useSyncStore.setState(initialSyncState, true);
+});
+
+describe("TableDrawer bill generation", () => {
+  it("is enabled online when every order reached the server", () => {
+    renderDrawer([]);
+    expect(screen.getByRole("button", { name: /Generate bill/ })).toBeEnabled();
+  });
+
+  it.each([["pending"], ["failed"], ["conflict"]] as const)(
+    "is disabled with the reason while an unsent order is %s",
+    (status) => {
+      renderDrawer([unsent(status, "a"), unsent("pending", "b")]);
+      expect(screen.getByRole("button", { name: /Generate bill/ })).toBeDisabled();
+      expect(screen.getByText("2 orders not sent yet — resolve them first.")).toBeInTheDocument();
+    },
+  );
+});

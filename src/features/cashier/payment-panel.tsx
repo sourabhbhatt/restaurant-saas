@@ -24,6 +24,7 @@ import {
   toMajorText,
 } from "@/features/billing/format";
 import { useRecordPayment } from "@/features/billing/queries";
+import { NeedsConnectionNote, useIsOffline } from "@/features/offline";
 
 const METHOD_ICON: Record<PaymentMethod, typeof Banknote> = {
   CASH: Banknote,
@@ -83,6 +84,7 @@ export function PaymentPanel({ bill, branchId, methods }: Props) {
 
 function PaymentPanelBody({ bill, branchId, methods }: Props) {
   const record = useRecordPayment(branchId);
+  const offline = useIsOffline();
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey);
   const [networkError, setNetworkError] = useState(false);
   const [active, setActive] = useState<KeypadField>("amount");
@@ -127,6 +129,7 @@ function PaymentPanelBody({ bill, branchId, methods }: Props) {
   };
 
   const submit = form.handleSubmit(async (values) => {
+    if (offline) return;
     setNetworkError(false);
     const amount = parseMajor(values.amount) ?? 0;
     if (amount > balance) {
@@ -356,7 +359,10 @@ function PaymentPanelBody({ bill, branchId, methods }: Props) {
         </Alert>
       )}
 
-      <Button type="submit" size="lg" className="h-14 text-base" disabled={pending}>
+      <NeedsConnectionNote>
+        Recording a payment needs a connection. Nothing is recorded on this device.
+      </NeedsConnectionNote>
+      <Button type="submit" size="lg" className="h-14 text-base" disabled={pending || offline}>
         {pending && <Spinner decorative />}
         {pending
           ? "Recording…"

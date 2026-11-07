@@ -31,6 +31,7 @@ export function useBranchOrders(
     refetchInterval: options.refetchInterval,
     enabled: options.enabled ?? true,
     placeholderData: (prev) => prev,
+    meta: { persist: true },
   });
 }
 

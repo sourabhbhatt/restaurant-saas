@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import type { OrderDto, OrderTransitionInput } from "@/contracts/orders";
 import { canTransition, ORDER_TRANSITIONS } from "@/domain/orders/order-status";
 import { cn } from "@/lib/utils";
+import { NeedsConnectionNote, useIsOffline } from "@/features/offline";
 
 import { useOrderAction } from "./queries";
 import { ReasonDialog } from "./reject-dialog";
@@ -42,7 +43,8 @@ export function availableActions(
 /**
  * Buttons for the allowed transitions of one order. Reject and cancel ask for
  * a reason first. Buttons are disabled while any action on this order runs
- * and the UI waits for the server (no optimistic updates).
+ * and the UI waits for the server (no optimistic updates). They are never
+ * queued: offline they are disabled and say why.
  */
 export function OrderActionButtons({
   branchId,
@@ -63,6 +65,7 @@ export function OrderActionButtons({
   fill?: boolean;
 }) {
   const mutation = useOrderAction(branchId);
+  const offline = useIsOffline();
   const [reasonFor, setReasonFor] = useState<"reject" | "cancel" | null>(null);
   const actions = availableActions(order, can, only);
   if (actions.length === 0) return null;
@@ -82,7 +85,7 @@ export function OrderActionButtons({
             type="button"
             size={size}
             variant={ui.variant}
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || offline}
             className={cn(fill && "flex-1")}
             onClick={() =>
               action === "reject" || action === "cancel" ? setReasonFor(action) : run(action)
@@ -93,6 +96,11 @@ export function OrderActionButtons({
           </Button>
         );
       })}
+      <NeedsConnectionNote>
+        {actions.includes("accept") || actions.includes("reject")
+          ? "Accepting or rejecting orders needs a connection."
+          : "Updating this order needs a connection."}
+      </NeedsConnectionNote>
       <ReasonDialog
         open={reasonFor !== null}
         onOpenChange={(o) => !o && setReasonFor(null)}
@@ -112,7 +120,7 @@ export function OrderActionButtons({
             ? ["Guest changed mind", "Guest left", "Item ran out", "Entered by mistake"]
             : undefined
         }
-        pending={mutation.isPending}
+        pending={mutation.isPending || offline}
         onSubmit={(reason) => reasonFor && run(reasonFor, reason)}
       />
     </div>

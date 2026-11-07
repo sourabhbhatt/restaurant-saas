@@ -28,11 +28,12 @@ export function OfflinePageContent() {
       <ul className="flex w-full flex-col gap-1.5 rounded-lg border bg-card p-4 text-left text-sm text-muted-foreground">
         <li>
           <strong className="text-foreground">Works offline:</strong> screens you opened before,
-          menu availability and menu or settings edits (saved here, synced later).
+          menu and settings edits, kitchen ticket updates and staff orders (saved here, synced
+          later).
         </li>
         <li>
-          <strong className="text-foreground">Needs a connection:</strong> placing and accepting
-          orders, and recording payments.
+          <strong className="text-foreground">Needs a connection:</strong> guest orders, accepting
+          or rejecting orders, bills, payments and refunds.
         </li>
       </ul>
       <div className="flex flex-wrap items-center justify-center gap-2">

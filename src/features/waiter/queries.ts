@@ -20,6 +20,7 @@ export function useBranchSessions(
       api.get<BranchSessionsDto>(`/branches/${branchId}/sessions`, undefined, signal),
     refetchInterval: options.refetchInterval,
     enabled: options.enabled ?? true,
+    meta: { persist: true },
   });
 }
 
@@ -34,6 +35,7 @@ export function useSessionDetail(
       api.get<SessionDetailDto>(`/branches/${branchId}/sessions/${sessionId}`, undefined, signal),
     enabled: Boolean(sessionId),
     refetchInterval,
+    meta: { persist: true },
   });
 }
 
@@ -44,6 +46,8 @@ export function useBranchMenu(branchId: string, enabled: boolean) {
     queryFn: ({ signal }) => api.get<BranchMenu>(`/branches/${branchId}/menu`, undefined, signal),
     enabled,
     staleTime: 60_000,
+    // Staff can compose orders offline from the last menu this device loaded.
+    meta: { persist: true },
     retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
   });
 }

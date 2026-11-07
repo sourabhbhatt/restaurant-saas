@@ -23,6 +23,7 @@ import { api, ApiError, errorMessage, newIdempotencyKey } from "@/lib/api-client
 import { parseMajor } from "../format";
 import { billingKeys, useGenerateBill } from "../queries";
 import { BillBreakdown, discountLabelFor } from "./bill-breakdown";
+import { NeedsConnectionNote, useIsOffline } from "@/features/offline";
 
 const discountFormSchema = z
   .object({
@@ -91,6 +92,7 @@ export function GenerateBillPanel({
     retry: false,
   });
   const generate = useGenerateBill(branchId);
+  const offline = useIsOffline();
 
   const form = useForm<DiscountForm>({
     resolver: zodResolver(discountFormSchema),
@@ -220,7 +222,11 @@ export function GenerateBillPanel({
         size="lg"
         onClick={onGenerate}
         disabled={
-          generate.isPending || preview.isFetching || nothingToBill || Boolean(p.existingBillId)
+          generate.isPending ||
+          preview.isFetching ||
+          nothingToBill ||
+          Boolean(p.existingBillId) ||
+          offline
         }
       >
         {generate.isPending ? <Spinner decorative /> : <FileText aria-hidden />}
@@ -230,6 +236,7 @@ export function GenerateBillPanel({
             ? "Retry issuing bill"
             : "Generate bill"}
       </Button>
+      <NeedsConnectionNote>Generating a bill needs a connection.</NeedsConnectionNote>
     </div>
   );
 }

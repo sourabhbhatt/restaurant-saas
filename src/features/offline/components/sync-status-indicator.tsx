@@ -38,6 +38,7 @@ import {
   retryOutboxItemWithLatest,
   syncNow,
 } from "../runtime";
+import { canRetryWithLatest } from "../sync-engine";
 import { attentionCount, useSyncStore, waitingCount } from "../sync-store";
 
 const STATUS_BADGE: Record<
@@ -212,8 +213,8 @@ function SyncPanel() {
             <CloudOffIcon aria-hidden="true" />
             <AlertTitle>Working offline</AlertTitle>
             <AlertDescription>
-              Menu availability, menu edits and settings drafts are saved here and sent
-              automatically when you reconnect. New orders, accepting orders and payments need a
+              Menu edits, settings drafts, kitchen ticket updates and staff orders are saved here
+              and sent automatically when you reconnect. Accepting orders, bills and payments need a
               connection.
             </AlertDescription>
           </Alert>
@@ -359,16 +360,22 @@ function OutboxRow({ item }: { item: OutboxItem }) {
           {item.lastError}
         </p>
       )}
-      {item.status === "conflict" && (
-        <p className="text-xs text-muted-foreground">
-          This was changed elsewhere after you edited it. <em>Retry with latest</em> applies your
-          change on top of the latest version; <em>Discard</em> keeps the other change.
-        </p>
-      )}
+      {item.status === "conflict" &&
+        (canRetryWithLatest(item) ? (
+          <p className="text-xs text-muted-foreground">
+            This was changed elsewhere after you edited it. <em>Retry with latest</em> applies your
+            change on top of the latest version; <em>Discard</em> keeps the other change.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            This change can no longer be applied (it was handled elsewhere). <em>Discard</em> it to
+            unblock the changes queued after it.
+          </p>
+        ))}
 
       {item.status !== "synced" && item.status !== "syncing" && (
         <div className="flex flex-wrap gap-2">
-          {item.status === "conflict" && (
+          {canRetryWithLatest(item) && (
             <Button
               size="xs"
               variant="outline"

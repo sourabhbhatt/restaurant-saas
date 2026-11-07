@@ -25,6 +25,7 @@ import { MarkPaidDialog } from "./mark-paid-dialog";
 import { PaymentHistory } from "./payment-history";
 import { ReasonConfirmDialog } from "./reason-confirm-dialog";
 import { RefundDialog } from "./refund-dialog";
+import { NeedsConnectionNote, useIsOffline } from "@/features/offline";
 
 interface Props {
   bill: BillDto;
@@ -69,6 +70,7 @@ export function BillDetail({
   const [voidOpen, setVoidOpen] = useState(false);
   const [paidOpen, setPaidOpen] = useState(false);
   const voidBill = useVoidBill(branchId);
+  const offline = useIsOffline();
   const netPaid = bill.amountPaid - bill.amountRefunded;
   const canRefund = can("payments.refund") && bill.status !== "VOID" && netPaid > 0;
   // The cashier console passes its own payment panel as children; elsewhere offer the shortcut.
@@ -110,10 +112,19 @@ export function BillDetail({
       {children}
 
       {canMarkPaid && (
-        <Button size="lg" onClick={() => setPaidOpen(true)} className="self-start">
+        <Button
+          size="lg"
+          disabled={offline}
+          onClick={() => setPaidOpen(true)}
+          className="self-start"
+        >
           <CheckCircle2 aria-hidden /> Mark as paid
         </Button>
       )}
+
+      <NeedsConnectionNote>
+        Payments, refunds and voids need a connection. Nothing is recorded on this device.
+      </NeedsConnectionNote>
 
       {can("sessions.manage") && (
         <CloseTable
@@ -132,7 +143,12 @@ export function BillDetail({
           </h3>
           <div className="flex gap-2">
             {canRefund && (
-              <Button variant="outline" size="sm" onClick={() => setRefundOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={offline}
+                onClick={() => setRefundOpen(true)}
+              >
                 <Undo2 aria-hidden /> Refund
               </Button>
             )}
@@ -141,6 +157,7 @@ export function BillDetail({
                 variant="outline"
                 size="sm"
                 className="text-destructive"
+                disabled={offline}
                 onClick={() => setVoidOpen(true)}
               >
                 <Ban aria-hidden /> Void bill

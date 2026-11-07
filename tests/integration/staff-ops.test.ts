@@ -438,6 +438,65 @@ describe("item-level kitchen status", () => {
     expect((await setItem(kitchen, orderId, itemIds[0]!, "PREPARING")).status).toBe(409);
   });
 
+  it("checks an optional expectedVersion (queued offline changes) and stays idempotent", async () => {
+    const { orderId, itemIds } = await newOrder();
+    await act(waiter, orderId, "accept", 1); // version 2
+    const send = (itemId: string, status: string, expectedVersion: number) =>
+      call<OrderDto>(patchItem, {
+        method: "PATCH",
+        params: { orderId, itemId },
+        body: { status, expectedVersion },
+        cookie: kitchen.cookie,
+      });
+
+    const stale = await send(itemIds[0]!, "PREPARING", 1);
+    expect(stale.status).toBe(409);
+    expect(stale.body.error!.code).toBe("STALE_VERSION");
+    expect((stale.body.error as { details?: unknown }).details).toMatchObject({
+      status: "ACCEPTED",
+      version: 2,
+    });
+
+    const started = await send(itemIds[0]!, "PREPARING", 2);
+    expect(started.status).toBe(200);
+    expect(started.body.data!.version).toBe(3);
+    // A resend of a change that already applied is not a conflict.
+    expect((await send(itemIds[0]!, "PREPARING", 2)).status).toBe(200);
+  });
+
+  it("replays a queued kitchen request sent twice with the same Idempotency-Key", async () => {
+    const { orderId, itemIds } = await newOrder([{ name: "Burger" }]);
+    await act(waiter, orderId, "accept", 1);
+    const start = () =>
+      call<OrderDto>(transition, {
+        method: "POST",
+        params: { orderId },
+        body: { action: "start", expectedVersion: 2 },
+        cookie: kitchen.cookie,
+        headers: { "idempotency-key": "kitchenStart_0001" },
+      });
+    const first = await start();
+    expect(first.status).toBe(200);
+    // The response was lost and the outbox resends: same answer, no STALE_VERSION.
+    const again = await start();
+    expect(again.status).toBe(200);
+    expect(again.headers.get("idempotent-replay")).toBe("true");
+    expect(again.body.data!.version).toBe(first.body.data!.version);
+
+    const ready = () =>
+      call<OrderDto>(patchItem, {
+        method: "PATCH",
+        params: { orderId, itemId: itemIds[0]! },
+        body: { status: "READY", expectedVersion: first.body.data!.version },
+        cookie: kitchen.cookie,
+        headers: { "idempotency-key": "kitchenItem_0001" },
+      });
+    expect((await ready()).body.data!.status).toBe("READY");
+    const replay = await ready();
+    expect(replay.status).toBe(200);
+    expect(replay.headers.get("idempotent-replay")).toBe("true");
+  });
+
   it("serializes concurrent last-item updates so the order still auto-readies", async () => {
     const { orderId, itemIds } = await newOrder();
     await act(waiter, orderId, "accept", 1);

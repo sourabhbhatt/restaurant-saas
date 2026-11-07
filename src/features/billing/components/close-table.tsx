@@ -12,6 +12,7 @@ import { ApiError, errorMessage } from "@/lib/api-client";
 
 import { money } from "../format";
 import { closureReasons, useCloseSession } from "../queries";
+import { NeedsConnectionNote, useIsOffline } from "@/features/offline";
 
 interface Props {
   branchId: string;
@@ -26,6 +27,7 @@ export function CloseTable({ branchId, bill, requireFullPayment, onClosed }: Pro
   const [open, setOpen] = useState(false);
   const [serverReasons, setServerReasons] = useState<string[]>([]);
   const close = useCloseSession(branchId);
+  const offline = useIsOffline();
 
   if (bill.status === "CLOSED") {
     return (
@@ -60,11 +62,12 @@ export function CloseTable({ branchId, bill, requireFullPayment, onClosed }: Pro
       <Button
         variant={clientReasons.length ? "outline" : "success"}
         size="lg"
-        disabled={clientReasons.length > 0 || close.isPending}
+        disabled={clientReasons.length > 0 || close.isPending || offline}
         onClick={() => setOpen(true)}
       >
         <DoorClosed aria-hidden /> Close table
       </Button>
+      <NeedsConnectionNote>Closing a table needs a connection.</NeedsConnectionNote>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
