@@ -999,6 +999,100 @@ Runs after Task 33, inside Phase 5.
 - [ ] **Step 2:** Remove unused files and exports, and merge duplicates of three or more lines into shared helpers. Never touch migrations `0000`–`0004` or their `meta/` snapshots; they are the required history applied to the owner's data. Never delete `.data/` contents.
 - [ ] **Step 3:** Run `pnpm turbo run typecheck lint test build` and the Playwright suite. Expected: PASS. Commit `chore: remove unused files, exports and duplicate code`.
 
+### Task 37: Razorpay subscription payments (owner, 2026-11-07)
+
+Runs after Tasks 15–18 merge, because it needs organization-level subscriptions. The owner has a Razorpay account and will supply test keys later. Until they're set, the feature is off and the existing manual Super Admin activation and upgrade-request flow are unchanged.
+
+**Design:**
+
+- Prepaid billing periods use Razorpay **Orders** plus Standard Checkout: one order per period purchase.
+- Automatic recurring renewal through Razorpay Subscriptions is a later task.
+
+**Files:**
+
+- Create:
+  - `src/server/ports/payment-gateway.ts`
+  - `src/infrastructure/payments/providers/razorpay.ts`, a REST adapter using `fetch` with HTTP Basic `key_id:key_secret` against `https://api.razorpay.com/v1`; no SDK
+  - `src/infrastructure/payments/providers/fake.ts`, for tests
+  - `src/server/modules/payments/{service.ts,ports.ts}`
+  - routes:
+    - `POST /api/v1/organizations/:organizationId/checkout` creates an order for `{ planKey, billingCycle }`;
+    - `POST /api/v1/organizations/:organizationId/checkout/verify` handles the client callback;
+    - `POST /api/v1/webhooks/razorpay`, public, with `skipOriginCheck`, its signature required, and no CSRF;
+  - migration `0005_payments.sql` with tables `payment_orders` and `payment_events`
+  - tests
+- Modify: `src/server/config/env.ts`, `container.ts`, the subscription page/upgrade modal (Pay button), `docs/environment-variables.md`, `docs/deployment.md`
+
+**Interfaces:**
+
+- Env:
+  - `PAYMENT_PROVIDER: "none" | "razorpay"`, default `none`;
+  - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET`. All three are required when the provider is `razorpay`; startup fails without them.
+  - The key secret and the webhook secret are never sent to the client. Only `RAZORPAY_KEY_ID` is returned by the checkout endpoint.
+- Port:
+  ```ts
+  interface PaymentGateway {
+    readonly name: string;
+    createOrder(input: {
+      amountMinor: number;
+      currency: string;
+      receipt: string;
+      notes: Record<string, string>;
+    }): Promise<{ orderId: string }>;
+    fetchOrderPayments(
+      orderId: string,
+    ): Promise<
+      {
+        paymentId: string;
+        status: "captured" | "authorized" | "failed" | string;
+        amountMinor: number;
+      }[]
+    >;
+    verifyPaymentSignature(input: {
+      orderId: string;
+      paymentId: string;
+      signature: string;
+    }): boolean; // HMAC-SHA256(order_id|payment_id, key_secret)
+    verifyWebhookSignature(rawBody: string, signature: string): boolean; // HMAC-SHA256(rawBody, webhook_secret)
+  }
+  ```
+  Both signature checks use `timingSafeEqual` on equal-length digests.
+- Data:
+  - `payment_orders`: `id`, `organization_id`, `provider`, `provider_order_id` (unique), `plan_id`, `billing_cycle`, `amount_minor`, `currency`, `status` (`CREATED|PAID|FAILED|EXPIRED`), `provider_payment_id`, `created_by`, timestamps.
+  - `payment_events`: `provider`, `event_id` (unique, for idempotency), `type`, `received_at`, `payload_hash`.
+  - Both tables get RLS through `organization_id` like the Task 15 org tables. Tenants get SELECT only; all writes go through the system runner.
+
+**Rules:**
+
+- **Amount:** always `plan.monthlyPrice` or `plan.annualPrice` from the database, in minor units (paise), currency `INR`. The client never sends an amount.
+- **Checkout:** requires an org OWNER (or BILLING_ADMIN) and a public, purchasable plan. A non-member gets 404.
+- **Activation:** happens exactly once per order, in one transaction, on either:
+  - a verified webhook `order.paid` / `payment.captured` whose amount equals the stored `amount_minor` and whose order exists; or
+  - the verify endpoint, after the signature is valid AND `fetchOrderPayments` shows a `captured` payment with an equal amount.
+    It sets the org subscription to `ACTIVE`, with that plan and cycle. The period starts at max(now, current period end) and runs 1 month or 1 year. The transaction writes `subscription_events` and audit `subscription.paid`.
+- **Duplicates:** a second webhook or verify for the same order is a no-op returning 200.
+- **Mismatches and invalid input:** an amount or currency mismatch writes the audit `payment.amount_mismatch` and never activates. An invalid signature returns 401 and is logged without the body.
+- **Webhooks:** they always answer 2xx quickly once verified, including for ignored event types.
+- **UI:** the Pay button shows only when `PAYMENT_PROVIDER=razorpay`. It loads `https://checkout.razorpay.com/v1/checkout.js` on demand.
+  - Check the CSP from Task 6: no `script-src` is set, so this is allowed. `frame-ancestors 'none'` applies to us, not to Razorpay's iframe. `form-action 'self'` is not affected, because Checkout uses its modal and no form post.
+  - The UI never shows "Paid" until the verify endpoint returns `ACTIVE`.
+  - Payments are never queued offline: the button is disabled offline.
+
+**Tests:** using the fake gateway plus real HMAC with a fixed test secret.
+
+- `checkout uses server price, not client input`
+- `non-owner cannot create checkout` (404)
+- `valid webhook activates once; replay is a no-op`
+- `webhook with bad signature is 401 and changes nothing`
+- `amount mismatch never activates`
+- `verify endpoint requires both a valid signature and a captured payment`
+- `renewal extends from current period end`
+- `PAYMENT_PROVIDER=razorpay without secrets fails startup`
+- `checkout endpoint never returns key_secret`
+- the RLS schema test includes the new tables.
+
+**Steps:** TDD (capture RED), then implement, then run `pnpm check` (tests with `--maxWorkers=2`) and `pnpm build`, then commit `feat(billing): Razorpay prepaid subscription payments`. A live test against Razorpay's test mode runs later, once the owner adds the test keys.
+
 ## Approval gates in Phases 0–5 (summary)
 
 | Step                          | Action                                        | Why approval                                   |
