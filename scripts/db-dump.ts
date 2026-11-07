@@ -1,7 +1,8 @@
 /**
  * Dump the database to a file plus <file>.manifest.json (per-table row counts).
  * Usage: pnpm db:dump --out <file>
- *   postgres → pg_dump --format=custom --no-owner --no-acl "$DATABASE_URL"
+ *   postgres → pg_dump --format=custom --no-owner "$DATABASE_URL"
+ *              (with ACLs: the tenant grants are part of the restore, see db-restore.ts)
  *   pglite   → plain SQL via @electric-sql/pglite-tools (use a .sql file name);
  *              a persistent PGLITE_DATA_DIR is snapshotted first and only the copy is opened
  * PG_DOCKER_CONTAINER runs pg_dump inside that container (see pgToolCommand).
@@ -45,7 +46,7 @@ async function main() {
     const container = process.env.PG_DOCKER_CONTAINER;
     const { cmd, args } = pgToolCommand(
       "pg_dump",
-      ["--format=custom", "--no-owner", "--no-acl", container ? urlForContainer(url) : url],
+      ["--format=custom", "--no-owner", container ? urlForContainer(url) : url],
       { container },
     );
     await spawnToFile(cmd, args, out);

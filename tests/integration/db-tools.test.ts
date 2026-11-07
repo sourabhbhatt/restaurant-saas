@@ -12,19 +12,52 @@ import {
 } from "@/infrastructure/database/providers/postgres/client";
 import {
   assertEmptyTarget,
+  assertTenantRolesCreatable,
   diffCounts,
   dumpPgliteSql,
   dumpPgliteDir,
   NonEmptyTargetError,
-  reapplyTenantSecurity,
   resolvePostgresUrl,
   spawnFromFile,
   spawnToFile,
+  TenantRolesError,
   type DumpPgliteDeps,
 } from "@/infrastructure/database/providers/postgres/db-tools";
 import { countRows } from "@/infrastructure/database/providers/postgres/row-counts";
 
 const handles: DatabaseHandle[] = [];
+
+/** Tenant roles, their memberships, table/column grants and RLS policies, in a comparable form. */
+async function securityState(db: DatabaseHandle["db"]) {
+  const q = async <T>(query: ReturnType<typeof sql>) =>
+    (await db.execute(query)) as unknown as { rows: T[] };
+  const list = async (query: ReturnType<typeof sql>) =>
+    (await q<{ v: string }>(query)).rows.map((r) => r.v);
+  return {
+    roles: await list(
+      sql`select rolname as v from pg_roles where rolname in ('ros_tenant', 'ros_runtime') order by 1`,
+    ),
+    runtimeIsTenant: await list(
+      sql`select 'yes' as v from pg_auth_members m
+          join pg_roles g on g.oid = m.roleid and g.rolname = 'ros_tenant'
+          join pg_roles r on r.oid = m.member and r.rolname = 'ros_runtime'`,
+    ),
+    tableGrants: await list(
+      sql`select grantee || ':' || table_name || ':' || privilege_type as v
+          from information_schema.role_table_grants
+          where grantee in ('ros_tenant', 'ros_runtime') order by 1`,
+    ),
+    columnGrants: await list(
+      sql`select column_name as v from information_schema.column_privileges
+          where grantee = 'ros_tenant' and table_name = 'users' and privilege_type = 'SELECT' order by 1`,
+    ),
+    policies: await list(
+      sql`select tablename || ':' || policyname || ':' || roles::text || ':' || cmd || ':' ||
+                 coalesce(qual, '') || ':' || coalesce(with_check, '') as v
+          from pg_policies where schemaname = 'public' order by 1`,
+    ),
+  };
+}
 afterAll(async () => {
   for (const h of handles) await h.close();
 });
@@ -74,27 +107,36 @@ describe("db tools", () => {
     expect(before.users).toBe(1);
   });
 
-  it("re-applies tenant roles, grants and policies after an ACL-less restore", async () => {
-    const h = await migrated();
-    const state = async () => {
-      const [row] = (
-        (await h.db.execute(
-          sql`select has_table_privilege('ros_tenant', 'orders', 'SELECT') as grant_ok,
-                     (select count(*)::int from pg_policies where schemaname = 'public') as policies`,
-        )) as unknown as { rows: { grant_ok: boolean; policies: number }[] }
-      ).rows;
-      return row!;
-    };
-    const expected = await state();
-    expect(expected.grant_ok).toBe(true);
-    // What `pg_dump --no-acl` + a restore loses or a partial restore leaves behind.
-    await h.db.execute(sql`revoke all on orders from ros_tenant`);
-    await h.db.execute(sql`drop policy tenant_isolation on orders`);
-    expect((await state()).grant_ok).toBe(false);
-    await reapplyTenantSecurity(h.db);
-    expect(await state()).toEqual(expected);
-    await reapplyTenantSecurity(h.db);
-    expect(await state()).toEqual(expected);
+  it("a PGlite SQL dump restores into a role-less instance with the same grants and policies", async () => {
+    const src = await migrated();
+    const dump = await dumpPgliteSql(src.pglite!);
+    const dest = await connectPglite();
+    handles.push(dest);
+    const roles = await securityState(dest.db);
+    expect(roles.roles).toEqual([]);
+    await dest.pglite!.exec(dump);
+    await dest.pglite!.exec("set search_path to public");
+    const before = await securityState(src.db);
+    expect(before.tableGrants.length).toBeGreaterThan(0);
+    expect(before.columnGrants).toEqual(["email", "id", "name"]);
+    expect(await securityState(dest.db)).toEqual(before);
+  });
+
+  it("refuses to restore when tenant roles are missing and cannot be created", async () => {
+    await expect(
+      assertTenantRolesCreatable(async () => ({ missing: ["ros_runtime"], canCreateRoles: false })),
+    ).rejects.toThrow(
+      "Create roles ros_tenant/ros_runtime (and GRANT ros_tenant TO ros_runtime) as an admin first, or restore with a user that has CREATEROLE.",
+    );
+    await expect(
+      assertTenantRolesCreatable(async () => ({ missing: ["ros_tenant"], canCreateRoles: false })),
+    ).rejects.toBeInstanceOf(TenantRolesError);
+    await expect(
+      assertTenantRolesCreatable(async () => ({ missing: ["ros_tenant"], canCreateRoles: true })),
+    ).resolves.toBeUndefined();
+    await expect(
+      assertTenantRolesCreatable(async () => ({ missing: [], canCreateRoles: false })),
+    ).resolves.toBeUndefined();
   });
 
   it("treats an existing drizzle schema as a non-empty target", async () => {

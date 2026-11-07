@@ -1,13 +1,11 @@
 import { spawn } from "node:child_process";
 import { createReadStream, createWriteStream } from "node:fs";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { pipeline } from "node:stream/promises";
 
 import type { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 
-import { connectPglite, MIGRATIONS_DIR, type DatabaseHandle, type Executor } from "./client";
+import { connectPglite, type DatabaseHandle, type Executor } from "./client";
 import { countRows, listPublicTables, rowsOf } from "./row-counts";
 import { isPersistentPgliteDir, snapshotPglite } from "./snapshot";
 
@@ -46,8 +44,11 @@ export function formatMismatches(mismatches: CountMismatch[]): string {
 }
 
 /**
- * Roles are cluster-level, so no dump contains them, yet the row-level security
- * policies and grants from 0002_tenant_rls name them. Restores create them first.
+ * Roles and role memberships are cluster-level, so no dump can contain them,
+ * yet the dumped policies and grants name the tenant roles. A restore creates
+ * exactly these first (only what is missing); everything else, privileges
+ * included, comes from the dump itself. One statement, so it can join the
+ * restore's transaction.
  */
 export const TENANT_ROLES_SQL = `DO $$
 BEGIN
@@ -57,25 +58,62 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ros_runtime') THEN
     CREATE ROLE ros_runtime NOLOGIN;
   END IF;
+  IF NOT pg_has_role('ros_runtime', 'ros_tenant', 'MEMBER') THEN
+    GRANT ros_tenant TO ros_runtime;
+  END IF;
+  IF NOT pg_has_role(current_user, 'ros_tenant', 'MEMBER') THEN
+    GRANT ros_tenant TO CURRENT_USER;
+  END IF;
 END
 $$;`;
 
-/**
- * Re-run the idempotent 0002_tenant_rls statements (roles, grants, policies).
- * Needed after restoring a `--no-acl` dump, which drops the tenant grants.
- */
-export async function reapplyTenantSecurity(db: Executor): Promise<void> {
-  const up = await readFile(path.join(MIGRATIONS_DIR, "0002_tenant_rls.sql"), "utf8");
-  for (const statement of up.split("--> statement-breakpoint")) {
-    if (statement.trim()) await db.execute(sql.raw(statement));
+export const TENANT_ROLES = ["ros_tenant", "ros_runtime"] as const;
+
+export interface TenantRoleStatus {
+  missing: string[];
+  canCreateRoles: boolean;
+}
+
+export class TenantRolesError extends Error {
+  constructor(readonly missing: string[]) {
+    super(
+      `Missing role(s) ${missing.join(", ")}. Create roles ros_tenant/ros_runtime (and GRANT ros_tenant TO ros_runtime) as an admin first, or restore with a user that has CREATEROLE.`,
+    );
+    this.name = "TenantRolesError";
   }
+}
+
+/** Which tenant roles the target cluster lacks, and whether the current user may create them. */
+export async function tenantRoleStatus(db: Executor): Promise<TenantRoleStatus> {
+  const existing = rowsOf<{ rolname: string }>(
+    await db.execute(
+      sql`select rolname from pg_catalog.pg_roles where rolname in ('ros_tenant', 'ros_runtime')`,
+    ),
+  ).map((r) => r.rolname);
+  const [me] = rowsOf<{ can: boolean }>(
+    await db.execute(
+      sql`select (rolcreaterole or rolsuper) as can from pg_catalog.pg_roles where rolname = current_user`,
+    ),
+  );
+  return {
+    missing: TENANT_ROLES.filter((r) => !existing.includes(r)),
+    canCreateRoles: Boolean(me?.can),
+  };
+}
+
+/** Fail before touching the target when roles are missing and cannot be created. */
+export async function assertTenantRolesCreatable(
+  status: () => Promise<TenantRoleStatus>,
+): Promise<void> {
+  const { missing, canCreateRoles } = await status();
+  if (missing.length > 0 && !canCreateRoles) throw new TenantRolesError(missing);
 }
 
 /** Plain-SQL dump of an embedded PGlite database (schema, data and the drizzle migration table). */
 export async function dumpPgliteSql(pg: PGlite): Promise<string> {
   const { pgDump } = await import("@electric-sql/pglite-tools/pg_dump");
   const file = await pgDump({ pg });
-  // Self-contained: the dump's policies and grants reference the tenant roles.
+  // Self-contained: the dump's policies and grants name the tenant roles.
   return `${TENANT_ROLES_SQL}\n\n${await file.text()}`;
 }
 
@@ -168,12 +206,24 @@ export async function spawnToFile(cmd: string, args: string[], out: string): Pro
   });
 }
 
-/** Run a command with `file` piped to its stdin; read errors and a non-zero exit both reject. */
-export async function spawnFromFile(cmd: string, args: string[], file: string): Promise<void> {
+/**
+ * Run a command with `file` piped to its stdin (after `prefix`, when given);
+ * read errors and a non-zero exit both reject.
+ */
+export async function spawnFromFile(
+  cmd: string,
+  args: string[],
+  file: string,
+  prefix?: string,
+): Promise<void> {
   const child = spawn(cmd, args, { stdio: ["pipe", "inherit", "inherit"] });
   const exit = exitPromise(child, cmd);
   exit.catch(() => {});
-  await Promise.all([pipeline(createReadStream(file), child.stdin!), exit]).catch((error) => {
+  async function* input() {
+    if (prefix) yield Buffer.from(`${prefix}\n`);
+    yield* createReadStream(file);
+  }
+  await Promise.all([pipeline(input, child.stdin!), exit]).catch((error) => {
     child.kill();
     throw error;
   });
