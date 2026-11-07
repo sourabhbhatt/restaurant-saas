@@ -28,7 +28,6 @@ export interface TenancyServiceDeps {
   entitlements: EntitlementService;
   /** Best-effort email delivery (outbox); never throws. */
   sendEmail: (message: TenancyMail) => Promise<void>;
-  /** Builds the invitation email for a URL. */
   invitationEmail: (
     workspaceName: string,
     inviterName: string,

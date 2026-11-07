@@ -101,7 +101,6 @@ export async function notifyBranchStaff(
   );
 }
 
-/** Count unread notifications (used by the bell badge). */
 export async function unreadCount(db: Executor, userId: string): Promise<number> {
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })

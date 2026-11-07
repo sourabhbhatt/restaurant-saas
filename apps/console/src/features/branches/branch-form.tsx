@@ -61,7 +61,6 @@ export interface BranchFormProps {
   onCancel?: () => void;
   /** Show the business hours editor (hidden in quick-create). */
   showHours?: boolean;
-  /** Show address/contact fields. */
   showDetails?: boolean;
   requireDirty?: boolean;
   disabled?: boolean;

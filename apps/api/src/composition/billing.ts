@@ -9,7 +9,6 @@ import { tenantRunner } from "./runners";
 import type { UserActor } from "@ros/application/context";
 import { createBillingService } from "@ros/application/modules/billing/service";
 
-/** Billing wiring: binds the billing ports to the Postgres adapter. */
 export function billingService(c: Container) {
   return createBillingService({
     tx: tenantRunner(c, (e) => ({

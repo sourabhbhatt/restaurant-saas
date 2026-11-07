@@ -16,8 +16,6 @@ import {
   type TestUser,
 } from "./fixtures";
 
-/** Direct-insert fixtures for the ordering module's integration tests. */
-
 export async function insertMenuItem(
   c: Container,
   input: {

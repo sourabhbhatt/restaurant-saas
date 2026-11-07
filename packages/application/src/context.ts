@@ -16,7 +16,6 @@ export interface RequestMeta {
   userAgent: string | null;
 }
 
-/** Audit actor descriptor accepted by services. */
 export interface AuditActor {
   type: "USER" | "GUEST" | "SYSTEM" | "PLATFORM_ADMIN";
   userId: string | null;

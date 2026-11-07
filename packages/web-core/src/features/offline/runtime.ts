@@ -288,7 +288,6 @@ export function startOfflineRuntime(queryClient: QueryClient): () => void {
     clearInterval(interval);
   });
 
-  // Startup sync.
   syncSoon();
   return stopOfflineRuntime;
 }

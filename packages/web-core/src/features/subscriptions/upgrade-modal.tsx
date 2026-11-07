@@ -330,7 +330,6 @@ export function UpgradeModal({
   );
 }
 
-/** Button that opens the upgrade modal. */
 export function UpgradeButton({
   workspaceId,
   initialPlanKey,

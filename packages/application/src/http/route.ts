@@ -313,5 +313,4 @@ export function route<
   };
 }
 
-/** Shared param schemas. */
 export const uuidParam = z.uuid({ message: "Invalid id" });

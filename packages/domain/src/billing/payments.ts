@@ -81,7 +81,6 @@ export function assertRefundAllowed(balance: BillBalance, amount: number): void 
   }
 }
 
-/** Change to return for a cash tender. */
 export function cashChange(tendered: number, applied: number): number {
   return Math.max(tendered - applied, 0);
 }

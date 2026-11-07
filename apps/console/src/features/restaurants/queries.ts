@@ -18,7 +18,6 @@ import type {
 import { api } from "@ros/api-client";
 import { sessionKeys } from "@ros/web-core/features/session/queries";
 
-/** Query keys for restaurants, branches and branch settings. */
 export const tenancyKeys = {
   restaurants: (workspaceId: string) => ["workspace", workspaceId, "restaurants"] as const,
   restaurant: (restaurantId: string) => ["restaurant", restaurantId] as const,

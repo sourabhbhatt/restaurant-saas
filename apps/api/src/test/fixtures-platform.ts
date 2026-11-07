@@ -1,4 +1,3 @@
-/** Fixtures for the platform module's integration tests. */
 import type { Container } from "@/composition/container";
 import { SESSION_COOKIE } from "@ros/application/http/cookies";
 

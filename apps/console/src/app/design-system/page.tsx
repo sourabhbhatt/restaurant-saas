@@ -151,10 +151,6 @@ import {
   type StatusTone,
 } from "@ros/ui/shared/feedback";
 
-/* -------------------------------------------------------------------------- */
-/* Sample data (static)                                                       */
-/* -------------------------------------------------------------------------- */
-
 type OrderStatus = "pending" | "preparing" | "ready" | "served" | "cancelled";
 
 type Order = {
@@ -250,10 +246,6 @@ const sections = [
   ["patterns", "Page patterns"],
 ] as const;
 
-/* -------------------------------------------------------------------------- */
-/* Layout helpers                                                             */
-/* -------------------------------------------------------------------------- */
-
 function Section({
   id,
   title,
@@ -302,10 +294,6 @@ function Demo({
 function wait(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
-
-/* -------------------------------------------------------------------------- */
-/* Page                                                                       */
-/* -------------------------------------------------------------------------- */
 
 export default function DesignSystemPage() {
   const [dark, setDark] = React.useState(false);
@@ -399,10 +387,6 @@ export default function DesignSystemPage() {
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Sections                                                                   */
-/* -------------------------------------------------------------------------- */
 
 function TokensSection() {
   return (
