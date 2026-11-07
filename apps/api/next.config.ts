@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   cacheComponents: true,
+  partialPrefetching: true,
   output: "standalone",
   // Trace from the monorepo root so workspace packages land in .next/standalone.
   outputFileTracingRoot: repoRoot,

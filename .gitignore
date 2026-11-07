@@ -54,5 +54,8 @@ next-env.d.ts
 *.jar
 *.cookies
 
+# written by `next dev` in each app; the root AGENTS.md is the maintained one
+apps/*/AGENTS.md
+
 # turbo
 .turbo/
