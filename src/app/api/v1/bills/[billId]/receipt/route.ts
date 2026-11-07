@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { billingService, scopeForBill } from "@/server/composition/billing";
-import { route } from "@/server/http/route";
+import { billingService, scopeForBill } from "@/composition/billing";
+import { route } from "@ros/application/http/route";
 
 /** Bill plus restaurant/branch details for printing a receipt (bills.view). */
 export const GET = route(

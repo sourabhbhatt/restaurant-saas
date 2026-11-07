@@ -27,9 +27,9 @@ import {
   notifications,
   subscriptionEvents,
   subscriptions,
-} from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
-import { runWithDbContext } from "@/server/db-context";
+} from "@ros/database/providers/postgres/schema";
+import type { Container } from "@/composition/container";
+import { runWithDbContext } from "@ros/application/db-context";
 import {
   addStaffMember,
   createWorkspaceAs,

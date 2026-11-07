@@ -1,0 +1,32 @@
+{
+  "name": "@ros/adapters",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": [
+      "./src/*.ts",
+      "./src/*.tsx",
+      "./src/*/index.ts",
+      "./src/*/index.tsx"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --max-warnings=0 .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1164.0",
+    "@ros/contracts": "workspace:*",
+    "@ros/database": "workspace:*",
+    "@ros/domain": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "pg": "8.23.1",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "@ros/tooling": "workspace:*",
+    "@types/pg": "8.23.1"
+  }
+}

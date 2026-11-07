@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { auditQuerySchema } from "@ros/contracts/platform";
-import { platformService } from "@/server/composition/platform";
-import { route } from "@/server/http/route";
+import { platformService } from "@/composition/platform";
+import { route } from "@ros/application/http/route";
 
 /** Workspace audit log (paginated; filter by action, actor, type and date). */
 export const GET = route(

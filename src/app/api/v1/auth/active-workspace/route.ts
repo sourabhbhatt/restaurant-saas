@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { route } from "@/server/http/route";
+import { route } from "@ros/application/http/route";
 
 /** Switch the active workspace. Membership is verified before it is stored. */
 export const PUT = route(

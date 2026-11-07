@@ -25,12 +25,8 @@ import type {
   SupportRequestDto,
   TestClockDto,
 } from "@ros/contracts/platform";
-import {
-  emailOutbox,
-  notifications,
-  subscriptions,
-} from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
+import { emailOutbox, notifications, subscriptions } from "@ros/database/providers/postgres/schema";
+import type { Container } from "@/composition/container";
 import {
   addStaffMember,
   createWorkspaceAs,

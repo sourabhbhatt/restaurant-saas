@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { voidSchema } from "@ros/contracts/billing";
-import { billingService, scopeForBill } from "@/server/composition/billing";
-import { route } from "@/server/http/route";
+import { billingService, scopeForBill } from "@/composition/billing";
+import { route } from "@ros/application/http/route";
 
 /** Void an issued bill with no net payments (bills.void); the table can then be re-billed. */
 export const POST = route(

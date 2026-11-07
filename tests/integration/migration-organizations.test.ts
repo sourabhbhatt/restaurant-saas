@@ -4,7 +4,7 @@ import path from "node:path";
 import { sql, type SQL } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import type { DbContext } from "@/infrastructure/database/interfaces/transaction";
+import type { DbContext } from "@ros/database/interfaces/transaction";
 import {
   connectPglite,
   createTenantRunner,
@@ -12,10 +12,10 @@ import {
   runMigrations,
   type DatabaseHandle,
   type Executor,
-} from "@/infrastructure/database/providers/postgres/client";
-import { countRows } from "@/infrastructure/database/providers/postgres/row-counts";
-import { ORGANIZATION_TABLES } from "@/infrastructure/database/providers/postgres/tenant-tables";
-import { migrateTo } from "@/test/migrate-to";
+} from "@ros/database/providers/postgres/client";
+import { countRows } from "@ros/database/providers/postgres/row-counts";
+import { ORGANIZATION_TABLES } from "@ros/database/providers/postgres/tenant-tables";
+import { migrateTo } from "@ros/testing/migrate-to";
 
 /**
  * 0003_organizations: expand (new tables and nullable columns) plus a backfill

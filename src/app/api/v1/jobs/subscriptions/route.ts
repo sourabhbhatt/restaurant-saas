@@ -1,7 +1,7 @@
 import { DomainError } from "@ros/domain/shared/errors";
-import { platformService } from "@/server/composition/platform";
-import { route } from "@/server/http/route";
-import { isAuthorizedCron } from "@/server/modules/platform/cron-auth";
+import { platformService } from "@/composition/platform";
+import { route } from "@ros/application/http/route";
+import { isAuthorizedCron } from "@ros/application/modules/platform/cron-auth";
 
 /**
  * Scheduled subscription sweep (trial reminders, trial/period/grace end

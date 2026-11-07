@@ -9,8 +9,8 @@ import { PATCH as patchItem } from "@/app/api/v1/orders/[orderId]/items/[itemId]
 import { GET as publicPlans } from "@/app/api/v1/public/plans/route";
 import type { PublicPlanDto } from "@ros/contracts/platform";
 import { ADVERTISED_FEATURES } from "@ros/domain/subscriptions/entitlements";
-import { workspaceEntitlements } from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
+import { workspaceEntitlements } from "@ros/database/providers/postgres/schema";
+import type { Container } from "@/composition/container";
 import type { TestUser } from "@/test/fixtures";
 import {
   addStaff,

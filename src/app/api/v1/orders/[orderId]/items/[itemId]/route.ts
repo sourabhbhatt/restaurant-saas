@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { orderItemStatusSchema } from "@ros/contracts/orders";
-import { staffOpsService } from "@/server/composition/staff-ops";
-import { route } from "@/server/http/route";
+import { staffOpsService } from "@/composition/staff-ops";
+import { route } from "@ros/application/http/route";
 
 /**
  * Item-level kitchen status (kitchen.update). All items READY moves the order to READY.

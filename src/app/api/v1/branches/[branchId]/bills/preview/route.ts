@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { previewBillSchema } from "@ros/contracts/billing";
-import { billingService } from "@/server/composition/billing";
-import { route } from "@/server/http/route";
+import { billingService } from "@/composition/billing";
+import { route } from "@ros/application/http/route";
 
 /** Bill totals for a session computed from order snapshots, without saving (bills.generate). */
 export const POST = route(

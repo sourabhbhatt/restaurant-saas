@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { createCheckoutSchema } from "@ros/contracts/payments";
-import { paymentService } from "@/server/composition/payments";
-import { route, uuidParam } from "@/server/http/route";
+import { paymentService } from "@/composition/payments";
+import { route, uuidParam } from "@ros/application/http/route";
 
 /**
  * Starts an online payment for one billing period: creates the provider

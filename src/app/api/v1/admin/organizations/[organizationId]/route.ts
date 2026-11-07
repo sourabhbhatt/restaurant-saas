@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { organizationLimitOverrideSchema } from "@ros/contracts/platform";
-import { platformService } from "@/server/composition/platform";
-import { route } from "@/server/http/route";
+import { platformService } from "@/composition/platform";
+import { route } from "@ros/application/http/route";
 
 /** Set or clear the organization's workspace limit override (Super Admin). */
 export const PATCH = route(

@@ -1,5 +1,5 @@
-import { getContainer, type Container } from "@/server/container";
-import { json, requestIdFrom } from "@/server/http/route";
+import { getContainer, type Container } from "@/composition/container";
+import { json, requestIdFrom } from "@ros/application/http/route";
 
 /** Readiness: the database answers `select 1` and every migration is applied. */
 export async function GET(req: Request): Promise<Response> {

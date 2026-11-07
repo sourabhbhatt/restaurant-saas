@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { staffOpsService } from "@/server/composition/staff-ops";
-import { route } from "@/server/http/route";
+import { staffOpsService } from "@/composition/staff-ops";
+import { route } from "@ros/application/http/route";
 
 /** Every table of the branch with derived status, open session and bill summary (tables.view). */
 export const GET = route(

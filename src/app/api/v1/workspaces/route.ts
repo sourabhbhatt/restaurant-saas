@@ -1,6 +1,6 @@
 import { createWorkspaceSchema } from "@ros/contracts/workspaces";
-import { workspaceService } from "@/server/composition/workspaces";
-import { route } from "@/server/http/route";
+import { workspaceService } from "@/composition/workspaces";
+import { route } from "@ros/application/http/route";
 
 export const GET = route({ auth: "user" }, async ({ actor, c }) => {
   const list = await c.repos.access.listUserWorkspaces(actor.userId);

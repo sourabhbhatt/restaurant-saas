@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { platformService } from "@/server/composition/platform";
-import { route } from "@/server/http/route";
+import { platformService } from "@/composition/platform";
+import { route } from "@ros/application/http/route";
 
 /** Cancel a pending request of this workspace. */
 export const DELETE = route(

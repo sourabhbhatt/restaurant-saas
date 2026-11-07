@@ -2,8 +2,8 @@ import {
   deletePushSubscriptionSchema,
   pushSubscriptionSchema,
 } from "@ros/contracts/notifications-api";
-import { notificationService } from "@/server/composition/notifications";
-import { route } from "@/server/http/route";
+import { notificationService } from "@/composition/notifications";
+import { route } from "@ros/application/http/route";
 
 /** Register this browser's push subscription for the signed-in user. */
 export const POST = route(

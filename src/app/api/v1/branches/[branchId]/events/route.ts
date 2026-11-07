@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { forbidden } from "@ros/domain/shared/errors";
 import { assertFeature } from "@ros/domain/subscriptions/entitlements";
-import { eventStreamResponse } from "@/server/modules/staff-ops/http/event-stream";
-import { route } from "@/server/http/route";
+import { eventStreamResponse } from "@ros/application/modules/staff-ops/http/event-stream";
+import { route } from "@ros/application/http/route";
 
 /**
  * Server-Sent Events for a branch (orders.view or kitchen.view). Events are

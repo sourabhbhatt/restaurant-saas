@@ -12,9 +12,9 @@ import {
   GET as getWorkspace,
   PATCH as patchWorkspace,
 } from "@/app/api/v1/workspaces/[workspaceId]/route";
-import { emailOutbox } from "@/infrastructure/database/providers/postgres/schema";
-import { resetEnvCache } from "@/server/config/env";
-import { setContainerForTests, type Container } from "@/server/container";
+import { emailOutbox } from "@ros/database/providers/postgres/schema";
+import { resetEnvCache } from "@ros/application/config/env";
+import { setContainerForTests, type Container } from "@/composition/container";
 import { call, cookieFrom, createTestContainer, uniqueEmail } from "@/test/harness";
 import { createWorkspaceAs, signUpUser } from "@/test/fixtures";
 import { desc, eq } from "drizzle-orm";

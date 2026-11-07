@@ -19,12 +19,9 @@ import type {
   NotificationPreferenceDto,
 } from "@ros/contracts/notifications-api";
 import { NOTIFICATION_TYPES } from "@ros/contracts/notifications";
-import { notifyUsers } from "@/infrastructure/database/providers/postgres/repositories/notifications";
-import {
-  pushSubscriptions,
-  rateLimitBuckets,
-} from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
+import { notifyUsers } from "@ros/database/providers/postgres/repositories/notifications";
+import { pushSubscriptions, rateLimitBuckets } from "@ros/database/providers/postgres/schema";
+import type { Container } from "@/composition/container";
 import {
   createSiblingWorkspaceAs,
   createWorkspaceAs,

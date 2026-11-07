@@ -1,5 +1,5 @@
-import { getEnv } from "@/server/config/env";
-import { json, requestIdFrom } from "@/server/http/route";
+import { getEnv } from "@ros/application/config/env";
+import { json, requestIdFrom } from "@ros/application/http/route";
 
 /** Liveness: answers without the container, so it never touches the database. */
 export async function GET(req: Request): Promise<Response> {

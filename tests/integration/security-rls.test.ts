@@ -4,20 +4,20 @@ import path from "node:path";
 import { sql, type SQL } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import type { DbContext } from "@/infrastructure/database/interfaces/transaction";
+import type { DbContext } from "@ros/database/interfaces/transaction";
 import {
   connectPglite,
   createTenantRunner,
   MIGRATIONS_DIR,
   runMigrations,
   type Executor,
-} from "@/infrastructure/database/providers/postgres/client";
+} from "@ros/database/providers/postgres/client";
 import {
   ORGANIZATION_TABLES,
   PAYMENT_TABLES,
   TENANT_TABLES,
-} from "@/infrastructure/database/providers/postgres/tenant-tables";
-import type { Container } from "@/server/container";
+} from "@ros/database/providers/postgres/tenant-tables";
+import type { Container } from "@/composition/container";
 import { addStaffMember } from "@/test/fixtures";
 import { createTenantWorld, type TenantWorld } from "@/test/fixtures-rls";
 import { createTestContainer } from "@/test/harness";

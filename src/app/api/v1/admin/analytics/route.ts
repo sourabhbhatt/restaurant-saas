@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { analyticsService } from "@/server/composition/analytics";
-import { route } from "@/server/http/route";
+import { analyticsService } from "@/composition/analytics";
+import { route } from "@ros/application/http/route";
 
 /**
  * Platform-wide aggregates for the Super Admin overview (counts only, no

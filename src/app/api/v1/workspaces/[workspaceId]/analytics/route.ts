@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { workspaceAnalyticsQuerySchema } from "@ros/contracts/analytics";
-import { analyticsService } from "@/server/composition/analytics";
-import { route } from "@/server/http/route";
+import { analyticsService } from "@/composition/analytics";
+import { route } from "@ros/application/http/route";
 
 /**
  * Consolidated workspace analytics. `workspace.analytics.view` (or

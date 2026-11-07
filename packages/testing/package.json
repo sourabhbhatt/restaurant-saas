@@ -1,0 +1,26 @@
+{
+  "name": "@ros/testing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": [
+      "./src/*.ts",
+      "./src/*.tsx",
+      "./src/*/index.ts",
+      "./src/*/index.tsx"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --max-warnings=0 .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ros/database": "workspace:*"
+  },
+  "devDependencies": {
+    "@ros/tooling": "workspace:*",
+    "vitest": "^5.1.0"
+  }
+}

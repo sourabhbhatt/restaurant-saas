@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { orderPrioritySchema } from "@ros/contracts/orders";
-import { staffOpsService } from "@/server/composition/staff-ops";
-import { route } from "@/server/http/route";
+import { staffOpsService } from "@/composition/staff-ops";
+import { route } from "@ros/application/http/route";
 
 /** Change ticket priority (orders.approve or kitchen.update). */
 export const PATCH = route(

@@ -23,10 +23,10 @@ import {
   tableQrTokens,
   tableSessions,
   workspaceEntitlements,
-} from "@/infrastructure/database/providers/postgres/schema";
-import { resetEnvCache } from "@/server/config/env";
-import { setContainerForTests, type Container } from "@/server/container";
-import { hashQrToken } from "@/server/modules/tables/qr-tokens";
+} from "@ros/database/providers/postgres/schema";
+import { resetEnvCache } from "@ros/application/config/env";
+import { setContainerForTests, type Container } from "@/composition/container";
+import { hashQrToken } from "@ros/application/modules/tables/qr-tokens";
 import {
   addStaffMember,
   createSiblingWorkspaceAs,

@@ -1,6 +1,6 @@
 import { markNotificationsReadSchema } from "@ros/contracts/notifications-api";
-import { notificationService } from "@/server/composition/notifications";
-import { route } from "@/server/http/route";
+import { notificationService } from "@/composition/notifications";
+import { route } from "@ros/application/http/route";
 
 /** Mark the user's own notifications read (by id, or all). Naturally idempotent. */
 export const POST = route(

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { extendTrialSchema } from "@ros/contracts/platform";
-import { platformService } from "@/server/composition/platform";
-import { route } from "@/server/http/route";
+import { platformService } from "@/composition/platform";
+import { route } from "@ros/application/http/route";
 
 /** Extend the trial by N days. */
 export const POST = route(

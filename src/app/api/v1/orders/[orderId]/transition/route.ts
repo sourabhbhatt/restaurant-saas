@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { orderTransitionSchema } from "@ros/contracts/orders";
-import { staffOpsService } from "@/server/composition/staff-ops";
-import { route } from "@/server/http/route";
+import { staffOpsService } from "@/composition/staff-ops";
+import { route } from "@ros/application/http/route";
 
 /**
  * Order lifecycle transition; permission depends on the action. 409 on stale version.

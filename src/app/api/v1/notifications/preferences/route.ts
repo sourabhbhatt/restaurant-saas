@@ -1,6 +1,6 @@
 import { updateNotificationPreferencesSchema } from "@ros/contracts/notifications-api";
-import { notificationService } from "@/server/composition/notifications";
-import { route } from "@/server/http/route";
+import { notificationService } from "@/composition/notifications";
+import { route } from "@ros/application/http/route";
 
 export const GET = route({ auth: "user" }, async ({ actor, c }) => {
   return { data: await notificationService(c).getPreferences(actor) };

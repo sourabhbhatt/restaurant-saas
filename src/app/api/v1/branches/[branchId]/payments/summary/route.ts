@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { paymentSummaryQuerySchema } from "@ros/contracts/billing-extra";
-import { billingService } from "@/server/composition/billing";
-import { route } from "@/server/http/route";
+import { billingService } from "@/composition/billing";
+import { route } from "@ros/application/http/route";
 
 /** Collections by method, refunds and outstanding balances (payments.summary.view). */
 export const GET = route(

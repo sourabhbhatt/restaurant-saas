@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { subscriptionReasonSchema } from "@ros/contracts/platform";
-import { platformService } from "@/server/composition/platform";
-import { route } from "@/server/http/route";
+import { platformService } from "@/composition/platform";
+import { route } from "@ros/application/http/route";
 
 /** Cancel: no renewal, access until the period end. */
 export const POST = route(

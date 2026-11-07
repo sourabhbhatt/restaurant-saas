@@ -1,6 +1,6 @@
 import { changePasswordSchema } from "@ros/contracts/auth";
-import { createAuthService } from "@/server/auth/auth-service";
-import { route } from "@/server/http/route";
+import { createAuthService } from "@ros/application/auth/auth-service";
+import { route } from "@ros/application/http/route";
 
 export const PUT = route(
   {

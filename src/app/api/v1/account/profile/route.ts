@@ -1,6 +1,6 @@
 import { updateProfileSchema } from "@ros/contracts/auth";
-import { tenancyService } from "@/server/composition/tenancy";
-import { route } from "@/server/http/route";
+import { tenancyService } from "@/composition/tenancy";
+import { route } from "@ros/application/http/route";
 
 /** Update the signed-in user's own profile (name). */
 export const PATCH = route(

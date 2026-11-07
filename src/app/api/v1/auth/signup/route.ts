@@ -1,7 +1,7 @@
 import { signUpSchema } from "@ros/contracts/auth";
-import { createAuthService } from "@/server/auth/auth-service";
-import { route } from "@/server/http/route";
-import { sessionCookieHeader } from "@/server/http/session-cookie";
+import { createAuthService } from "@ros/application/auth/auth-service";
+import { route } from "@ros/application/http/route";
+import { sessionCookieHeader } from "@ros/application/http/session-cookie";
 
 export const POST = route(
   {

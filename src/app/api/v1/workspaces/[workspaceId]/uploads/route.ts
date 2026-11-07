@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { MAX_UPLOAD_BYTES } from "@ros/contracts/menu";
 import { DomainError } from "@ros/domain/shared/errors";
-import { uploadService } from "@/server/composition/menu";
-import { route } from "@/server/http/route";
+import { uploadService } from "@/composition/menu";
+import { route } from "@ros/application/http/route";
 
 const params = z.object({ workspaceId: z.uuid() });
 

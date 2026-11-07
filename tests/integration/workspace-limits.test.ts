@@ -21,8 +21,8 @@ import {
   subscriptions,
   workspaceMemberships,
   workspaces,
-} from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
+} from "@ros/database/providers/postgres/schema";
+import type { Container } from "@/composition/container";
 import {
   addStaffMember,
   createWorkspaceAs,

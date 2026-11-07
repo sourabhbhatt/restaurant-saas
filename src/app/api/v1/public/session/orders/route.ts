@@ -1,7 +1,7 @@
 import { placeOrderSchema } from "@ros/contracts/orders";
-import { orderingService } from "@/server/composition/ordering";
-import { readGuestToken } from "@/server/modules/ordering/http/guest-cookie";
-import { route } from "@/server/http/route";
+import { orderingService } from "@/composition/ordering";
+import { readGuestToken } from "@ros/application/modules/ordering/http/guest-cookie";
+import { route } from "@ros/application/http/route";
 
 /**
  * POST /api/v1/public/session/orders — place a guest order (PENDING until a

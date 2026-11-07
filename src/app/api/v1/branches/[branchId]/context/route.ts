@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { BranchContextDto } from "@ros/contracts/structure";
-import { route } from "@/server/http/route";
+import { route } from "@ros/application/http/route";
 
 export const GET = route(
   { auth: "user", params: z.object({ branchId: z.uuid() }) },

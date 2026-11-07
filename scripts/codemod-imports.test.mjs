@@ -78,8 +78,8 @@ describe("transform", () => {
       'import { Money } from "@ros/domain/shared/money";',
       'import type { Order } from "@ros/contracts/orders";',
       'export * from "@ros/domain/shared/ids";',
-      'export { route } from "@/server/http/route";',
-      'const mod = await import("@/server/composition/ordering");',
+      'export { route } from "@ros/application/http/route";',
+      'const mod = await import("@/composition/ordering");',
       "const lazy = () => import('@/features/session/queries');",
       'const cjs = require("@/lib/utils");',
       'vi.mock("@/lib/api-client", () => ({}));',
@@ -104,10 +104,10 @@ describe("transform", () => {
   });
 
   it("rewrites only the listed heads with --only", () => {
-    const input = 'import a from "@ros/domain/x";\nimport b from "@/server/http/route";';
+    const input = 'import a from "@ros/domain/x";\nimport b from "@ros/application/http/route";';
     assert.equal(
       transform(input, "", ["domain", "contracts"]),
-      'import a from "@ros/domain/x";\nimport b from "@/server/http/route";',
+      'import a from "@ros/domain/x";\nimport b from "@ros/application/http/route";',
     );
   });
 

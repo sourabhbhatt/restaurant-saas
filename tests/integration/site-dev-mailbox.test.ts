@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { GET as mailbox } from "@/app/api/v1/dev/mailbox/route";
 import type { DevMailboxEmailDto } from "@ros/contracts/dev-mailbox";
-import type { Container } from "@/server/container";
+import type { Container } from "@/composition/container";
 import { call, createTestContainer } from "@/test/harness";
 import { signUpUser } from "@/test/fixtures";
 

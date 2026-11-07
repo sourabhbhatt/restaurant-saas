@@ -1,8 +1,11 @@
 import { z } from "zod";
 
-import { orderingService } from "@/server/composition/ordering";
-import { guestCookieHeader, readGuestToken } from "@/server/modules/ordering/http/guest-cookie";
-import { route } from "@/server/http/route";
+import { orderingService } from "@/composition/ordering";
+import {
+  guestCookieHeader,
+  readGuestToken,
+} from "@ros/application/modules/ordering/http/guest-cookie";
+import { route } from "@ros/application/http/route";
 
 /** POST /api/v1/public/qr/:token/session — join or open the table session; sets `ros_guest`. */
 export const POST = route(

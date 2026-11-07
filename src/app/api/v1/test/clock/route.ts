@@ -1,9 +1,9 @@
 import type { TestClockDto } from "@ros/contracts/platform";
 import { testClockSchema } from "@ros/contracts/platform";
 import { DomainError, notFound } from "@ros/domain/shared/errors";
-import type { Container } from "@/server/container";
-import type { UserActor } from "@/server/context";
-import { route } from "@/server/http/route";
+import type { Container } from "@/composition/container";
+import type { UserActor } from "@ros/application/context";
+import { route } from "@ros/application/http/route";
 
 /**
  * Test clock (E2E only). Exists only when ENABLE_TEST_HOOKS=true (never in

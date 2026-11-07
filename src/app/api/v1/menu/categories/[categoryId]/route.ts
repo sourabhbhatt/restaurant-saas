@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { updateCategorySchema } from "@ros/contracts/menu";
-import { menuService } from "@/server/composition/menu";
-import { route } from "@/server/http/route";
+import { menuService } from "@/composition/menu";
+import { route } from "@ros/application/http/route";
 
 const params = z.object({ categoryId: z.uuid() });
 

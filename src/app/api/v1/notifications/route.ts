@@ -1,6 +1,6 @@
 import { listNotificationsQuerySchema } from "@ros/contracts/notifications-api";
-import { notificationService } from "@/server/composition/notifications";
-import { route } from "@/server/http/route";
+import { notificationService } from "@/composition/notifications";
+import { route } from "@ros/application/http/route";
 
 /** The signed-in user's own notifications, newest first, with the unread count. */
 export const GET = route(

@@ -30,8 +30,8 @@ import {
   tableSessions,
   workspaceEntitlements,
   workspaces,
-} from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
+} from "@ros/database/providers/postgres/schema";
+import type { Container } from "@/composition/container";
 import { generateToken } from "@ros/domain/shared/tokens";
 import { addStaffMember, insertRestaurantWithBranch, signUpUser } from "@/test/fixtures";
 import {

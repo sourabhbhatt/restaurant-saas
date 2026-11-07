@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { generateBillSchema } from "@ros/contracts/billing";
 import { billListQuerySchema } from "@ros/contracts/billing-extra";
-import { billingService } from "@/server/composition/billing";
-import { route } from "@/server/http/route";
+import { billingService } from "@/composition/billing";
+import { route } from "@ros/application/http/route";
 
 const params = z.object({ branchId: z.uuid() });
 

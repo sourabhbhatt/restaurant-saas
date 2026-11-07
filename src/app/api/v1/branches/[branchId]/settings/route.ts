@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { branchSettingsSchema } from "@ros/contracts/tenancy";
-import { tenancyService } from "@/server/composition/tenancy";
-import { route } from "@/server/http/route";
+import { tenancyService } from "@/composition/tenancy";
+import { route } from "@ros/application/http/route";
 
 const params = z.object({ branchId: z.uuid() });
 

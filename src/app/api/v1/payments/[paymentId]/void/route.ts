@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { voidSchema } from "@ros/contracts/billing";
-import { billingService, scopeForPayment } from "@/server/composition/billing";
-import { route } from "@/server/http/route";
+import { billingService, scopeForPayment } from "@/composition/billing";
+import { route } from "@ros/application/http/route";
 
 /** Void a payment or refund entry; the bill balance is recomputed (payments.refund). */
 export const POST = route(

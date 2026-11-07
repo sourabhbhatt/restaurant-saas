@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { route } from "@/server/http/route";
+import { route } from "@ros/application/http/route";
 
 /** Effective plan, limits, features and trial state, plus current usage. */
 export const GET = route(

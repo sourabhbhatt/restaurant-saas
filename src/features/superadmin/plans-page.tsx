@@ -3,7 +3,11 @@
 import { ErrorState, PageHeader, PageSkeleton } from "@/components/shared/feedback";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ADVERTISED_FEATURES, LIMIT_KEYS, limitLabel } from "@ros/domain/subscriptions/entitlements";
+import {
+  ADVERTISED_FEATURES,
+  LIMIT_KEYS,
+  limitLabel,
+} from "@ros/domain/subscriptions/entitlements";
 import { formatMoney } from "@ros/domain/shared/money";
 import { errorMessage } from "@/lib/api-client";
 

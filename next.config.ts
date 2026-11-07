@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 import { withSerwist } from "@serwist/turbopack";
-import { SECURITY_HEADERS } from "./src/server/http/security-headers";
+import { SECURITY_HEADERS } from "@ros/application/http/security-headers";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

@@ -9,7 +9,7 @@ import {
   connectPglite,
   runMigrations,
   type DatabaseHandle,
-} from "@/infrastructure/database/providers/postgres/client";
+} from "@ros/database/providers/postgres/client";
 import {
   assertEmptyTarget,
   assertTenantRolesCreatable,
@@ -25,8 +25,8 @@ import {
   TenantRoleAdminError,
   TenantRolesError,
   type DumpPgliteDeps,
-} from "@/infrastructure/database/providers/postgres/db-tools";
-import { countRows } from "@/infrastructure/database/providers/postgres/row-counts";
+} from "@ros/database/providers/postgres/db-tools";
+import { countRows } from "@ros/database/providers/postgres/row-counts";
 
 const handles: DatabaseHandle[] = [];
 

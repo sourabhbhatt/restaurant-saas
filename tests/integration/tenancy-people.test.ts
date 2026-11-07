@@ -48,16 +48,16 @@ import {
   subscriptionPlans,
   subscriptions,
   rateLimitBuckets,
-} from "@/infrastructure/database/providers/postgres/schema";
-import type { Executor } from "@/infrastructure/database/providers/postgres/client";
-import { createSystemLookup } from "@/infrastructure/database/providers/postgres/client";
-import { auditRepository } from "@/infrastructure/database/providers/postgres/repositories/core";
-import { tenancyRepository } from "@/infrastructure/database/providers/postgres/repositories/tenancy";
-import { silentLogger } from "@/infrastructure/logging/console-logger";
-import { tenantRunner } from "@/server/composition/runners";
-import type { Container } from "@/server/container";
-import { runWithDbContext } from "@/server/db-context";
-import { createTenancyService } from "@/server/modules/tenancy/service";
+} from "@ros/database/providers/postgres/schema";
+import type { Executor } from "@ros/database/providers/postgres/client";
+import { createSystemLookup } from "@ros/database/providers/postgres/client";
+import { auditRepository } from "@ros/database/providers/postgres/repositories/core";
+import { tenancyRepository } from "@ros/database/providers/postgres/repositories/tenancy";
+import { silentLogger } from "@ros/adapters/logging/console-logger";
+import { tenantRunner } from "@/composition/runners";
+import type { Container } from "@/composition/container";
+import { runWithDbContext } from "@ros/application/db-context";
+import { createTenancyService } from "@ros/application/modules/tenancy/service";
 import {
   addStaffMember,
   createWorkspaceAs,

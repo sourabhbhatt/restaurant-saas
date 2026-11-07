@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { staffOpsService } from "@/server/composition/staff-ops";
-import { route } from "@/server/http/route";
+import { staffOpsService } from "@/composition/staff-ops";
+import { route } from "@ros/application/http/route";
 
 /** Order detail with timeline (orders.view or kitchen.view). */
 export const GET = route(

@@ -5,8 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { GET as me } from "@/app/api/v1/auth/me/route";
 import { GET as listWorkspaces } from "@/app/api/v1/workspaces/route";
-import * as client from "@/infrastructure/database/providers/postgres/client";
-import type { Container } from "@/server/container";
+import * as client from "@ros/database/providers/postgres/client";
+import type { Container } from "@/composition/container";
 import { createWorkspaceAs, signUpUser } from "@/test/fixtures";
 import { call, createTestContainer } from "@/test/harness";
 

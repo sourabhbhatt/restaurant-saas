@@ -18,9 +18,9 @@ import {
   orderItems,
   orders,
   bills,
-} from "@/infrastructure/database/providers/postgres/schema";
-import type { ObjectStorage } from "@/infrastructure/storage/interfaces/object-storage";
-import type { Container } from "@/server/container";
+} from "@ros/database/providers/postgres/schema";
+import type { ObjectStorage } from "@ros/adapters/storage/interfaces/object-storage";
+import type { Container } from "@/composition/container";
 import { createTenantWorld, type TenantWorld } from "@/test/fixtures-rls";
 import { call, createTestContainer, TEST_ORIGIN, type CallResult } from "@/test/harness";
 import {

@@ -36,7 +36,7 @@ import {
   orderStatusHistory,
   paymentHistory,
   tableSessions,
-} from "@/infrastructure/database/providers/postgres/schema";
+} from "@ros/database/providers/postgres/schema";
 import { call, createTestContainer, type CallResult } from "@/test/harness";
 import type { TestUser } from "@/test/fixtures";
 import {
@@ -48,7 +48,7 @@ import {
   signUpBillingUser,
   type BillingBranch,
 } from "@/test/fixtures-billing";
-import type { Container } from "@/server/container";
+import type { Container } from "@/composition/container";
 
 let c: Container;
 

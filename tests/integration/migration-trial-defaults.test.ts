@@ -11,18 +11,18 @@ import {
   runMigrations,
   type DatabaseHandle,
   type Executor,
-} from "@/infrastructure/database/providers/postgres/client";
+} from "@ros/database/providers/postgres/client";
 import {
   emailOutbox,
   subscriptionPlans,
   subscriptions,
-} from "@/infrastructure/database/providers/postgres/schema";
-import { rowsOf } from "@/infrastructure/database/providers/postgres/row-counts";
-import type { Container } from "@/server/container";
+} from "@ros/database/providers/postgres/schema";
+import { rowsOf } from "@ros/database/providers/postgres/row-counts";
+import type { Container } from "@/composition/container";
 import { addStaffMember, createWorkspaceAs, signUpUser } from "@/test/fixtures";
 import { freshCookie, setClockDays } from "@/test/fixtures-platform";
 import { call, createTestContainer } from "@/test/harness";
-import { migrateTo } from "@/test/migrate-to";
+import { migrateTo } from "@ros/testing/migrate-to";
 
 /**
  * 0004_trial_and_workspace_limits: plan `max_workspaces` (pro 3, enterprise

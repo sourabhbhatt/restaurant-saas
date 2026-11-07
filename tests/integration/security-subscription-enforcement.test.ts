@@ -21,8 +21,8 @@ import {
   type OperationKind,
   type SubscriptionPhase,
 } from "@ros/domain/subscriptions/entitlements";
-import { menuItems, roles } from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
+import { menuItems, roles } from "@ros/database/providers/postgres/schema";
+import type { Container } from "@/composition/container";
 import {
   addWorkspaceToOrganization,
   createWorkspaceAs,

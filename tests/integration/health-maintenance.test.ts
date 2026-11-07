@@ -14,10 +14,10 @@ import {
 } from "@/app/api/v1/workspaces/[workspaceId]/route";
 import { POST as createWorkspace } from "@/app/api/v1/workspaces/route";
 import type { AdminSettingsDto } from "@ros/contracts/platform";
-import { connectPglite } from "@/infrastructure/database/providers/postgres/client";
-import { platformSettings } from "@/infrastructure/database/providers/postgres/schema";
-import { buildContainer, setContainerForTests, type Container } from "@/server/container";
-import { getEnv, resetEnvCache } from "@/server/config/env";
+import { connectPglite } from "@ros/database/providers/postgres/client";
+import { platformSettings } from "@ros/database/providers/postgres/schema";
+import { buildContainer, setContainerForTests, type Container } from "@/composition/container";
+import { getEnv, resetEnvCache } from "@ros/application/config/env";
 import { createWorkspaceAs, signUpUser, type TestUser } from "@/test/fixtures";
 import { call, createTestContainer, makePlatformAdmin, uniqueEmail } from "@/test/harness";
 

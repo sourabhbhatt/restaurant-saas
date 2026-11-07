@@ -1,5 +1,5 @@
 import type { SyncPingDto } from "@ros/contracts/notifications-api";
-import { route } from "@/server/http/route";
+import { route } from "@ros/application/http/route";
 
 /**
  * Connectivity probe for the offline sync engine (navigator.onLine can report

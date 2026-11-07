@@ -18,8 +18,8 @@ import {
   orderItems,
   orderStatusHistory,
   orders,
-} from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
+} from "@ros/database/providers/postgres/schema";
+import type { Container } from "@/composition/container";
 import type { TestUser } from "@/test/fixtures";
 import {
   addStaff,

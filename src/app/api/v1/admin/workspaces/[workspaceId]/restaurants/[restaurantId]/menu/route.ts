@@ -2,9 +2,9 @@ import { z } from "zod";
 
 import type { AdminRestaurantMenuDto } from "@ros/contracts/menu";
 import { notFound } from "@ros/domain/shared/errors";
-import { menuService } from "@/server/composition/menu";
-import { bindWorkspace } from "@/server/db-context";
-import { route } from "@/server/http/route";
+import { menuService } from "@/composition/menu";
+import { bindWorkspace } from "@ros/application/db-context";
+import { route } from "@ros/application/http/route";
 
 /**
  * Super Admin: read-only menu of one restaurant. The restaurant must belong to

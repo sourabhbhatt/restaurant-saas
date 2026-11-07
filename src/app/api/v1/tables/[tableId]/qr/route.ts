@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { tableService } from "@/server/composition/tables";
-import { route } from "@/server/http/route";
+import { tableService } from "@/composition/tables";
+import { route } from "@ros/application/http/route";
 
 const params = z.object({ tableId: z.uuid() });
 

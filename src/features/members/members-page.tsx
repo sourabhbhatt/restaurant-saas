@@ -20,7 +20,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { CreatedInvitationDto, InvitationDto, MemberDto, RoleDto } from "@ros/contracts/tenancy";
+import type {
+  CreatedInvitationDto,
+  InvitationDto,
+  MemberDto,
+  RoleDto,
+} from "@ros/contracts/tenancy";
 import { permissionChecker, useWorkspaceStructure } from "@/features/session/queries";
 import { api, errorMessage } from "@/lib/api-client";
 import { useAction } from "@/lib/use-action";

@@ -1,6 +1,6 @@
 import { platformSettingsSchema } from "@ros/contracts/platform";
-import { platformService } from "@/server/composition/platform";
-import { forgetMaintenanceFlag, route } from "@/server/http/route";
+import { platformService } from "@/composition/platform";
+import { forgetMaintenanceFlag, route } from "@ros/application/http/route";
 
 export const GET = route({ auth: "platform" }, async ({ actor, c }) => ({
   data: await platformService(c).getSettings(actor),

@@ -12,13 +12,13 @@ import {
   connectPostgres,
   runMigrations,
   type Executor,
-} from "@/infrastructure/database/providers/postgres/client";
+} from "@ros/database/providers/postgres/client";
 import {
   dumpPgliteSql,
   tenantRoleStatus,
   type Manifest,
-} from "@/infrastructure/database/providers/postgres/db-tools";
-import { countRows } from "@/infrastructure/database/providers/postgres/row-counts";
+} from "@ros/database/providers/postgres/db-tools";
+import { countRows } from "@ros/database/providers/postgres/row-counts";
 
 /**
  * End-to-end dump → restore against real PostgreSQL 18 (role/grant behaviour PGlite cannot

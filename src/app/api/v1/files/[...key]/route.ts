@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { notFound } from "@ros/domain/shared/errors";
-import { uploadService } from "@/server/composition/menu";
-import { route } from "@/server/http/route";
+import { uploadService } from "@/composition/menu";
+import { route } from "@ros/application/http/route";
 
 const params = z.object({ key: z.array(z.string().max(200)).min(1).max(8) });
 

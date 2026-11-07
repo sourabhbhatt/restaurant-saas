@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { billingService } from "@/server/composition/billing";
-import { route } from "@/server/http/route";
+import { billingService } from "@/composition/billing";
+import { route } from "@ros/application/http/route";
 
 /**
  * Close a table session under the branch's closure rules (sessions.manage).

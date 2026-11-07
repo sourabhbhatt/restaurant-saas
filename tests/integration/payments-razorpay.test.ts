@@ -6,14 +6,15 @@ import { POST as checkout } from "@/app/api/v1/organizations/[organizationId]/ch
 import { POST as verify } from "@/app/api/v1/organizations/[organizationId]/checkout/verify/route";
 import { POST as webhook } from "@/app/api/v1/webhooks/razorpay/route";
 import { GET as getSubscription } from "@/app/api/v1/workspaces/[workspaceId]/subscription/route";
-import type { CheckoutSessionDto, CheckoutVerifyDto, WebhookResultDto } from "@ros/contracts/payments";
+import type {
+  CheckoutSessionDto,
+  CheckoutVerifyDto,
+  WebhookResultDto,
+} from "@ros/contracts/payments";
 import type { SubscriptionOverviewDto } from "@ros/contracts/platform";
 import { addBillingCycle } from "@ros/domain/payments/period";
-import type { DbContext } from "@/infrastructure/database/interfaces/transaction";
-import {
-  createTenantRunner,
-  type Executor,
-} from "@/infrastructure/database/providers/postgres/client";
+import type { DbContext } from "@ros/database/interfaces/transaction";
+import { createTenantRunner, type Executor } from "@ros/database/providers/postgres/client";
 import {
   auditLogs,
   paymentEvents,
@@ -21,9 +22,9 @@ import {
   subscriptionEvents,
   subscriptionPlans,
   subscriptions,
-} from "@/infrastructure/database/providers/postgres/schema";
-import { createFakePaymentGateway } from "@/infrastructure/payments/providers/fake";
-import { setContainerForTests, type Container } from "@/server/container";
+} from "@ros/database/providers/postgres/schema";
+import { createFakePaymentGateway } from "@ros/adapters/payments/providers/fake";
+import { setContainerForTests, type Container } from "@/composition/container";
 import { createWorkspaceAs, organizationOf, signUpUser, type TestUser } from "@/test/fixtures";
 import { signUpAdmin } from "@/test/fixtures-platform";
 import { call, createTestContainer } from "@/test/harness";

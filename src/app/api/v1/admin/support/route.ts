@@ -1,6 +1,6 @@
 import { supportListQuerySchema } from "@ros/contracts/platform";
-import { platformService } from "@/server/composition/platform";
-import { route } from "@/server/http/route";
+import { platformService } from "@/composition/platform";
+import { route } from "@ros/application/http/route";
 
 export const GET = route(
   { auth: "platform", query: supportListQuerySchema },

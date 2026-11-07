@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { billingService } from "@/server/composition/billing";
-import { route } from "@/server/http/route";
+import { billingService } from "@/composition/billing";
+import { route } from "@ros/application/http/route";
 
 /** Cashier queue: sessions awaiting a bill and live bills not yet closed (bills.view). */
 export const GET = route(

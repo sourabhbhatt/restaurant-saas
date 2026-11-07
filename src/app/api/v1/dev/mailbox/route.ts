@@ -1,7 +1,7 @@
 import { DEV_MAILBOX_LIMIT } from "@ros/contracts/dev-mailbox";
 import { DomainError } from "@ros/domain/shared/errors";
-import { devMailbox } from "@/server/composition/dev-mailbox";
-import { route } from "@/server/http/route";
+import { devMailbox } from "@/composition/dev-mailbox";
+import { route } from "@ros/application/http/route";
 
 /**
  * Local email viewer for testing sign-up, reset and invite flows without a

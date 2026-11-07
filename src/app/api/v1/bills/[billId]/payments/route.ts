@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { recordPaymentSchema } from "@ros/contracts/billing";
-import { billingService, scopeForBill } from "@/server/composition/billing";
-import { route } from "@/server/http/route";
+import { billingService, scopeForBill } from "@/composition/billing";
+import { route } from "@ros/application/http/route";
 
 /**
  * Record a payment (payments.record). Idempotent by body `idempotencyKey`

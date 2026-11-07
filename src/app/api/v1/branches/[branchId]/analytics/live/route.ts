@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { analyticsService } from "@/server/composition/analytics";
-import { route } from "@/server/http/route";
+import { analyticsService } from "@/composition/analytics";
+import { route } from "@ros/application/http/route";
 
 /** Live operational snapshot for the branch overview; sections gated per permission. */
 export const GET = route(

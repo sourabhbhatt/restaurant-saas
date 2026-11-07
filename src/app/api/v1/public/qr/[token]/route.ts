@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { orderingService } from "@/server/composition/ordering";
-import { route } from "@/server/http/route";
+import { orderingService } from "@/composition/ordering";
+import { route } from "@ros/application/http/route";
 
 /** GET /api/v1/public/qr/:token — branding, table and the available branch menu. */
 export const GET = route(

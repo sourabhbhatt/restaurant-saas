@@ -28,7 +28,7 @@ import type {
   UploadResultDto,
 } from "@ros/contracts/menu";
 import { priceSelection } from "@ros/domain/menu/pricing";
-import { loadBranchMenu } from "@/infrastructure/database/providers/postgres/repositories/menu";
+import { loadBranchMenu } from "@ros/database/providers/postgres/repositories/menu";
 import {
   addonGroups,
   addons,
@@ -37,9 +37,9 @@ import {
   menuVariants,
   storedFiles,
   workspaceEntitlements,
-} from "@/infrastructure/database/providers/postgres/schema";
-import type { ObjectStorage } from "@/infrastructure/storage/interfaces/object-storage";
-import type { Container } from "@/server/container";
+} from "@ros/database/providers/postgres/schema";
+import type { ObjectStorage } from "@ros/adapters/storage/interfaces/object-storage";
+import type { Container } from "@/composition/container";
 import {
   addStaffMember,
   createSiblingWorkspaceAs,

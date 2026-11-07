@@ -1,6 +1,6 @@
-import { orderingService } from "@/server/composition/ordering";
-import { readGuestToken } from "@/server/modules/ordering/http/guest-cookie";
-import { route } from "@/server/http/route";
+import { orderingService } from "@/composition/ordering";
+import { readGuestToken } from "@ros/application/modules/ordering/http/guest-cookie";
+import { route } from "@ros/application/http/route";
 
 /** POST /api/v1/public/session/bill-request — OPEN → BILL_REQUESTED; notifies staff. */
 export const POST = route(

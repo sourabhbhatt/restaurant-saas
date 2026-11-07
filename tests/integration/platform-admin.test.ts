@@ -25,8 +25,8 @@ import type {
   PublicAnnouncementDto,
   PublicPlanDto,
 } from "@ros/contracts/platform";
-import { auditLogs } from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
+import { auditLogs } from "@ros/database/providers/postgres/schema";
+import type { Container } from "@/composition/container";
 import { createWorkspaceAs, signUpUser, type TestUser } from "@/test/fixtures";
 import { signUpAdmin } from "@/test/fixtures-platform";
 import { call, createTestContainer } from "@/test/harness";

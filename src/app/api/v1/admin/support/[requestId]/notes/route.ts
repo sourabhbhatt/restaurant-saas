@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { supportNoteSchema } from "@ros/contracts/platform";
-import { platformService } from "@/server/composition/platform";
-import { route } from "@/server/http/route";
+import { platformService } from "@/composition/platform";
+import { route } from "@ros/application/http/route";
 
 /** Internal note on a support request (visible to Super Admins only). */
 export const POST = route(

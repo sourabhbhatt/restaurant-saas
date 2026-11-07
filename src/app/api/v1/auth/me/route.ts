@@ -1,5 +1,5 @@
 import type { MeResponse } from "@ros/contracts/auth";
-import { route } from "@/server/http/route";
+import { route } from "@ros/application/http/route";
 
 export const GET = route({ auth: "user" }, async ({ actor, c }) => {
   const workspaces = await c.repos.access.listUserWorkspaces(actor.userId);

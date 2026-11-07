@@ -17,9 +17,18 @@ importers:
       '@hookform/resolvers':
         specifier: ^7.0.2
         version: 7.0.2(@standard-schema/spec@1.1.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(zod@4.6.7)
+      '@ros/adapters':
+        specifier: workspace:*
+        version: link:packages/adapters
+      '@ros/application':
+        specifier: workspace:*
+        version: link:packages/application
       '@ros/contracts':
         specifier: workspace:*
         version: link:packages/contracts
+      '@ros/database':
+        specifier: workspace:*
+        version: link:packages/database
       '@ros/domain':
         specifier: workspace:*
         version: link:packages/domain
@@ -93,6 +102,9 @@ importers:
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
+      '@ros/testing':
+        specifier: workspace:*
+        version: link:packages/testing
       '@serwist/turbopack':
         specifier: ^9.5.13
         version: 9.5.13(@swc/helpers@0.5.23)(esbuild@0.28.2)(next@16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(typescript@5.9.3)
@@ -184,6 +196,120 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
+  apps/api:
+    dependencies:
+      '@ros/adapters':
+        specifier: workspace:*
+        version: link:../../packages/adapters
+      '@ros/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@ros/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@ros/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@ros/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(@electric-sql/pglite@0.5.15)(@types/pg@8.23.1)(pg@8.23.1)
+      next:
+        specifier: 16.4.5
+        version: 16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      server-only:
+        specifier: 0.0.1
+        version: 0.0.1
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@electric-sql/pglite':
+        specifier: 0.5.15
+        version: 0.5.15
+      '@ros/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../../packages/tooling
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
+
+  packages/adapters:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1164.0
+        version: 3.1164.0
+      '@ros/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@ros/database':
+        specifier: workspace:*
+        version: link:../database
+      '@ros/domain':
+        specifier: workspace:*
+        version: link:../domain
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(@electric-sql/pglite@0.5.15)(@types/pg@8.23.1)(pg@8.23.1)
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
+      server-only:
+        specifier: 0.0.1
+        version: 0.0.1
+    devDependencies:
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../tooling
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+
+  packages/application:
+    dependencies:
+      '@ros/adapters':
+        specifier: workspace:*
+        version: link:../adapters
+      '@ros/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@ros/database':
+        specifier: workspace:*
+        version: link:../database
+      '@ros/domain':
+        specifier: workspace:*
+        version: link:../domain
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(@electric-sql/pglite@0.5.15)(@types/pg@8.23.1)(pg@8.23.1)
+      qrcode:
+        specifier: 1.5.4
+        version: 1.5.4
+      server-only:
+        specifier: 0.0.1
+        version: 0.0.1
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../tooling
+      '@types/qrcode':
+        specifier: 1.5.6
+        version: 1.5.6
+
   packages/contracts:
     dependencies:
       '@ros/domain':
@@ -197,6 +323,43 @@ importers:
         specifier: workspace:*
         version: link:../tooling
 
+  packages/database:
+    dependencies:
+      '@electric-sql/pglite':
+        specifier: 0.5.15
+        version: 0.5.15
+      '@ros/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@ros/domain':
+        specifier: workspace:*
+        version: link:../domain
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(@electric-sql/pglite@0.5.15)(@types/pg@8.23.1)(pg@8.23.1)
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
+      server-only:
+        specifier: 0.0.1
+        version: 0.0.1
+    devDependencies:
+      '@electric-sql/pglite-tools':
+        specifier: 0.4.15
+        version: 0.4.15(@electric-sql/pglite@0.5.15)
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../tooling
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+      drizzle-kit:
+        specifier: 0.31.11
+        version: 0.31.11
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
+
   packages/domain:
     dependencies:
       zod:
@@ -206,6 +369,19 @@ importers:
       '@ros/tooling':
         specifier: workspace:*
         version: link:../tooling
+
+  packages/testing:
+    dependencies:
+      '@ros/database':
+        specifier: workspace:*
+        version: link:../database
+    devDependencies:
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../tooling
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
   packages/tooling: {}
 

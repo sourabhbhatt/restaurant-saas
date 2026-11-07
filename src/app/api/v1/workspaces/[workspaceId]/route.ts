@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { updateWorkspaceSchema } from "@ros/contracts/workspaces";
-import { workspaceService } from "@/server/composition/workspaces";
-import { route } from "@/server/http/route";
+import { workspaceService } from "@/composition/workspaces";
+import { route } from "@ros/application/http/route";
 
 const params = z.object({ workspaceId: z.uuid() });
 

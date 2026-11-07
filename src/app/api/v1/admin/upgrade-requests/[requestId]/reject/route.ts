@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { rejectUpgradeSchema } from "@ros/contracts/upgrades";
-import { platformService } from "@/server/composition/platform";
-import { route } from "@/server/http/route";
+import { platformService } from "@/composition/platform";
+import { route } from "@ros/application/http/route";
 
 /** Reject with a reason; the subscription is unchanged. */
 export const POST = route(

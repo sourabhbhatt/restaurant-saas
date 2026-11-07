@@ -26,8 +26,8 @@ import {
   tableSessions,
   roles,
   workspaceMemberships,
-} from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
+} from "@ros/database/providers/postgres/schema";
+import type { Container } from "@/composition/container";
 import { addStaffMember, createWorkspaceAs, insertRestaurantWithBranch } from "@/test/fixtures";
 import { signUpAdmin } from "@/test/fixtures-platform";
 import {

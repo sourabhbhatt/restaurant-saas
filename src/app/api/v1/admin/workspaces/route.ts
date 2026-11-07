@@ -1,6 +1,6 @@
 import { adminWorkspaceListQuerySchema } from "@ros/contracts/platform";
-import { platformService } from "@/server/composition/platform";
-import { route } from "@/server/http/route";
+import { platformService } from "@/composition/platform";
+import { route } from "@ros/application/http/route";
 
 /** Super Admin: all workspaces with plan, computed phase and counts. */
 export const GET = route(

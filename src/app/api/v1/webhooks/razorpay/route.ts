@@ -1,5 +1,5 @@
-import { paymentService } from "@/server/composition/payments";
-import { route } from "@/server/http/route";
+import { paymentService } from "@/composition/payments";
+import { route } from "@ros/application/http/route";
 
 const MAX_BODY = 256 * 1024;
 

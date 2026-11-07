@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { tenancyService } from "@/server/composition/tenancy";
-import { route } from "@/server/http/route";
+import { tenancyService } from "@/composition/tenancy";
+import { route } from "@ros/application/http/route";
 
 export const DELETE = route(
   {
