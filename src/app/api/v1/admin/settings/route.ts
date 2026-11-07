@@ -1,6 +1,6 @@
 import { platformSettingsSchema } from "@/contracts/platform";
 import { platformService } from "@/server/composition/platform";
-import { route } from "@/server/http/route";
+import { forgetMaintenanceFlag, route } from "@/server/http/route";
 
 export const GET = route({ auth: "platform" }, async ({ actor, c }) => ({
   data: await platformService(c).getSettings(actor),
@@ -8,7 +8,9 @@ export const GET = route({ auth: "platform" }, async ({ actor, c }) => ({
 
 export const PUT = route(
   { auth: "platform", body: platformSettingsSchema },
-  async ({ actor, body, meta, c }) => ({
-    data: await platformService(c).updateSettings(actor, body, meta),
-  }),
+  async ({ actor, body, meta, c }) => {
+    const data = await platformService(c).updateSettings(actor, body, meta);
+    forgetMaintenanceFlag(c);
+    return { data };
+  },
 );

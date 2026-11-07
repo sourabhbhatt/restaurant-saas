@@ -113,7 +113,7 @@ function assertSameOrigin(req: Request, allowed: string[]): void {
 const MAINTENANCE_CACHE_MS = 10_000;
 const maintenanceCache = new WeakMap<Container, { at: number; on: boolean }>();
 
-/** Platform settings are read at most every 10 s per process, not on every write. */
+/** Read at most every 10 s per process; other instances pick up a change within that window. */
 async function inMaintenance(c: Container): Promise<boolean> {
   const now = c.clock.now().getTime();
   const hit = maintenanceCache.get(c);
@@ -121,6 +121,11 @@ async function inMaintenance(c: Container): Promise<boolean> {
   const on = (await c.entitlements.getPlatformSettings()).maintenanceMode;
   maintenanceCache.set(c, { at: now, on });
   return on;
+}
+
+/** Drop the cached flag after this process changes platform settings, so the change applies at once. */
+export function forgetMaintenanceFlag(c: Container): void {
+  maintenanceCache.delete(c);
 }
 
 export async function resolveActor(req: Request, c: Container): Promise<UserActor | null> {

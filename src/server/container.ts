@@ -44,7 +44,7 @@ import { createLocalStorage } from "@/infrastructure/storage/providers/local-sto
 import { createS3Storage } from "@/infrastructure/storage/providers/s3-storage";
 
 import { createAccessService, type AccessService } from "./authz/access-service";
-import { getEnv, tenantRole, type ServerEnv } from "./config/env";
+import { appOriginAllowed, getEnv, tenantRole, type ServerEnv } from "./config/env";
 import type { Clock, ErrorReporter, Logger } from "./ports/observability";
 import {
   createEntitlementService,
@@ -178,6 +178,11 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
     }
     const db = handle.db;
     if (tenantRole(env) === null) logger.warn("tenant_role_disabled");
+    if (!appOriginAllowed(env))
+      logger.warn("allowed_origins_excludes_app_url", {
+        appUrl: env.APP_URL,
+        allowedOrigins: env.ALLOWED_ORIGINS,
+      });
     if (options.syncSystemData !== false) await ensureSystemData(db);
 
     // System (owner, bypasses row-level security): authentication, the authorization lookup itself,

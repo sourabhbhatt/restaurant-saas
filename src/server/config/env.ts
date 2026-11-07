@@ -21,12 +21,16 @@ const originList = z
     if (!parts.length) return undefined;
     const origins: string[] = [];
     for (const part of parts) {
-      const origin = URL.canParse(part) ? new URL(part).origin : "null";
-      if (origin === "null") {
-        ctx.addIssue({ code: "custom", message: `Invalid origin "${part}"` });
+      const url = URL.canParse(part) ? new URL(part) : null;
+      // Wildcards are not patterns here; WHATWG URL would accept "*" as a literal host character.
+      if (!url || !["http:", "https:"].includes(url.protocol) || url.host.includes("*")) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Invalid origin "${part}" (http(s), no wildcards)`,
+        });
         return z.NEVER;
       }
-      origins.push(origin);
+      origins.push(url.origin);
     }
     return [...new Set(origins)];
   });
@@ -131,6 +135,11 @@ export function resetEnvCache(): void {
 
 export function cookieSecure(env: ServerEnv = getEnv()): boolean {
   return env.COOKIE_SECURE ?? env.APP_URL.startsWith("https://");
+}
+
+/** False when ALLOWED_ORIGINS was set without APP_URL's own origin (logged once at startup). */
+export function appOriginAllowed(env: ServerEnv): boolean {
+  return env.ALLOWED_ORIGINS.includes(new URL(env.APP_URL).origin);
 }
 
 /** The tenant runner's role, or null when disabled with `DATABASE_TENANT_ROLE=none`. */

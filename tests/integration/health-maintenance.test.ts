@@ -15,6 +15,7 @@ import {
 import { POST as createWorkspace } from "@/app/api/v1/workspaces/route";
 import type { AdminSettingsDto } from "@/contracts/platform";
 import { connectPglite } from "@/infrastructure/database/providers/postgres/client";
+import { platformSettings } from "@/infrastructure/database/providers/postgres/schema";
 import { buildContainer, setContainerForTests, type Container } from "@/server/container";
 import { getEnv, resetEnvCache } from "@/server/config/env";
 import { createWorkspaceAs, signUpUser, type TestUser } from "@/test/fixtures";
@@ -105,7 +106,10 @@ describe("maintenance mode", () => {
     c.clock.setOffsetMs(c.clock.offsetMs() + 10_001);
   }
 
+  let previousSecret: string | undefined;
+
   beforeAll(async () => {
+    previousSecret = c.env.CRON_SECRET;
     c.env.CRON_SECRET = SECRET;
     admin = await signUpUser("Maint Admin");
     await makePlatformAdmin(c, admin.userId);
@@ -116,7 +120,7 @@ describe("maintenance mode", () => {
   });
   afterAll(async () => {
     await setMaintenance(false);
-    expireSettingsCache();
+    c.env.CRON_SECRET = previousSecret;
   });
 
   it("every mutation returns 503 MAINTENANCE", async () => {
@@ -164,15 +168,44 @@ describe("maintenance mode", () => {
     expect(res.status).toBe(200);
   });
 
-  it("Super Admin routes still work, so maintenance can be turned off", async () => {
+  it("Super Admin routes still work; turning maintenance off applies at once in this process", async () => {
     await setMaintenance(false);
-    // Cached for 10 s: writes stay blocked until the cache expires.
-    const cached = await call(createWorkspace, { body: { name: "Soon" }, cookie: admin.cookie });
-    expect(cached.status).toBe(503);
-    expireSettingsCache();
     const res = await call(createWorkspace, { body: { name: "After" }, cookie: admin.cookie });
     expect(res.status).toBe(201);
-    await setMaintenance(true);
+  });
+
+  it("a change made by another instance applies once the 10 s cache expires", async () => {
+    // Prime the cache with "off", then flip the row directly, as another instance would.
+    await call(signUp, {
+      body: {
+        name: "Primer",
+        email: uniqueEmail(),
+        password: "correct-horse-42",
+        acceptTerms: true,
+      },
+    });
+    await c.db
+      .insert(platformSettings)
+      .values({ key: "maintenanceMode", value: true })
+      .onConflictDoUpdate({ target: platformSettings.key, set: { value: true } });
+    const stale = await call(signUp, {
+      body: {
+        name: "Stale",
+        email: uniqueEmail(),
+        password: "correct-horse-42",
+        acceptTerms: true,
+      },
+    });
+    expect(stale.status).toBe(201);
     expireSettingsCache();
+    const fresh = await call(signUp, {
+      body: {
+        name: "Fresh",
+        email: uniqueEmail(),
+        password: "correct-horse-42",
+        acceptTerms: true,
+      },
+    });
+    expect(fresh.status).toBe(503);
   });
 });
