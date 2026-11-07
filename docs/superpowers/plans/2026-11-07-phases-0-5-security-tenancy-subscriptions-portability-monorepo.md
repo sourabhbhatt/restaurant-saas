@@ -5,6 +5,7 @@
 **Goal:** Fix the audited security vulnerabilities, add database-enforced tenant isolation and complete RBAC and subscription enforcement (organization billing, workspace limits, 15-day trial), then make the platform provider-independent and split it into four independently deployable apps. All existing functionality and local data are preserved.
 
 **Architecture:** Security first, in place in the current single Next.js app (Phases 0–3), then a mechanical monorepo split (Phase 4) and clean-up (Phase 5).
+
 - Tenant isolation: a request-scoped context plus Postgres row-level security, entered through a tenant transaction runner. Only an allow-listed set of system paths runs without it.
 - Billing moves from workspace to organization with expand/backfill/switch migrations. No column is dropped in these phases.
 - Every provider stays behind a port selected by environment variables.
@@ -46,10 +47,12 @@
 ### Task 1: Local data snapshot and safe migration on PGlite (S7)
 
 **Files:**
+
 - Create: `scripts/db-snapshot.ts`, `src/infrastructure/database/providers/postgres/row-counts.ts`, `src/infrastructure/database/providers/postgres/row-counts.test.ts`
 - Modify: `.gitignore`, `package.json` (scripts), `src/server/container.ts:181-190` (`getContainer`), `scripts/migrate.ts`, `src/infrastructure/database/providers/postgres/client.ts`
 
 **Interfaces:**
+
 - Produces: `countRows(db: Executor): Promise<Record<string, number>>` (every table in `public`, sorted by name). `pendingMigrations(handle: DatabaseHandle): Promise<string[]>` (journal tags not yet applied). `pnpm db:snapshot`, which writes `.data/snapshots/pglite-<YYYYMMDD-HHmmss>/` plus `manifest.json` `{ createdAt, sourceDir, pgVersion, rowCounts, files: { path: sha256 } }`.
 
 - [ ] **Step 1: Write failing tests** in `row-counts.test.ts`:
@@ -74,11 +77,13 @@
 ### Task 2: Remove tracked session cookies; revoke the exposed sessions (S1)
 
 **Files:**
+
 - Create: `scripts/revoke-cookie-jar.ts`, `src/infrastructure/auth/providers/revoke-cookie-jar.ts`, `src/infrastructure/auth/providers/revoke-cookie-jar.test.ts`, `SECURITY.md`
 - Modify: `.gitignore`, `package.json`
 - Remove from the index only: `n.jar`, `o.jar`
 
 **Interfaces:**
+
 - Produces: `revokeSessionsFromCookieJar(db: Executor, jarText: string, now: Date): Promise<{ found: number; revoked: number }>`. It parses Netscape cookie-file lines whose name is `ros_session`, hashes each value with `hashToken` from `@/domain/shared/tokens`, and runs `UPDATE sessions SET revoked_at = now WHERE token_hash IN (…) AND revoked_at IS NULL`. It never prints or logs token values.
 
 - [ ] **Step 1: Write failing tests:**
@@ -101,10 +106,12 @@
 ### Task 3: Trusted-proxy client IP (S2)
 
 **Files:**
+
 - Create: `src/server/http/client-ip.ts`, `src/server/http/client-ip.test.ts`
 - Modify: `src/server/http/route.ts` (`clientIp`), `src/server/config/env.ts`, `.env.example`
 
 **Interfaces:**
+
 - Produces: `clientIpFrom(headers: Headers, trustedHops: number): string | null`.
   - `trustedHops = 0` ignores `X-Forwarded-For` and `X-Real-IP` and returns `null`.
   - `trustedHops = n` returns the n-th entry **from the right** of the comma-joined `X-Forwarded-For` values, or `null` if there are fewer than n entries.
@@ -125,9 +132,11 @@
 ### Task 4: Per-account throttling for sign-in and password reset (S3)
 
 **Files:**
+
 - Modify: `src/server/auth/auth-service.ts` (`signIn`, `requestPasswordReset`), `tests/integration/auth-and-workspaces.test.ts`
 
 **Interfaces:**
+
 - Consumes: `c.repos.rateLimit.hit(key, windowMs, now)`.
 - Produces:
   - Bucket `signin-account:<lowercased trimmed email>`, limit 10 per 15 min. It is checked before password verification; over the limit throws `RATE_LIMITED`, the same message as the IP limit.
@@ -145,9 +154,11 @@
 ### Task 5: Bind idempotent replays to the caller (S4)
 
 **Files:**
+
 - Modify: `src/server/http/route.ts` (idempotency block), `tests/integration/billing.test.ts`
 
 **Interfaces:**
+
 - Produces: the stored scope becomes `` `${config.idempotency({ params })}:u:${actor.userId}` `` for signed-in callers, and `` `${…}:anon` `` otherwise. Replay lookups use the same composite scope.
 
 - [ ] **Step 1: Write failing tests:**
@@ -162,10 +173,12 @@
 ### Task 6: Security headers (S6)
 
 **Files:**
+
 - Create: `src/server/http/security-headers.ts`, `src/server/http/security-headers.test.ts`
 - Modify: `next.config.ts` (`headers()`)
 
 **Interfaces:**
+
 - Produces: `SECURITY_HEADERS: { key: string; value: string }[]`, used for `source: "/:path*"`. The exact values:
   - `X-Content-Type-Options: nosniff`
   - `Referrer-Policy: strict-origin-when-cross-origin`
@@ -185,10 +198,12 @@
 ### Task 7: CI with secret scanning
 
 **Files:**
+
 - Create: `.github/workflows/ci.yml`, `.gitleaks.toml`
 - Modify: `tests/e2e/zz-shot-tmp.spec.ts` (delete if it is a throwaway screenshot spec; check its content first and keep it if it asserts behaviour)
 
 **Interfaces:**
+
 - Produces jobs:
   - `verify`: Node 22, pnpm 10.28 with `--frozen-lockfile`, then `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`.
   - `secrets`: `gitleaks/gitleaks-action@v2` with full history, config allow-listing `src/test/**`, `tests/**`, `.env.example`.
@@ -206,13 +221,18 @@
 ### Task 8: Request-scoped database context
 
 **Files:**
+
 - Create: `src/server/db-context.ts`, `src/server/db-context.test.ts`
 - Modify: `src/server/http/route.ts`, `src/server/authz/access-service.ts` (`workspaceScope`)
 
 **Interfaces:**
+
 - Produces (in `src/server/db-context.ts`, `import "server-only"`, backed by `AsyncLocalStorage`):
   ```ts
-  export interface DbContext { workspaceId: string | null; userId: string | null }
+  export interface DbContext {
+    workspaceId: string | null;
+    userId: string | null;
+  }
   export function runWithDbContext<T>(fn: () => Promise<T>): Promise<T>;
   export function bindUser(userId: string): void;
   export function bindWorkspace(workspaceId: string): void;
@@ -238,16 +258,28 @@
 ### Task 9: Tenant and system transaction runners
 
 **Files:**
+
 - Modify: `src/infrastructure/database/providers/postgres/client.ts`, `src/server/config/env.ts`, `src/test/harness.ts`
 - Create: `src/infrastructure/database/providers/postgres/runners.test.ts`
 
 **Interfaces:**
+
 - Consumes: `currentDbContext()` from Task 8. It is injected as a function parameter so the adapter does not import `src/server`.
 - Produces:
   ```ts
-  export interface TenantRunnerOptions { role: string | null; context: () => DbContext | null }
-  export function createTenantRunner<R>(db: Executor, build: (e: Executor) => R, options: TenantRunnerOptions): TransactionRunner<R>;
-  export function createSystemRunner<R>(db: Executor, build: (e: Executor) => R): TransactionRunner<R>;
+  export interface TenantRunnerOptions {
+    role: string | null;
+    context: () => DbContext | null;
+  }
+  export function createTenantRunner<R>(
+    db: Executor,
+    build: (e: Executor) => R,
+    options: TenantRunnerOptions,
+  ): TransactionRunner<R>;
+  export function createSystemRunner<R>(
+    db: Executor,
+    build: (e: Executor) => R,
+  ): TransactionRunner<R>;
   ```
   - `createTransactionRunner` is kept temporarily as an alias of `createSystemRunner`; Task 11 deletes it.
   - Tenant `run` and `read` both open a transaction. Then:
@@ -270,9 +302,11 @@
 ### Task 10: RLS migration
 
 **Files:**
+
 - Create: `src/infrastructure/database/providers/postgres/tenant-tables.ts`, migration `0002_tenant_rls.sql` (via `drizzle-kit generate --custom --name tenant_rls`), `src/infrastructure/database/providers/postgres/migrations-down/0002_tenant_rls.down.sql`, `tests/integration/security-rls.test.ts`
 
 **Interfaces:**
+
 - Produces: `TENANT_TABLES: readonly string[]`. These are exactly the 35 tables with a `workspace_id` column at `02e5eeb`:
   - `addon_groups, addons, audit_logs, bill_items, bills, branch_settings, branches, dining_tables, invitations`
   - `menu_categories, menu_item_branch_overrides, menu_items, menu_variants, menus`
@@ -308,10 +342,12 @@
 ### Task 11: Move every composition to the tenant runner; system allow-list
 
 **Files:**
+
 - Modify: all of `src/server/composition/*.ts`; `src/server/container.ts`; `src/server/modules/ordering/service.ts` (guest lookups at lines ~123 and ~131); `src/server/modules/tenancy/people-service.ts` (invitation token preview/accept); `src/server/modules/workspaces/service.ts` (`create`); `src/infrastructure/database/providers/postgres/client.ts` (delete the `createTransactionRunner` alias)
 - Create: `tests/integration/security-runner-allowlist.test.ts`
 
 **Interfaces:**
+
 - System runner allow-list (exact). Each call site carries a one-line reason comment:
   1. `container.ts` core repos: identity, access, rateLimit, idempotency, emailOutbox, audit.
   2. `entitlementRepository`.
@@ -335,9 +371,11 @@
 ### Task 12: Cross-tenant HTTP isolation suite
 
 **Files:**
+
 - Create: `tests/integration/security-tenant-isolation.test.ts`
 
 **Interfaces:**
+
 - Consumes: `call`, `cookieFrom`, fixtures.
 - Produces: a table `ISOLATION_CASES: { route: string; method: string; handler: Handler; params: (a: Fixture) => Record<string,string>; body?: unknown }[]`.
 
@@ -352,9 +390,11 @@
 ### Task 13: RBAC matrix suite
 
 **Files:**
+
 - Create: `tests/integration/security-rbac-matrix.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ROLE_TEMPLATE_LIST` and `PERMISSIONS` from `src/domain/access/permissions.ts`.
 - Produces: `RBAC_ACTIONS: { permission: Permission; level: "workspace" | "restaurant" | "branch"; invoke: (ctx) => Promise<CallResult> }[]`. It has one entry per permission that guards a mutation or a sensitive read, chosen from the route handlers' `scope.require(...)` calls.
 
@@ -373,20 +413,29 @@
 ### Task 14: Workspace-limit domain rules and new settings
 
 **Files:**
+
 - Create: `src/domain/subscriptions/workspace-limit.ts`, `src/domain/subscriptions/workspace-limit.test.ts`
 - Modify: `src/domain/platform/settings.ts`, `src/domain/shared/errors.ts`, `src/server/http/errors.ts`, any existing tests asserting `trialDays: 30` or `[7, 15, 25]`
 
 **Interfaces:**
+
 - Produces:
   ```ts
   export interface WorkspaceLimitInput {
-    phase: SubscriptionPhase; billingCycle: BillingCycle | null;
-    planMaxWorkspaces: number | null; overrideMaxWorkspaces: number | null; fairUseMaxWorkspaces: number;
+    phase: SubscriptionPhase;
+    billingCycle: BillingCycle | null;
+    planMaxWorkspaces: number | null;
+    overrideMaxWorkspaces: number | null;
+    fairUseMaxWorkspaces: number;
   }
   export function effectiveMaxWorkspaces(i: WorkspaceLimitInput): number;
-  export function assertCanCreateWorkspace(i: WorkspaceLimitInput & {
-    currentWorkspaces: number; createdLast24h: number; createsPerDay: number;
-  }): void; // LIMIT_REACHED with details { reason: "PLAN_LIMIT" | "FAIR_USE" | "DAILY_LIMIT", limit }
+  export function assertCanCreateWorkspace(
+    i: WorkspaceLimitInput & {
+      currentWorkspaces: number;
+      createdLast24h: number;
+      createsPerDay: number;
+    },
+  ): void; // LIMIT_REACHED with details { reason: "PLAN_LIMIT" | "FAIR_USE" | "DAILY_LIMIT", limit }
   ```
   - Order: a non-null override wins → TRIAL or GRACE gives 1 → MONTHLY gives 1 → otherwise `planMaxWorkspaces ?? fairUseMaxWorkspaces`.
 - Settings additions: `fairUseMaxWorkspaces: z.number().int().min(1).max(1000)` default 25; `workspaceCreatesPerDay: z.number().int().min(1).max(100)` default 5; `maintenanceMode: z.boolean()` default false (used in Task 22).
@@ -406,10 +455,12 @@
 ### Task 15: Organizations: expand and backfill migration
 
 **Files:**
+
 - Modify: `src/infrastructure/database/providers/postgres/schema/tenancy.ts`, `schema/platform.ts`, `tenant-tables.ts`
 - Create: migration `0003_organizations.sql` (drizzle-generated DDL plus appended backfill), `src/test/migrate-to.ts`, `tests/integration/migration-organizations.test.ts`
 
 **Interfaces:**
+
 - Schema:
   - `organizations`: `id`, `name`, `created_by → users` (`on delete set null`), `status text default 'ACTIVE'`, `max_workspaces_override integer null`, timestamps.
   - `organization_members`: `organization_id → organizations` (cascade), `user_id → users` (cascade), `role text check in ('OWNER','BILLING_ADMIN')`, unique `(organization_id, user_id)`.
@@ -445,11 +496,13 @@
 ### Task 16: Entitlements resolve per organization (switch, dual-write)
 
 **Files:**
+
 - Modify: `src/server/subscriptions/entitlement-service.ts`, `src/server/ports/core-repositories.ts`, `repositories/core.ts` (`loadSubscriptionContext`, ~line 315), every subscription write site (`grep -rn "insertSubscription\|update(subscriptions)" src`), `src/server/modules/platform/service.ts`
 - Create: `src/app/api/v1/admin/organizations/[organizationId]/route.ts`, `tests/integration/organization-billing.test.ts`
 - Modify (UI): `src/features/superadmin/workspace-detail-page.tsx` (organization name, override field)
 
 **Interfaces:**
+
 - `loadSubscriptionContext(workspaceId)` joins `workspaces.organization_id` and reads the current subscription by `organization_id`. It returns the existing fields plus `organization: { id: string; maxWorkspacesOverride: number | null }` and `billingCycle`.
 - Writes set both `organization_id` and `workspace_id`. For new rows, `workspace_id` is the organization's first workspace (`min(created_at)`).
 - `EntitlementService.getOrganizationEntitlements(organizationId): Promise<Entitlements>`; the workspace variant delegates to it.
@@ -467,10 +520,12 @@
 ### Task 17: Trial defaults and plan workspace limits data migration
 
 **Files:**
+
 - Modify: `schema/platform.ts` (`subscription_plans.max_workspaces integer null default 1`), `system-data.ts` (`DEFAULT_PLANS`: starter 1, pro 3, enterprise null), the Super Admin plan editor (`src/features/superadmin/` plans page, field "Max workspaces", blank = unlimited with fair use), `src/contracts/platform.ts`
 - Create: migration `0004_trial_and_workspace_limits.sql`, `tests/integration/migration-trial-defaults.test.ts`
 
 **Interfaces:**
+
 - The migration:
   - adds the column;
   - sets `max_workspaces`: `UPDATE subscription_plans SET max_workspaces = 3 WHERE key='pro'`, `NULL WHERE key='enterprise'`; other plans keep the default 1;
@@ -493,11 +548,13 @@
 ### Task 18: Workspace creation rules (one per Trial/Monthly, Annual limits, fair use, single trial)
 
 **Files:**
+
 - Modify: `src/server/modules/workspaces/service.ts` (`create`), `src/server/modules/workspaces/ports.ts`, `repositories/workspaces.ts`, `src/contracts/workspaces.ts`, `src/app/api/v1/workspaces/route.ts`
 - Create: `src/app/api/v1/organizations/route.ts` (GET mine), `tests/integration/workspace-limits.test.ts`
 - Modify (UI): the workspace-create form in `src/features/workspaces/` (organization picker only when the user owns more than 1 org; `LIMIT_REACHED` shows the existing upgrade-request call to action; `TRIAL_ALREADY_USED` shows "upgrade your existing organization")
 
 **Interfaces:**
+
 - Body adds `organizationId?: uuid`. Rules:
   - The actor owns 0 orgs: create an org, the workspace, an org OWNER member, and a TRIALING subscription with `trialEndsAt = now + settings.trialDays`. If any org created by the actor ever had a subscription with `trial_starts_at` not null, throw `TRIAL_ALREADY_USED`.
   - No `organizationId` and the actor owns exactly 1 org: use it.
@@ -524,10 +581,12 @@
 ### Task 19: Feature catalogue truth and `kitchen_display` enforcement
 
 **Files:**
+
 - Modify: `src/domain/subscriptions/entitlements.ts` (`FEATURES` → `FEATURE_META`), `src/server/modules/staff-ops/service.ts` (`kitchenFeed` ~line 452, `setItemStatus` ~line 357), `src/app/api/v1/branches/[branchId]/events/route.ts`, `src/features/site/pricing/*`, the Super Admin plan editor
 - Create: `tests/integration/feature-enforcement.test.ts`
 
 **Interfaces:**
+
 - `FEATURE_META: Record<FeatureKey, { label: string; advertised: boolean }>`. Advertised: `qr_ordering, kitchen_display, multi_branch, analytics, advanced_analytics, custom_roles`. Not advertised: `offline_mode, email_notifications, push_notifications, data_export`. `FEATURES` stays as a derived label map so existing imports compile. `ADVERTISED_FEATURES: FeatureKey[]`.
 - `kitchenFeed` and `setItemStatus` call `assertFeature(scope.entitlements, "kitchen_display")`. The events route asserts it when the stream is granted through `kitchen.view` only.
 
@@ -546,6 +605,7 @@
 ### Task 20: Subscription enforcement matrix
 
 **Files:**
+
 - Create: `tests/integration/security-subscription-enforcement.test.ts`
 
 - [ ] **Step 1: Write the tests.** One org on a trial created at T0, using the test clock. For each phase, each action is checked against `isOperationAllowed(accessLevel, kind)`:
@@ -560,9 +620,11 @@
 ### Task 21: Allowed origins and QR base URL
 
 **Files:**
+
 - Modify: `src/server/config/env.ts`, `src/server/http/route.ts` (`assertSameOrigin`), `src/server/composition/tables.ts`, `.env.example`, `tests/integration/auth-and-workspaces.test.ts`, `tests/integration/tables.test.ts`
 
 **Interfaces:**
+
 - `ALLOWED_ORIGINS`: comma-separated origins, parsed into `string[]` of `new URL(x).origin`; default `[origin of APP_URL]`.
 - `QR_BASE_URL`: `z.url()`, default `APP_URL`.
 - `assertSameOrigin(req, allowed: string[])` no longer trusts `new URL(req.url).origin`.
@@ -580,10 +642,12 @@
 ### Task 22: Health endpoints and maintenance mode
 
 **Files:**
+
 - Create: `src/app/api/v1/health/route.ts`, `src/app/api/v1/health/ready/route.ts`, `tests/integration/health-maintenance.test.ts`
 - Modify: `src/server/http/route.ts`, the Super Admin settings page (maintenance toggle)
 
 **Interfaces:**
+
 - `GET /api/v1/health` → `200 { data: { status: "ok", version: env APP_VERSION ?? "dev" } }`, with no database access.
 - `GET /api/v1/health/ready` → 200 when `select 1` succeeds and `pendingMigrations` is empty. Otherwise 503 with `{ error: { code: "INTERNAL_ERROR", message: "not ready" } }`.
 - In maintenance mode every mutation returns 503 `MAINTENANCE`. Exceptions: `auth: "platform"` routes, `skipOriginCheck` job routes, and `auth/signin`/`auth/signout`. Settings are cached in-process for 10 s.
@@ -597,10 +661,12 @@
 ### Task 23: S3-compatible storage adapter
 
 **Files:**
+
 - Create: `src/infrastructure/storage/providers/s3-storage.ts`, `src/infrastructure/storage/object-storage.contract.ts`, `src/infrastructure/storage/providers/local-storage.test.ts`, `src/infrastructure/storage/providers/s3-storage.test.ts`
 - Modify: `src/server/container.ts` (`selectStorage`), `src/server/config/env.ts` (add `S3_FORCE_PATH_STYLE` booleanish, default false), `package.json` (add `@aws-sdk/client-s3`)
 
 **Interfaces:**
+
 - `createS3Storage(cfg: { endpoint?: string; region: string; bucket: string; accessKeyId: string; secretAccessKey: string; forcePathStyle: boolean }): ObjectStorage`. `name: "s3"`. `url(key)` returns `/api/v1/files/${key}`, so the bucket stays private and the existing CSP-sandboxed file route serves it. `get` returns `null` on `NoSuchKey`.
 - `runObjectStorageContract(make: () => Promise<ObjectStorage>)`: put/get round trip with content type, missing key → null, delete, and keys with `..` rejected.
 - `selectStorage`:
@@ -622,10 +688,12 @@
 ### Task 24: Postgres LISTEN/NOTIFY realtime adapter
 
 **Files:**
+
 - Create: `src/infrastructure/realtime/providers/postgres-bus.ts`, `src/infrastructure/realtime/providers/postgres-bus.test.ts`
 - Modify: `src/server/config/env.ts` (`REALTIME_PROVIDER` adds `"postgres"`), `src/server/container.ts`
 
 **Interfaces:**
+
 - `createPostgresBus(cfg: { connectionString: string; logger: Logger }): RealtimeBus & { close(): Promise<void> }`.
   - One dedicated `pg.Client` runs `LISTEN ros_realtime`.
   - `publish` runs `select pg_notify('ros_realtime', $1)` with payload `JSON.stringify({ c: channel, e: { ...event, at } })`.
@@ -646,10 +714,12 @@
 ### Task 25: Provider-neutral dump, restore and verify, plus local-data rehearsal
 
 **Files:**
+
 - Create: `scripts/db-dump.ts`, `scripts/db-restore.ts`, `scripts/db-verify.ts`, `scripts/smoke.ts`, `tests/integration/db-tools.test.ts`
 - Modify: `package.json` (add `@electric-sql/pglite-tools` dev dependency; scripts `db:dump`, `db:restore`, `db:verify`, `smoke`)
 
 **Interfaces:**
+
 - `pnpm db:dump --out <file>`:
   - postgres → `pg_dump --format=custom --no-owner --no-acl "$DATABASE_URL"`;
   - pglite → `pgDump({ pg })` from `@electric-sql/pglite-tools`, writing plain SQL;
@@ -685,19 +755,19 @@ Read `node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-conf
 
 **Package names and import mapping** (applied by `scripts/codemod-imports.mjs`, which rewrites import specifiers only; files move with `git mv` to keep history):
 
-| From | To |
-| --- | --- |
-| `@/domain/*` | `@ros/domain/*` (`packages/domain/src`) |
-| `@/contracts/*` | `@ros/contracts/*` (`packages/contracts/src`) |
-| `@/server/*` except `container`, `composition/*` | `@ros/application/*` (`packages/application/src`) |
-| `@/server/container`, `@/server/composition/*` | `apps/api/src/composition/*` (local `@/` alias inside `apps/api`) |
-| `@/infrastructure/database/*` | `@ros/database/*` (`packages/database/src`) |
-| `@/infrastructure/{auth,email,logging,push,realtime,storage}/*` | `@ros/adapters/*` (`packages/adapters/src`) |
-| `@/components/*` | `@ros/ui/*` (`packages/ui/src`) |
-| `@/lib/api-client` | `@ros/api-client` (`packages/api-client/src`) |
-| `@/lib/*` (others), `@/features/{session,navigation,notifications,account,realtime,offline}/*` | `@ros/web-core/*` (`packages/web-core/src`) |
-| `@/features/<x>/*` used by exactly one app | that app's `features/<x>/*` |
-| `@/features/<x>/*` used by two or more apps | `@ros/web-core/features/<x>/*` |
+| From                                                                                           | To                                                                |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `@/domain/*`                                                                                   | `@ros/domain/*` (`packages/domain/src`)                           |
+| `@/contracts/*`                                                                                | `@ros/contracts/*` (`packages/contracts/src`)                     |
+| `@/server/*` except `container`, `composition/*`                                               | `@ros/application/*` (`packages/application/src`)                 |
+| `@/server/container`, `@/server/composition/*`                                                 | `apps/api/src/composition/*` (local `@/` alias inside `apps/api`) |
+| `@/infrastructure/database/*`                                                                  | `@ros/database/*` (`packages/database/src`)                       |
+| `@/infrastructure/{auth,email,logging,push,realtime,storage}/*`                                | `@ros/adapters/*` (`packages/adapters/src`)                       |
+| `@/components/*`                                                                               | `@ros/ui/*` (`packages/ui/src`)                                   |
+| `@/lib/api-client`                                                                             | `@ros/api-client` (`packages/api-client/src`)                     |
+| `@/lib/*` (others), `@/features/{session,navigation,notifications,account,realtime,offline}/*` | `@ros/web-core/*` (`packages/web-core/src`)                       |
+| `@/features/<x>/*` used by exactly one app                                                     | that app's `features/<x>/*`                                       |
+| `@/features/<x>/*` used by two or more apps                                                    | `@ros/web-core/features/<x>/*`                                    |
 
 **Route ownership:** console takes `(public)`, `(auth)`, `app`, `t`, `print`, `dev`, `design-system`, `~offline`, `serwist`, `sw.ts`. Ops takes `waiter`, `kitchen`, `cashier`, its own `~offline`, `serwist` and `sw.ts`. Admin takes `admin`. API takes `api/**`.
 
@@ -706,6 +776,7 @@ Internal packages are TypeScript source packages, consumed through `exports` poi
 ### Task 26: Workspace skeleton and shared tooling
 
 **Files:**
+
 - Modify: `pnpm-workspace.yaml` (`packages: ["apps/*", "packages/*"]`), root `package.json` (scripts delegate to `turbo run …`; add `turbo` dev dependency)
 - Create: `turbo.json` (tasks `build` with outputs `.next/**` excluding `.next/cache/**`, `typecheck`, `lint`, `test`, `format:check`), `packages/tooling/{tsconfig.base.json, eslint.base.mjs, package.json}`, `scripts/codemod-imports.mjs`, `scripts/codemod-imports.test.mjs`
 
@@ -718,6 +789,7 @@ Internal packages are TypeScript source packages, consumed through `exports` poi
 ### Task 27: Extract domain and contracts packages
 
 **Files:**
+
 - Move: `src/domain/**` → `packages/domain/src/**`; `src/contracts/**` → `packages/contracts/src/**`
 - Create: `packages/domain/package.json` (no dependencies besides `zod`), `packages/contracts/package.json`, each with a `vitest` project config
 - Modify: the root Vitest config (`test.projects`), and imports across the repo via the codemod
@@ -730,6 +802,7 @@ Internal packages are TypeScript source packages, consumed through `exports` poi
 ### Task 28: Extract application, adapters and database packages
 
 **Files:**
+
 - Move:
   - `src/server/**` (minus `container.ts`, `composition/`) → `packages/application/src/**`
   - `src/infrastructure/{auth,email,logging,push,realtime,storage}` → `packages/adapters/src/*`
@@ -741,6 +814,7 @@ Internal packages are TypeScript source packages, consumed through `exports` poi
   - The Task 11 allow-list test paths.
 
 **Interfaces:**
+
 - Dependency rules enforced by ESLint `no-restricted-imports` in each package's config:
   - `application` must not import `@ros/adapters` or `@ros/database` (ports only).
   - `adapters` and `database` must not import `@ros/application`.
@@ -754,6 +828,7 @@ Internal packages are TypeScript source packages, consumed through `exports` poi
 ### Task 29: `apps/api`
 
 **Files:**
+
 - Move: `src/app/api/**` → `apps/api/app/api/**`; `tests/integration/**` → `apps/api/tests/integration/**`
 - Create: `apps/api/{package.json, next.config.ts, tsconfig.json, app/layout.tsx}` (minimal root layout required by Next; the API serves no pages)
 - Config: `output: "standalone"`, `outputFileTracingRoot` and `turbopack.root` = repo root, `poweredByHeader: false`, `transpilePackages: ["@ros/*" …]`.
@@ -766,10 +841,12 @@ Internal packages are TypeScript source packages, consumed through `exports` poi
 ### Task 30: `apps/console`, `apps/ops`, `apps/admin` with a runtime API proxy
 
 **Files:**
+
 - Create: `packages/ui`, `packages/web-core`, `packages/api-client` (moves per the mapping table); `apps/{console,ops,admin}/{package.json,next.config.ts,tsconfig.json,proxy.ts,app/**}`; `packages/web-core/src/api-proxy.ts`, `packages/web-core/src/api-proxy.test.ts`; in each frontend, `app/api/v1/[...path]/route.ts` (one line re-exporting the proxy handlers); `app/healthz/route.ts`
 - Move: routes per the ownership list; `public/` assets copied to each app that uses them; `src/proxy.ts` matcher split per app (console `/app/:path*`; ops `/waiter|kitchen|cashier/:path*`; admin `/admin/:path*`)
 
 **Interfaces:**
+
 - `createApiProxy(cfg: { apiInternalUrl: () => string }): { GET; POST; PUT; PATCH; DELETE }`. The URL is read from `process.env.API_INTERNAL_URL` at request time, never at build time.
   - Forwards: method, path and query, body stream (`duplex: "half"`), `cookie`, `content-type`, `idempotency-key`, `origin`, `sec-fetch-site`, `user-agent`, `x-request-id`, `x-forwarded-for`.
   - Sets `x-forwarded-host`.
@@ -794,9 +871,11 @@ Internal packages are TypeScript source packages, consumed through `exports` poi
 ### Task 31: Dockerfiles, docker-compose and end-to-end verification
 
 **Files:**
+
 - Create: `infra/docker/next-app.Dockerfile`, `infra/docker/.dockerignore`, `infra/compose/docker-compose.yml`, `infra/compose/.env.compose.example`, `infra/compose/init-roles.sql`
 
 **Interfaces:**
+
 - Dockerfile with build arg `APP` ∈ `{api, console, ops, admin}`:
   - stage 1 `turbo prune @ros/$APP --docker`;
   - stage 2 `pnpm install --frozen-lockfile` and `turbo run build --filter=@ros/$APP`;
@@ -820,9 +899,11 @@ Internal packages are TypeScript source packages, consumed through `exports` poi
 ### Task 32: Per-app CI
 
 **Files:**
+
 - Modify: `.github/workflows/ci.yml`
 
 **Interfaces:**
+
 - `verify` runs `turbo run typecheck lint test build --filter=...[origin/main]`, so only affected packages and apps run.
 - `integration-pg` uses service `postgres:18` and runs RLS role tests and the realtime adapter with `PG_TEST_URL`.
 - `storage-s3` uses service `minio` and runs the S3 contract.
@@ -849,6 +930,7 @@ Internal packages are TypeScript source packages, consumed through `exports` poi
 ### Task 34: Documentation and runbooks; apply migrations to the real local data
 
 **Files:**
+
 - Modify: `README.md`, `docs/architecture.md`, `docs/environment-variables.md`, `docs/tenant-security.md`, `docs/provider-abstractions.md`, `docs/provider-migration-guide.md`, `docs/deployment.md`, `docs/testing.md`, `docs/database-schema.md`, `docs/implementation-roadmap.md`
 - Create: `docs/runbooks/backup-and-restore.md`, `docs/runbooks/rollback.md`, `docs/runbooks/local-data-preservation.md`, `docs/runbooks/disable-rls-emergency.md`
 
@@ -856,7 +938,7 @@ Internal packages are TypeScript source packages, consumed through `exports` poi
   - `TRUSTED_PROXY_HOPS`, `DATABASE_TENANT_ROLE`, `ALLOWED_ORIGINS`, `QR_BASE_URL`;
   - `S3_FORCE_PATH_STYLE`, `REALTIME_PROVIDER=postgres`;
   - `API_INTERNAL_URL`, `CONSOLE_URL`, `OPS_URL`, `ADMIN_URL`, `APP_VERSION`.
-  Also cover the RLS model, organization billing, the fair-use settings and the compose stack.
+    Also cover the RLS model, organization billing, the fair-use settings and the compose stack.
 - [ ] **Step 2:** Write the runbooks. Each has exact commands copied from Tasks 1, 25 and 31, and from spec §10.
 - [ ] **Step 3: [OWNER APPROVAL] Apply migrations 0002–0004 to the real `.data/pglite`:**
   - Show the owner the Task 25 rehearsal result first.
@@ -874,10 +956,12 @@ Internal packages are TypeScript source packages, consumed through `exports` poi
 Runs after Phase 3 and before Phase 4. The offline layer in `src/features/offline` (Dexie `restaurantos-staff`, FIFO-per-scope sync engine, backoff, idempotency keys, conflict states, Web Lock, crash recovery) is kept. `docs/offline-sync.md` describes it. This task closes the gaps without ever showing a server-dependent result as confirmed.
 
 **Files:**
+
 - Modify: `src/features/offline/{db.ts,sync-engine.ts,runtime.ts,index.ts}`, `src/features/kitchen/kitchen-display.tsx`, `src/features/waiter/waiter-console.tsx`, the staff-order compose UI, `src/server/modules/staff-ops/service.ts` (only if `expectedVersion` is missing on item-status/transition endpoints), `src/contracts/staff-ops.ts`, `docs/offline-sync.md`
 - Create: `tests/e2e/offline.spec.ts`, and new unit tests next to `sync-engine.test.ts`
 
 **Interfaces:**
+
 - Kitchen item-status changes and order transitions (start, ready) are queued with `enqueueMutation`:
   - scope `order:<orderId>`, carrying `expectedVersion`;
   - a `409 INVALID_STATE_TRANSITION`/`STALE_VERSION` becomes `conflict`;
@@ -917,11 +1001,11 @@ Runs after Task 33, inside Phase 5.
 
 ## Approval gates in Phases 0–5 (summary)
 
-| Step | Action | Why approval |
-| --- | --- | --- |
-| Task 2 Step 7 | Revoke the exposed sessions in `.data/pglite` | Modifies owner data (non-destructive `UPDATE`) |
-| Task 2 Step 8 | Git history rewrite (recommended: decline) | Destructive on a public pushed branch |
-| Task 7 Step 5, Task 32 Step 3 | Push to GitHub | Outward-facing |
-| Task 34 Step 3 | Apply new migrations to `.data/pglite` | Changes owner data (additive) |
+| Step                          | Action                                        | Why approval                                   |
+| ----------------------------- | --------------------------------------------- | ---------------------------------------------- |
+| Task 2 Step 7                 | Revoke the exposed sessions in `.data/pglite` | Modifies owner data (non-destructive `UPDATE`) |
+| Task 2 Step 8                 | Git history rewrite (recommended: decline)    | Destructive on a public pushed branch          |
+| Task 7 Step 5, Task 32 Step 3 | Push to GitHub                                | Outward-facing                                 |
+| Task 34 Step 3                | Apply new migrations to `.data/pglite`        | Changes owner data (additive)                  |
 
 Local Docker containers (`postgres:18`, `minio`) and new open-source dependencies (`turbo`, `@aws-sdk/client-s3`, `@electric-sql/pglite-tools`) are free and local. They are listed here so the owner approves them together with this plan.

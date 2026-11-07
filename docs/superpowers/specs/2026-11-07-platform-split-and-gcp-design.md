@@ -5,18 +5,18 @@ Date: 2026-11-07. GCP trial: standard $300 Free Trial, valid until **2027-02-26*
 
 ## 1. Goals and constraints
 
-| #   | Requirement                                                                  | Where addressed |
-| --- | ---------------------------------------------------------------------------- | --------------- |
-| 1   | Verify trial eligibility, credit usage, monthly cost                         | §3, §8          |
-| 2   | Production-ready modular monorepo                                            | §4              |
-| 3   | Provider-independent database, auth, storage, infrastructure                 | §5              |
-| 4   | Leave GCP without application rewrites                                       | §5, §11         |
-| 5   | Tenant isolation, RBAC, subscription enforcement                             | §6, §7          |
-| 6   | Pro trial 15 days, 7-day grace                                               | §7              |
-| 7   | Trial and Monthly: one workspace per organization                            | §7              |
-| 8   | Preserve all functionality and data                                          | §9              |
-| 9   | Automated backups, restore, rollback                                         | §10             |
-| 10  | Exit plan before trial expiry                                                | §11             |
+| #   | Requirement                                                  | Where addressed |
+| --- | ------------------------------------------------------------ | --------------- |
+| 1   | Verify trial eligibility, credit usage, monthly cost         | §3, §8          |
+| 2   | Production-ready modular monorepo                            | §4              |
+| 3   | Provider-independent database, auth, storage, infrastructure | §5              |
+| 4   | Leave GCP without application rewrites                       | §5, §11         |
+| 5   | Tenant isolation, RBAC, subscription enforcement             | §6, §7          |
+| 6   | Pro trial 15 days, 7-day grace                               | §7              |
+| 7   | Trial and Monthly: one workspace per organization            | §7              |
+| 8   | Preserve all functionality and data                          | §9              |
+| 9   | Automated backups, restore, rollback                         | §10             |
+| 10  | Exit plan before trial expiry                                | §11             |
 
 Hard constraints from the owner:
 
@@ -37,13 +37,13 @@ Hard constraints from the owner:
 
 **Gaps that block a GCP deployment**
 
-| Gap                                                                                   | Impact on Cloud Run                                                    |
-| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Storage provider is `local` only; the S3 adapter is not implemented                   | Uploads lost on every Cloud Run revision (ephemeral disk)              |
-| Realtime is an in-process memory bus                                                  | With more than one instance, live updates degrade to polling           |
-| CSRF check compares against a single `APP_URL`                                        | Three frontends on three origins proxying to one API would be rejected |
-| No Dockerfiles, no health endpoint, no CI                                             | Nothing to deploy                                                      |
-| Postgres Row-Level Security not enabled; app runs as the schema owner                 | One missing `WHERE workspace_id` would leak data; no second line       |
+| Gap                                                                   | Impact on Cloud Run                                                    |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Storage provider is `local` only; the S3 adapter is not implemented   | Uploads lost on every Cloud Run revision (ephemeral disk)              |
+| Realtime is an in-process memory bus                                  | With more than one instance, live updates degrade to polling           |
+| CSRF check compares against a single `APP_URL`                        | Three frontends on three origins proxying to one API would be rejected |
+| No Dockerfiles, no health endpoint, no CI                             | Nothing to deploy                                                      |
+| Postgres Row-Level Security not enabled; app runs as the schema owner | One missing `WHERE workspace_id` would leak data; no second line       |
 
 **Gaps against the business rules**
 
@@ -53,15 +53,15 @@ Hard constraints from the owner:
 
 **Security vulnerabilities (fix first)**
 
-| #  | Finding                                                                                                   | Severity |
-| -- | --------------------------------------------------------------------------------------------------------- | -------- |
-| S1 | `n.jar`, `o.jar` hold live `ros_session` tokens; the GitHub repo is **public** and branch `claude/epic-turing-vhor3y` is pushed. Tokens are only valid against the local PGlite database, where they remain unrevoked. | High (exposure) / Low (reach) |
-| S2 | `clientIp()` trusts the first `X-Forwarded-For` entry from any client. Every rate limit (sign-in, sign-up, reset, QR join, orders) is bypassed by sending a new random header per request. | High |
-| S3 | Sign-in and forgot-password are throttled per IP only (no per-account bucket), so credential stuffing is unbounded once S2 is used. | High |
-| S4 | Idempotent replays are returned before the handler authorizes, and the replay key is not bound to the caller. Anyone who learns a branch ID and an `Idempotency-Key` gets the stored response. | Medium |
-| S5 | No database-level tenant isolation; the runtime connects as the schema owner (DDL rights). | Medium |
-| S6 | No `Strict-Transport-Security`, no `Content-Security-Policy` (`frame-ancestors`, `object-src`, `base-uri`) or `Permissions-Policy` on pages. | Low |
-| S7 | With `DATABASE_PROVIDER=pglite`, every server start applies pending migrations to `.data/pglite` with no snapshot first. | Data-safety |
+| #   | Finding                                                                                                                                                                                                                | Severity                      |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| S1  | `n.jar`, `o.jar` hold live `ros_session` tokens; the GitHub repo is **public** and branch `claude/epic-turing-vhor3y` is pushed. Tokens are only valid against the local PGlite database, where they remain unrevoked. | High (exposure) / Low (reach) |
+| S2  | `clientIp()` trusts the first `X-Forwarded-For` entry from any client. Every rate limit (sign-in, sign-up, reset, QR join, orders) is bypassed by sending a new random header per request.                             | High                          |
+| S3  | Sign-in and forgot-password are throttled per IP only (no per-account bucket), so credential stuffing is unbounded once S2 is used.                                                                                    | High                          |
+| S4  | Idempotent replays are returned before the handler authorizes, and the replay key is not bound to the caller. Anyone who learns a branch ID and an `Idempotency-Key` gets the stored response.                         | Medium                        |
+| S5  | No database-level tenant isolation; the runtime connects as the schema owner (DDL rights).                                                                                                                             | Medium                        |
+| S6  | No `Strict-Transport-Security`, no `Content-Security-Policy` (`frame-ancestors`, `object-src`, `base-uri`) or `Permissions-Policy` on pages.                                                                           | Low                           |
+| S7  | With `DATABASE_PROVIDER=pglite`, every server start applies pending migrations to `.data/pglite` with no snapshot first.                                                                                               | Data-safety                   |
 
 **Hygiene**
 
@@ -128,12 +128,12 @@ Dependency rules (enforced by ESLint `no-restricted-imports` and package `export
 
 **Who uses which app**
 
-| App     | Users                                                   | URL (GCP)                                  |
-| ------- | ------------------------------------------------------- | ------------------------------------------ |
-| console | Visitors, owners, admins, managers, guests via QR       | `https://ros-console-<hash>.a.run.app`     |
-| ops     | Waiter, kitchen, cashier                                | `https://ros-ops-<hash>.a.run.app`         |
-| admin   | Platform Super Admin                                    | `https://ros-admin-<hash>.a.run.app`       |
-| api     | Called only by the three frontends (ingress: all, but no browser calls it directly) | `https://ros-api-<hash>.a.run.app` |
+| App     | Users                                                                               | URL (GCP)                              |
+| ------- | ----------------------------------------------------------------------------------- | -------------------------------------- |
+| console | Visitors, owners, admins, managers, guests via QR                                   | `https://ros-console-<hash>.a.run.app` |
+| ops     | Waiter, kitchen, cashier                                                            | `https://ros-ops-<hash>.a.run.app`     |
+| admin   | Platform Super Admin                                                                | `https://ros-admin-<hash>.a.run.app`   |
+| api     | Called only by the three frontends (ingress: all, but no browser calls it directly) | `https://ros-api-<hash>.a.run.app`     |
 
 **Stable QR links without buying a domain.** Printed table QR codes encode a URL. If that URL is `*.run.app`, every provider move forces reprinting every QR code. Instead, QR codes point to a free Firebase Hosting site on the Spark plan (`https://<project>.web.app/t/<token>`, no billing account needed) whose only job is a 302 redirect to the current Console URL. Moving providers means editing one redirect rule. New env var `QR_BASE_URL` separates the QR host from `APP_URL`.
 
@@ -141,17 +141,17 @@ Dependency rules (enforced by ESLint `no-restricted-imports` and package `export
 
 Every provider sits behind a port in `packages/application/ports` and is selected by environment variables in `apps/api`. Moving providers is a configuration change plus a data copy.
 
-| Concern    | Port                 | GCP choice                                  | Portable because                                                            | Alternatives (env change only)                 |
-| ---------- | -------------------- | ------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------- |
-| Database   | Drizzle + `pg`       | Cloud SQL PostgreSQL 18, `asia-south1`      | Standard `DATABASE_URL`; no Cloud SQL-specific SQL or extensions            | Neon, Supabase, any Postgres 18, self-hosted   |
-| Auth       | `IdentityProvider`   | In-app (existing)                           | Users, sessions and hashes live in our own tables                           | Unchanged anywhere                             |
-| Storage    | `ObjectStorage`      | Cloud Storage via S3 interoperability (HMAC) | New generic S3 adapter (`@aws-sdk/client-s3`), endpoint configurable        | Cloudflare R2, Backblaze B2, MinIO, AWS S3     |
-| Realtime   | `RealtimeBus`        | New Postgres `LISTEN/NOTIFY` adapter        | Runs on the database we already have; works with multiple instances         | Same adapter on any Postgres; `memory` locally |
-| Email      | `EmailSender`        | Resend or Brevo (existing adapters)         | HTTP APIs, no GCP dependency                                                | Any SMTP/HTTP sender                           |
-| Jobs       | HTTP + `CRON_SECRET` | Cloud Scheduler → `POST /api/v1/jobs/*`     | Any cron can call an authenticated URL                                      | GitHub Actions cron, system cron               |
-| Secrets    | Environment vars     | Secret Manager mounted as env vars          | App only reads env vars                                                     | `.env` file, Render/Fly secrets                |
-| Runtime    | Docker image         | Cloud Run                                   | Same images run under docker-compose on any VM                              | Any container host                             |
-| Logs       | `Logger`             | JSON to stdout → Cloud Logging              | stdout is universal                                                         | Any log collector                              |
+| Concern  | Port                 | GCP choice                                   | Portable because                                                     | Alternatives (env change only)                 |
+| -------- | -------------------- | -------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------- |
+| Database | Drizzle + `pg`       | Cloud SQL PostgreSQL 18, `asia-south1`       | Standard `DATABASE_URL`; no Cloud SQL-specific SQL or extensions     | Neon, Supabase, any Postgres 18, self-hosted   |
+| Auth     | `IdentityProvider`   | In-app (existing)                            | Users, sessions and hashes live in our own tables                    | Unchanged anywhere                             |
+| Storage  | `ObjectStorage`      | Cloud Storage via S3 interoperability (HMAC) | New generic S3 adapter (`@aws-sdk/client-s3`), endpoint configurable | Cloudflare R2, Backblaze B2, MinIO, AWS S3     |
+| Realtime | `RealtimeBus`        | New Postgres `LISTEN/NOTIFY` adapter         | Runs on the database we already have; works with multiple instances  | Same adapter on any Postgres; `memory` locally |
+| Email    | `EmailSender`        | Resend or Brevo (existing adapters)          | HTTP APIs, no GCP dependency                                         | Any SMTP/HTTP sender                           |
+| Jobs     | HTTP + `CRON_SECRET` | Cloud Scheduler → `POST /api/v1/jobs/*`      | Any cron can call an authenticated URL                               | GitHub Actions cron, system cron               |
+| Secrets  | Environment vars     | Secret Manager mounted as env vars           | App only reads env vars                                              | `.env` file, Render/Fly secrets                |
+| Runtime  | Docker image         | Cloud Run                                    | Same images run under docker-compose on any VM                       | Any container host                             |
+| Logs     | `Logger`             | JSON to stdout → Cloud Logging               | stdout is universal                                                  | Any log collector                              |
 
 No GCP SDK is imported by application code. GCP-specific knowledge lives only in `infra/gcp/`.
 
@@ -163,7 +163,7 @@ Keep everything that exists (server-resolved scopes, permission checks per level
    - `ros_owner` owns the schema and runs migrations.
    - `ros_runtime` is the login the apps use: DML only, no DDL, not the owner.
    - `ros_tenant` (NOLOGIN) is the role tenant transactions switch into; `ros_runtime` is a member.
-   No role needs `BYPASSRLS` or superuser, so this works on Cloud SQL and any managed Postgres.
+     No role needs `BYPASSRLS` or superuser, so this works on Cloud SQL and any managed Postgres.
 2. `ENABLE ROW LEVEL SECURITY` (not `FORCE`) on every table with `workspace_id`. Policies are per role:
    - `tenant_isolation TO ros_tenant` uses `workspace_id = app_current_workspace()`.
    - `runtime_access TO ros_runtime` uses `true`.
@@ -224,8 +224,8 @@ Enterprise fair-use safeguards (platform settings, editable by Super Admin):
 ### 7.4 Feature flags that do nothing today
 
 - Enforce `kitchen_display`: kitchen feed, kitchen item-status changes and the kitchen event stream.
-- `offline_mode` and `email_notifications` stay ungated because they are core: an offline outbox protects order data, and account and security emails must always send. Both are marked *not advertised*, not deleted, so stored plan JSON stays valid.
-- `push_notifications` and `data_export` are marked *not advertised* until implemented.
+- `offline_mode` and `email_notifications` stay ungated because they are core: an offline outbox protects order data, and account and security emails must always send. Both are marked _not advertised_, not deleted, so stored plan JSON stays valid.
+- `push_notifications` and `data_export` are marked _not advertised_ until implemented.
 - The pricing page and the Super Admin plan editor list only advertised features. A test fails if any advertised feature has no enforcement call site.
 
 ## 8. Cost breakdown (estimates; confirm in the pricing calculator before Gate G2)
@@ -234,20 +234,20 @@ Region `asia-south1` for everything except the Firebase redirect site. Currency 
 
 **Pilot configuration (recommended during the trial)**
 
-| Item                          | Configuration                                                    | Est. monthly   | Basis                                          |
-| ----------------------------- | ---------------------------------------------------------------- | -------------- | ---------------------------------------------- |
-| Cloud SQL PostgreSQL 18       | Enterprise, `db-g1-small` (shared core, 1.7 GB), 10 GB SSD, no HA | $30–38         | ~$26 us-central1 list + storage; Mumbai premium unverified |
-| Cloud SQL backups             | 7 automated daily + PITR (7 days of WAL)                         | $1–3           | Backup storage per GB                          |
-| Cloud Run (4 services)        | min instances 0, max 2, 1 vCPU / 512 MiB, request-based          | $0–5           | Pilot traffic fits the 2M request free tier    |
-| Cloud Run API warm instance   | Optional: API `min-instances=1` to avoid cold starts in kitchens | $8–15          | Idle instance pricing; unverified              |
-| Artifact Registry             | 4 images, keep last 3 each (cleanup policy)                      | $0–0.50        | 0.5 GB free, then per GB                       |
-| Cloud Storage                 | Standard, Mumbai, < 5 GB uploads + < 5 GB DB dumps                | $0.20–0.50     | Free tier is US-only                           |
-| Secret Manager                | ~8 secrets                                                       | $0–0.20        | 6 versions free                                |
-| Cloud Scheduler               | 2 jobs (subscription sweep, nightly logical backup)              | $0             | 3 jobs free                                    |
-| Cloud Build                   | Image builds                                                     | $0             | 2,500 min free                                 |
-| Logging, egress               | Pilot volumes                                                    | $0–2           | 50 GiB logs free per project                   |
-| Firebase Hosting (QR redirect)| Spark plan                                                       | $0             | No billing account                             |
-| **Total**                     |                                                                  | **$40–65 / month** | ≈ ₹3,400–5,500                             |
+| Item                           | Configuration                                                     | Est. monthly       | Basis                                                      |
+| ------------------------------ | ----------------------------------------------------------------- | ------------------ | ---------------------------------------------------------- |
+| Cloud SQL PostgreSQL 18        | Enterprise, `db-g1-small` (shared core, 1.7 GB), 10 GB SSD, no HA | $30–38             | ~$26 us-central1 list + storage; Mumbai premium unverified |
+| Cloud SQL backups              | 7 automated daily + PITR (7 days of WAL)                          | $1–3               | Backup storage per GB                                      |
+| Cloud Run (4 services)         | min instances 0, max 2, 1 vCPU / 512 MiB, request-based           | $0–5               | Pilot traffic fits the 2M request free tier                |
+| Cloud Run API warm instance    | Optional: API `min-instances=1` to avoid cold starts in kitchens  | $8–15              | Idle instance pricing; unverified                          |
+| Artifact Registry              | 4 images, keep last 3 each (cleanup policy)                       | $0–0.50            | 0.5 GB free, then per GB                                   |
+| Cloud Storage                  | Standard, Mumbai, < 5 GB uploads + < 5 GB DB dumps                | $0.20–0.50         | Free tier is US-only                                       |
+| Secret Manager                 | ~8 secrets                                                        | $0–0.20            | 6 versions free                                            |
+| Cloud Scheduler                | 2 jobs (subscription sweep, nightly logical backup)               | $0                 | 3 jobs free                                                |
+| Cloud Build                    | Image builds                                                      | $0                 | 2,500 min free                                             |
+| Logging, egress                | Pilot volumes                                                     | $0–2               | 50 GiB logs free per project                               |
+| Firebase Hosting (QR redirect) | Spark plan                                                        | $0                 | No billing account                                         |
+| **Total**                      |                                                                   | **$40–65 / month** | ≈ ₹3,400–5,500                                             |
 
 Trial usage: resources are created only after Phases 0–5 (est. early December 2026), so they run about 12 weeks to 2027-02-26: roughly $110–180 of the $300 credit. Even if everything ran from today (≈ 16 weeks), the total stays near $160–240. Leaves headroom for a one-time upgrade to `db-custom-1-3840` (dedicated 1 vCPU, 3.75 GB, covered by the Cloud SQL SLA; shared-core instances are not) at roughly $55–70/month if load testing shows the shared core is too small.
 
@@ -274,15 +274,15 @@ Rollback: the branch is merged only when green; reverting the merge commit resto
 
 All migrations are additive until the contract step, so any intermediate deploy can be rolled back to the previous release without data loss.
 
-| Step       | Migration                                                                                          | Reversible by                         |
-| ---------- | -------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| Expand     | Create `organizations`, `organization_members`; add nullable `workspaces.organization_id`, `subscriptions.organization_id` | Previous release ignores new columns |
-| Backfill   | One organization per existing workspace (name = workspace name, owner = workspace owner); copy `subscriptions.workspace_id` → organization | Idempotent; rerunnable              |
-| Switch     | Release that reads and writes organization IDs; both columns kept in sync                           | Redeploy previous revision            |
-| Verify     | Row counts, every workspace has an organization, every organization has exactly one current subscription | —                                 |
-| Contract   | `NOT NULL` on `organization_id`; drop `subscriptions.workspace_id` **[APPROVAL GATE]**              | Restore from pre-contract backup      |
-| Settings   | `trialDays` 30 → 15 and reminders, only where still default                                        | Update the row back                   |
-| RLS        | Create `ros_tenant` and `ros_runtime` roles, enable policies                                       | Down script: drop policies, `DISABLE ROW LEVEL SECURITY` |
+| Step     | Migration                                                                                                                                  | Reversible by                                            |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| Expand   | Create `organizations`, `organization_members`; add nullable `workspaces.organization_id`, `subscriptions.organization_id`                 | Previous release ignores new columns                     |
+| Backfill | One organization per existing workspace (name = workspace name, owner = workspace owner); copy `subscriptions.workspace_id` → organization | Idempotent; rerunnable                                   |
+| Switch   | Release that reads and writes organization IDs; both columns kept in sync                                                                  | Redeploy previous revision                               |
+| Verify   | Row counts, every workspace has an organization, every organization has exactly one current subscription                                   | —                                                        |
+| Contract | `NOT NULL` on `organization_id`; drop `subscriptions.workspace_id` **[APPROVAL GATE]**                                                     | Restore from pre-contract backup                         |
+| Settings | `trialDays` 30 → 15 and reminders, only where still default                                                                                | Update the row back                                      |
+| RLS      | Create `ros_tenant` and `ros_runtime` roles, enable policies                                                                               | Down script: drop policies, `DISABLE ROW LEVEL SECURITY` |
 
 ### 9.3 Data migration: local → Cloud SQL **[APPROVAL GATE]**
 
@@ -307,23 +307,23 @@ The only existing data is the local PGlite database in `.data/pglite` (58 MB). *
 
 **Rollback**
 
-| Failure                         | Action                                                                  | Time      |
-| ------------------------------- | ----------------------------------------------------------------------- | --------- |
-| Bad application release         | `gcloud run services update-traffic --to-revisions=<previous>=100`      | < 1 min   |
-| Bad additive migration          | Redeploy previous revision (old code ignores new columns)               | < 5 min   |
-| Bad contract migration / data   | PITR clone to just before the migration, switch secret, redeploy        | 15–30 min |
-| GCP unavailable or account issue| Restore latest logical dump on the exit target, repoint QR redirect     | 1–3 h     |
+| Failure                          | Action                                                              | Time      |
+| -------------------------------- | ------------------------------------------------------------------- | --------- |
+| Bad application release          | `gcloud run services update-traffic --to-revisions=<previous>=100`  | < 1 min   |
+| Bad additive migration           | Redeploy previous revision (old code ignores new columns)           | < 5 min   |
+| Bad contract migration / data    | PITR clone to just before the migration, switch secret, redeploy    | 15–30 min |
+| GCP unavailable or account issue | Restore latest logical dump on the exit target, repoint QR redirect | 1–3 h     |
 
 ## 11. Exit plan (decide by 2027-01-27, complete by 2027-02-19)
 
 Trial ends 2027-02-26. Decision point 30 days before (2027-01-27); migration, if any, finished by 2027-02-19 to keep a week of slack before resources stop. If the console shows an earlier end date, both dates move back by the same amount.
 
-| Option | Setup                                                                       | Monthly cost         | Trade-off                                                              | Migration effort |
-| ------ | --------------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------- | ---------------- |
-| 1. Stay on GCP | Upgrade billing account to paid; nothing changes                     | $40–95               | Easiest; managed DB in Mumbai                                          | None             |
-| 2. Single VPS  | docker-compose (Postgres 18, MinIO or R2, 4 apps, Caddy) on a small VM in India or Singapore | ~$6–15 | Self-managed patching and backups                                      | ~1 day, 15–30 min downtime |
-| 3. Oracle Cloud Always Free | Same docker-compose on an Arm VM in Mumbai              | $0                   | Free capacity is often unavailable; idle-reclaim policy; self-managed  | ~1 day, 15–30 min downtime |
-| 4. Managed free tiers | Neon or Supabase (Postgres) + Render or Koyeb (containers) + Cloudflare R2 | $0 (limits, sleeps) to ~$45 paid | Sleep on idle, storage caps; not for live restaurants on free | ~1 day |
+| Option                      | Setup                                                                                        | Monthly cost                     | Trade-off                                                             | Migration effort           |
+| --------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------- | -------------------------- |
+| 1. Stay on GCP              | Upgrade billing account to paid; nothing changes                                             | $40–95                           | Easiest; managed DB in Mumbai                                         | None                       |
+| 2. Single VPS               | docker-compose (Postgres 18, MinIO or R2, 4 apps, Caddy) on a small VM in India or Singapore | ~$6–15                           | Self-managed patching and backups                                     | ~1 day, 15–30 min downtime |
+| 3. Oracle Cloud Always Free | Same docker-compose on an Arm VM in Mumbai                                                   | $0                               | Free capacity is often unavailable; idle-reclaim policy; self-managed | ~1 day, 15–30 min downtime |
+| 4. Managed free tiers       | Neon or Supabase (Postgres) + Render or Koyeb (containers) + Cloudflare R2                   | $0 (limits, sleeps) to ~$45 paid | Sleep on idle, storage caps; not for live restaurants on free         | ~1 day                     |
 
 Third-party prices and limits above are from earlier research (`docs/technology-decisions.md`) and memory; they are **re-verified at the 2027-01-27 decision point**.
 
@@ -340,41 +340,41 @@ Data egress cost for leaving GCP at pilot size: under $1.
 
 ## 12. Roadmap
 
-| Phase | Work                                                                                   | Cloud resources | Gate |
-| ----- | -------------------------------------------------------------------------------------- | --------------- | ---- |
-Order follows the owner's priorities (security first).
+| Phase                                                  | Work | Cloud resources | Gate |
+| ------------------------------------------------------ | ---- | --------------- | ---- |
+| Order follows the owner's priorities (security first). |
 
-| Phase | Work                                                                                   | Cloud resources | Gate |
-| ----- | -------------------------------------------------------------------------------------- | --------------- | ---- |
-| 0     | Security fixes S1–S4, S6, S7: local data snapshot, cookie jars out of git and sessions revoked, trusted-proxy IP, per-account throttling, actor-bound idempotency, security headers, CI with secret scan | None | Plan approval; session revocation and any history rewrite separately |
-| 1     | Tenant isolation (S5): request context, tenant/system runners, RLS migration, isolation and RBAC test suites | None | — |
-| 2     | Subscription changes (§7): organizations (expand/backfill/switch), workspace limits and fair use, 15-day trial, reminders, feature gating, tests | None | — |
-| 3     | Provider independence: S3 adapter, Postgres realtime adapter, `ALLOWED_ORIGINS`, `QR_BASE_URL`, health checks, maintenance mode, provider-neutral dump/restore/verify | None | — |
-| 4     | Monorepo split (§9.1), proxy rewrites, SSE spike, Dockerfiles, docker-compose, per-app CI | None | — |
-| 5     | Comment cleanup; docs and runbooks updated to the new layout                           | None            | —    |
-| 6     | **G1:** GCP project, enable APIs, billing budget and alerts, Artifact Registry, Secret Manager, Firebase Hosting redirect site | Free or near-free | **Approval** |
-| 7     | **G2:** Cloud SQL instance, buckets, Cloud Run services, Scheduler jobs, backup job (confirm prices in calculator first) | Billed from credit | **Approval** |
-| 8     | **G3:** Data migration (§9.3 option A or B) and first production deploy                | —               | **Approval** |
-| 9     | Restore drill, rollback rehearsal (revision rollback, PITR clone)                      | Temporary clone | **Approval** per drill |
-| 10    | **G4:** Contract migration (drop `subscriptions.workspace_id`)                          | —               | **Approval** |
-| 11    | Exit decision on 2027-01-27; execute by 2027-02-19                                     | Depends         | **Approval** |
+| Phase | Work                                                                                                                                                                                                     | Cloud resources    | Gate                                                                 |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------- |
+| 0     | Security fixes S1–S4, S6, S7: local data snapshot, cookie jars out of git and sessions revoked, trusted-proxy IP, per-account throttling, actor-bound idempotency, security headers, CI with secret scan | None               | Plan approval; session revocation and any history rewrite separately |
+| 1     | Tenant isolation (S5): request context, tenant/system runners, RLS migration, isolation and RBAC test suites                                                                                             | None               | —                                                                    |
+| 2     | Subscription changes (§7): organizations (expand/backfill/switch), workspace limits and fair use, 15-day trial, reminders, feature gating, tests                                                         | None               | —                                                                    |
+| 3     | Provider independence: S3 adapter, Postgres realtime adapter, `ALLOWED_ORIGINS`, `QR_BASE_URL`, health checks, maintenance mode, provider-neutral dump/restore/verify                                    | None               | —                                                                    |
+| 4     | Monorepo split (§9.1), proxy rewrites, SSE spike, Dockerfiles, docker-compose, per-app CI                                                                                                                | None               | —                                                                    |
+| 5     | Comment cleanup; docs and runbooks updated to the new layout                                                                                                                                             | None               | —                                                                    |
+| 6     | **G1:** GCP project, enable APIs, billing budget and alerts, Artifact Registry, Secret Manager, Firebase Hosting redirect site                                                                           | Free or near-free  | **Approval**                                                         |
+| 7     | **G2:** Cloud SQL instance, buckets, Cloud Run services, Scheduler jobs, backup job (confirm prices in calculator first)                                                                                 | Billed from credit | **Approval**                                                         |
+| 8     | **G3:** Data migration (§9.3 option A or B) and first production deploy                                                                                                                                  | —                  | **Approval**                                                         |
+| 9     | Restore drill, rollback rehearsal (revision rollback, PITR clone)                                                                                                                                        | Temporary clone    | **Approval** per drill                                               |
+| 10    | **G4:** Contract migration (drop `subscriptions.workspace_id`)                                                                                                                                           | —                  | **Approval**                                                         |
+| 11    | Exit decision on 2027-01-27; execute by 2027-02-19                                                                                                                                                       | Depends            | **Approval**                                                         |
 
 Phases 0–5 happen entirely in the repository and cost nothing.
 
 ## 13. Risks
 
-| Risk                                                                      | Likelihood | Mitigation                                                                  |
-| ------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
-| Credit runs out or trial lapses and resources are deleted                 | Medium     | Budget alerts; exit decision on day 60; nightly provider-neutral dumps      |
-| Mumbai prices higher than estimated                                       | Medium     | Confirm in calculator before G2; shared-core instance; caps on Cloud Run    |
-| Shared-core Cloud SQL too small or affected by no-SLA                     | Medium     | Load test in Phase 8; upgrade to `db-custom-1-3840` in place                |
-| Cold starts slow the kitchen display                                      | Medium     | Optional API warm instance; ops app is a PWA with cached shell and polling  |
-| SSE through the Next.js proxy is buffered                                 | Low–Med    | Spike in Phase 2; fallback to polling (already implemented)                  |
-| Monorepo move breaks something not covered by tests                       | Medium     | Small steps, green `pnpm check` per step, browser walkthrough before merge   |
-| RLS blocks a legitimate path (sign-in, QR lookup, jobs)                   | Medium     | Explicit list of unscoped paths; tests on real Postgres; disable script      |
-| Organization backfill wrong for multi-owner workspaces                    | Low        | Verification queries before switch; contract step gated                     |
-| `run.app` URLs change on provider move                                    | Certain    | QR codes use the Firebase redirect host; staff URLs are bookmarks            |
-| Separate sign-in per app annoys users with several roles                  | Low        | Profile menu links to other apps; sessions last 30 days                      |
+| Risk                                                      | Likelihood | Mitigation                                                                 |
+| --------------------------------------------------------- | ---------- | -------------------------------------------------------------------------- |
+| Credit runs out or trial lapses and resources are deleted | Medium     | Budget alerts; exit decision on day 60; nightly provider-neutral dumps     |
+| Mumbai prices higher than estimated                       | Medium     | Confirm in calculator before G2; shared-core instance; caps on Cloud Run   |
+| Shared-core Cloud SQL too small or affected by no-SLA     | Medium     | Load test in Phase 8; upgrade to `db-custom-1-3840` in place               |
+| Cold starts slow the kitchen display                      | Medium     | Optional API warm instance; ops app is a PWA with cached shell and polling |
+| SSE through the Next.js proxy is buffered                 | Low–Med    | Spike in Phase 2; fallback to polling (already implemented)                |
+| Monorepo move breaks something not covered by tests       | Medium     | Small steps, green `pnpm check` per step, browser walkthrough before merge |
+| RLS blocks a legitimate path (sign-in, QR lookup, jobs)   | Medium     | Explicit list of unscoped paths; tests on real Postgres; disable script    |
+| Organization backfill wrong for multi-owner workspaces    | Low        | Verification queries before switch; contract step gated                    |
+| `run.app` URLs change on provider move                    | Certain    | QR codes use the Firebase redirect host; staff URLs are bookmarks          |
+| Separate sign-in per app annoys users with several roles  | Low        | Profile menu links to other apps; sessions last 30 days                    |
 
 ## 14. Owner decisions (2026-11-07)
 
