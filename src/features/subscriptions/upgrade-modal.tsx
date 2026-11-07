@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Info, Sparkles } from "lucide-react";
 import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -88,6 +88,7 @@ function UpgradeBody({
     },
     resetOptions: { keepDirtyValues: true },
   });
+  const cycle = useWatch({ control: form.control, name: "billingCycle" });
 
   if (overview.isPending) return <LoadingState label="Loading plans…" />;
   if (overview.isError) {
@@ -157,7 +158,6 @@ function UpgradeBody({
     );
   }
 
-  const cycle = form.watch("billingCycle");
   const onSubmit = form.handleSubmit(async (values) => {
     const plan = plans.find((p) => p.key === values.planKey);
     try {

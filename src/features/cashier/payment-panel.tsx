@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Banknote, CreditCard, Delete, QrCode, Wallet, WifiOff } from "lucide-react";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -97,10 +97,10 @@ function PaymentPanelBody({ bill, branchId, methods }: Props) {
       reference: "",
     },
   });
-  const { watch, setValue, setError, register, formState } = form;
-  const method = watch("method");
-  const amountMinor = parseMajor(watch("amount")) ?? 0;
-  const tenderedMinor = parseMajor(watch("tendered"));
+  const { control, setValue, setError, register, formState } = form;
+  const method = useWatch({ control, name: "method" });
+  const amountMinor = parseMajor(useWatch({ control, name: "amount" })) ?? 0;
+  const tenderedMinor = parseMajor(useWatch({ control, name: "tendered" }));
   const change =
     method === "CASH" && tenderedMinor !== null ? Math.max(tenderedMinor - amountMinor, 0) : null;
   const pending = record.isPending || formState.isSubmitting;

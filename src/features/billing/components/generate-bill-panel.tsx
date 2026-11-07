@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, FileText, Percent } from "lucide-react";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -96,7 +96,7 @@ export function GenerateBillPanel({
     resolver: zodResolver(discountFormSchema),
     defaultValues: { type: "NONE", value: "", reason: "" },
   });
-  const type = form.watch("type");
+  const type = useWatch({ control: form.control, name: "type" });
 
   const applyDiscount = form.handleSubmit((values) => setDiscount(toDiscount(values)));
 
