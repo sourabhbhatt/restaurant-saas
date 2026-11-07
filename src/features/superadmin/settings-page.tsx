@@ -144,7 +144,13 @@ function Form({
             />
           </label>
           <label className="flex items-center justify-between gap-4 sm:col-span-2">
-            <span className="text-sm font-medium">Maintenance mode</span>
+            <span>
+              <span className="block text-sm font-medium">Maintenance mode</span>
+              <span className="block text-xs text-muted-foreground">
+                Blocks every change except sign-in, sign-out and this console. Takes effect within
+                10 seconds.
+              </span>
+            </span>
             <Switch
               checked={s.maintenanceMode}
               onCheckedChange={(v) => setS({ ...s, maintenanceMode: v })}

@@ -39,6 +39,8 @@ const fields = z.object({
   /** Base of the links printed on table QR codes. Default: APP_URL. */
   QR_BASE_URL: z.url().optional(),
   APP_NAME: z.string().min(1).default("RestaurantOS"),
+  /** Build or release identifier reported by /api/v1/health. */
+  APP_VERSION: z.string().min(1).optional(),
 
   DATABASE_PROVIDER: z.enum(["postgres", "pglite"]).default("postgres"),
   DATABASE_URL: z

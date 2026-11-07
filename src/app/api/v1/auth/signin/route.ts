@@ -8,6 +8,7 @@ export const POST = route(
     auth: "public",
     body: signInSchema,
     rateLimit: { name: "signin", limit: 10, windowMs: 15 * 60_000 },
+    allowInMaintenance: true,
   },
   async ({ body, meta, c }) => {
     const { user, session } = await createAuthService(c).signIn(body, meta);

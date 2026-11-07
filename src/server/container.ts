@@ -1,5 +1,7 @@
 import "server-only";
 
+import { sql } from "drizzle-orm";
+
 import type { IdentityProvider } from "@/infrastructure/auth/interfaces/identity-provider";
 import { createLocalIdentityProvider } from "@/infrastructure/auth/providers/local-identity";
 import {
@@ -67,6 +69,8 @@ export interface Container {
   push: PushSender;
   access: AccessService;
   entitlements: EntitlementService;
+  /** Readiness probe: the database answers and no migration is pending. Throws when unreachable. */
+  isReady(): Promise<boolean>;
   repos: {
     identity: ReturnType<typeof identityRepository>;
     access: ReturnType<typeof accessRepository>;
@@ -200,6 +204,10 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
       push: createNoopPushSender(),
       access,
       entitlements,
+      isReady: async () => {
+        await db.execute(sql`select 1`);
+        return (await pendingMigrations(handle)).length === 0;
+      },
       repos: {
         identity: identityRepository(db),
         access: accessRepository(db),
