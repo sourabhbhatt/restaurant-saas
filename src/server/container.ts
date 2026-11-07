@@ -18,6 +18,8 @@ import {
   identityRepository,
   rateLimitRepository,
 } from "@/infrastructure/database/providers/postgres/repositories/core";
+import { pendingMigrations } from "@/infrastructure/database/providers/postgres/row-counts";
+import { isPersistentPgliteDir } from "@/infrastructure/database/providers/postgres/snapshot";
 import { ensureSystemData } from "@/infrastructure/database/providers/postgres/system-data";
 import type { EmailSender } from "@/infrastructure/email/interfaces/email-sender";
 import {
@@ -132,6 +134,19 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
       ? await connectPglite(env.PGLITE_DATA_DIR)
       : await connectPostgres(env.DATABASE_URL, env.DATABASE_POOL_MAX));
   if (options.migrate) await runMigrations(handle, env.DATABASE_PROVIDER);
+  else if (
+    !options.database &&
+    env.DATABASE_PROVIDER === "pglite" &&
+    isPersistentPgliteDir(env.PGLITE_DATA_DIR)
+  ) {
+    const pending = await pendingMigrations(handle);
+    if (pending.length > 0) {
+      await handle.close();
+      throw new Error(
+        `Pending migrations for ${env.PGLITE_DATA_DIR}: ${pending.join(", ")}. Run pnpm db:snapshot then pnpm db:migrate.`,
+      );
+    }
+  }
   const db = handle.db;
   if (options.syncSystemData !== false) await ensureSystemData(db);
 
@@ -174,7 +189,9 @@ const globalForContainer = globalThis as unknown as {
 /** Process-wide singleton (survives dev hot reloads). */
 export function getContainer(): Promise<Container> {
   globalForContainer.__restaurantosContainer ??= buildContainer({
-    migrate: getEnv().DATABASE_PROVIDER === "pglite",
+    // Persistent PGlite data is migrated only by `pnpm db:migrate`, after a snapshot.
+    migrate:
+      getEnv().DATABASE_PROVIDER === "pglite" && !isPersistentPgliteDir(getEnv().PGLITE_DATA_DIR),
   }).catch((error: unknown) => {
     globalForContainer.__restaurantosContainer = undefined;
     throw error;
