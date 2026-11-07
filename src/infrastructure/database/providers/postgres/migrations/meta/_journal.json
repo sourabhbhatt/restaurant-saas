@@ -15,6 +15,13 @@
       "when": 1793818317729,
       "tag": "0001_upgrade_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794043952733,
+      "tag": "0002_tenant_rls",
+      "breakpoints": true
     }
   ]
 }
