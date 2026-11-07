@@ -200,11 +200,11 @@ Wi-Fi. Background Sync API is not used.
   is configured (the default noop provider sends nothing). Click targets are restricted to same-origin paths.
 - In development the worker is disabled (`SerwistProvider disable`). Test it with
   `pnpm build && pnpm start`.
-- The worker is bundled by esbuild in `src/app/serwist/[path]/route.ts` with a small plugin that
-  resolves every `serwist` import from the app root. pnpm installs two copies of `serwist`
-  (same version, different peers); with both bundled, Serwist's `instanceof Strategy` check
-  failed for `defaultCache` routes, the `/~offline` fallback was never attached to the route
-  that serves page navigations, and offline navigations ended in `ERR_FAILED`.
+- `pnpm-workspace.yaml` overrides `browserslist` to a single version. With two versions pnpm
+  installed two peer variants of `serwist`, both were bundled into the worker, Serwist's
+  `instanceof Strategy` check failed for `defaultCache` routes, the `/~offline` fallback was
+  never attached to the route that serves page navigations, and offline navigations ended in
+  `ERR_FAILED`. `pnpm why serwist` must show one copy.
 
 ## What works offline, per role
 
