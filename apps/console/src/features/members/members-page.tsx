@@ -10,13 +10,15 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  FormError,
+  GatedAction,
   PageHeader,
   PageSkeleton,
   StatusBadge,
 } from "@ros/ui/shared/feedback";
 import { Badge } from "@ros/ui/ui/badge";
 import { Button } from "@ros/ui/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@ros/ui/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ros/ui/ui/card";
 import { FormField } from "@ros/ui/ui/form-field";
 import { Input } from "@ros/ui/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ros/ui/ui/tabs";
@@ -27,6 +29,13 @@ import type {
   RoleDto,
 } from "@ros/contracts/tenancy";
 import { permissionChecker, useWorkspaceStructure } from "@ros/web-core/features/session/queries";
+import { isPlanError } from "@ros/web-core/features/subscriptions/limits";
+import {
+  LimitNotice,
+  PlanErrorNotice,
+  useLimit,
+} from "@ros/web-core/features/subscriptions/limit-notice";
+import { invalidateEntitlements } from "@ros/web-core/features/subscriptions/queries";
 import { api, errorMessage } from "@ros/api-client";
 import { useAction } from "@ros/web-core/use-action";
 
@@ -97,7 +106,7 @@ function MembersTab({ workspaceId, canManage }: { workspaceId: string; canManage
                   ))}
                 </select>
                 <Button variant="outline" size="sm" onClick={() => setRemoving(m)}>
-                  Remove
+                  Remove member
                 </Button>
               </>
             ) : (
@@ -110,13 +119,14 @@ function MembersTab({ workspaceId, canManage }: { workspaceId: string; canManage
         open={removing !== null}
         onOpenChange={(o) => !o && setRemoving(null)}
         title={`Remove ${removing?.name ?? "member"}?`}
-        description="They lose access to this workspace immediately. Their past activity stays in the audit log."
-        confirmLabel="Remove"
+        description="They lose access to this workspace and all its restaurants and branches immediately, and their staff seat on your plan is freed. Their past activity stays in the audit log. To give access again, send a new invitation."
+        confirmLabel="Remove member"
         destructive
+        getErrorMessage={errorMessage}
         onConfirm={async () => {
           await api.delete(`/workspaces/${workspaceId}/members/${removing!.membershipId}`);
           toast.success("Member removed");
-          await refresh();
+          await Promise.all([refresh(), invalidateEntitlements(qc, workspaceId)]);
         }}
       />
     </div>
@@ -134,26 +144,42 @@ function InvitationsTab({ workspaceId, canManage }: { workspaceId: string; canMa
   const [branchId, setBranchId] = useState("");
   const [assignRoleId, setAssignRoleId] = useState("");
   const [link, setLink] = useState<string | null>(null);
-  const { pending, run, err } = useAction();
+  const { pending, run, err, error, formError, setFieldErrors } = useAction();
+  const limit = useLimit(workspaceId, "maxStaff");
   const refresh = () =>
     qc.invalidateQueries({ queryKey: ["workspace", workspaceId, "invitations"] });
   const wsRoles = (roles.data ?? []).filter((r) => r.scope === "WORKSPACE");
   const opRoles = (roles.data ?? []).filter((r) => r.scope !== "WORKSPACE");
   const effectiveRole = roleId || wsRoles.find((r) => r.key === "workspace_member")?.id || "";
   const restaurant = structure.data?.restaurants.find((r) => r.id === restaurantId);
+  const selectedRole = wsRoles.find((r) => r.id === effectiveRole);
 
   return (
     <div className="flex flex-col gap-6">
       {canManage && (
         <Card>
           <CardHeader>
-            <CardTitle>Invite someone</CardTitle>
+            <CardTitle>Invite member</CardTitle>
+            <CardDescription>
+              They get an email with a link to join. Pending invitations don&apos;t use a staff
+              seat; the plan is checked again when they accept.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form
               className="grid gap-4 sm:grid-cols-2"
+              noValidate
               onSubmit={async (e) => {
                 e.preventDefault();
+                const local: Record<string, string[]> = {};
+                if (!/^\S+@\S+\.\S+$/.test(email.trim()))
+                  local.email = ["Enter a valid email address"];
+                if (restaurantId && !assignRoleId)
+                  local.assignmentRoleId = ["Choose their role at this restaurant"];
+                if (Object.keys(local).length > 0) {
+                  setFieldErrors(local);
+                  return;
+                }
                 const res = await run(() =>
                   api.post<CreatedInvitationDto>(`/workspaces/${workspaceId}/invitations`, {
                     email,
@@ -176,9 +202,22 @@ function InvitationsTab({ workspaceId, canManage }: { workspaceId: string; canMa
               }}
             >
               <FormField label="Email" required error={err("email")}>
-                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <Input
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </FormField>
-              <FormField label="Workspace role" error={err("workspaceRoleId")}>
+              <FormField
+                label="Workspace role"
+                required
+                description={
+                  selectedRole?.description ??
+                  "What they can do across the whole workspace (team, billing, all restaurants)."
+                }
+                error={err("workspaceRoleId")}
+              >
                 <select
                   className={selectClass}
                   value={effectiveRole}
@@ -191,7 +230,11 @@ function InvitationsTab({ workspaceId, canManage }: { workspaceId: string; canMa
                   ))}
                 </select>
               </FormField>
-              <FormField label="Restaurant (optional)" error={err("restaurantId")}>
+              <FormField
+                label="Restaurant (optional)"
+                description="Give them a job at one restaurant, e.g. waiter or manager."
+                error={err("restaurantId")}
+              >
                 <select
                   className={selectClass}
                   value={restaurantId}
@@ -210,7 +253,11 @@ function InvitationsTab({ workspaceId, canManage }: { workspaceId: string; canMa
               </FormField>
               {restaurantId && (
                 <>
-                  <FormField label="Branch" error={err("branchId")}>
+                  <FormField
+                    label="Branch"
+                    description="Limit them to one location, or all branches of the restaurant."
+                    error={err("branchId")}
+                  >
                     <select
                       className={selectClass}
                       value={branchId}
@@ -240,10 +287,16 @@ function InvitationsTab({ workspaceId, canManage }: { workspaceId: string; canMa
                   </FormField>
                 </>
               )}
-              <div className="sm:col-span-2">
-                <Button type="submit" disabled={pending}>
-                  {pending ? "Sending…" : "Send invitation"}
-                </Button>
+              <div className="flex flex-col gap-3 sm:col-span-2">
+                <PlanErrorNotice error={error} workspaceId={workspaceId} />
+                {!isPlanError(error) ? <FormError>{formError}</FormError> : null}
+                <GatedAction reason={limit.reason} disabled={pending}>
+                  {(gate) => (
+                    <Button type="submit" {...gate}>
+                      {pending ? "Sending…" : "Send invitation"}
+                    </Button>
+                  )}
+                </GatedAction>
               </div>
             </form>
             {link && (
@@ -257,7 +310,7 @@ function InvitationsTab({ workspaceId, canManage }: { workspaceId: string; canMa
                     toast.success("Link copied");
                   }}
                 >
-                  <Copy className="size-4" /> Copy
+                  <Copy className="size-4" aria-hidden /> Copy link
                 </Button>
               </div>
             )}
@@ -280,7 +333,11 @@ function InvitationsTab({ workspaceId, canManage }: { workspaceId: string; canMa
       ) : invites.data.length === 0 ? (
         <EmptyState
           title="No invitations yet"
-          description="Invite staff by email and give them a role."
+          description={
+            canManage
+              ? "Invite staff by email with the form above and give them a role."
+              : "Workspace owners and admins can invite staff."
+          }
         />
       ) : (
         invites.data.map((i) => (
@@ -304,7 +361,9 @@ function InvitationsTab({ workspaceId, canManage }: { workspaceId: string; canMa
                       : "neutral"
                 }
               >
-                {i.status === "PENDING" && i.expired ? "Expired" : i.status.toLowerCase()}
+                {i.status === "PENDING" && i.expired
+                  ? "Expired"
+                  : i.status.charAt(0) + i.status.slice(1).toLowerCase()}
               </StatusBadge>
               {canManage && i.status === "PENDING" && (
                 <Button
@@ -320,7 +379,7 @@ function InvitationsTab({ workspaceId, canManage }: { workspaceId: string; canMa
                     void refresh();
                   }}
                 >
-                  Revoke
+                  Revoke invitation
                 </Button>
               )}
             </CardContent>
@@ -369,7 +428,17 @@ export function MembersPage() {
   const can = permissionChecker(structure.data?.permissions);
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Members" description="People, roles and invitations for this workspace." />
+      <PageHeader
+        title="Members"
+        description="People who can sign in to this workspace. A workspace role sets what they can do everywhere; restaurant and branch roles add jobs at specific locations."
+      />
+      {can("workspace.members.manage") ? (
+        <LimitNotice
+          workspaceId={workspaceId}
+          limitKey="maxStaff"
+          scopeNote="Every active member counts as a staff seat, including owners and admins."
+        />
+      ) : null}
       <Tabs defaultValue="members">
         <TabsList>
           <TabsTrigger value="members">Members</TabsTrigger>

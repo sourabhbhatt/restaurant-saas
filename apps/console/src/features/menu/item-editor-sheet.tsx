@@ -14,7 +14,7 @@ import {
 } from "react-hook-form";
 import { toast } from "sonner";
 
-import { ConfirmDialog } from "@ros/ui/shared/feedback";
+import { ConfirmDialog, FormError } from "@ros/ui/shared/feedback";
 import { Badge } from "@ros/ui/ui/badge";
 import { Button } from "@ros/ui/ui/button";
 import { Checkbox } from "@ros/ui/ui/checkbox";
@@ -55,6 +55,7 @@ import {
 import { DomainError } from "@ros/domain/shared/errors";
 import { formatMoney } from "@ros/domain/shared/money";
 import { ApiError, applyFieldErrors, errorMessage } from "@ros/api-client";
+import { PlanErrorNotice, usePlanError } from "@ros/web-core/features/subscriptions/limit-notice";
 import { cn } from "@ros/ui/utils";
 
 import { BranchPricingPanel } from "./branch-pricing-panel";
@@ -183,6 +184,8 @@ function ItemEditorBody({
   const create = useCreateItem(restaurantId);
   const update = useUpdateItem();
   const remove = useDeleteItem();
+  const plan = usePlanError(workspaceId);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm<Values, unknown, CreateItemData>({
     resolver: zodResolver(createItemSchema),
@@ -199,6 +202,8 @@ function ItemEditorBody({
 
   const onSubmit = handleSubmit(
     async (values) => {
+      plan.clear();
+      setFormError(null);
       try {
         if (item) {
           await update.mutateAsync({ id: item.id, ...values, version: item.version });
@@ -209,6 +214,7 @@ function ItemEditorBody({
         }
         onOpenChange(false);
       } catch (error) {
+        if (plan.capture(error)) return;
         const known =
           error instanceof ApiError
             ? Object.keys(error.fieldErrors).filter((k) => TOP_FIELDS.includes(k.split(".")[0]!))
@@ -224,7 +230,7 @@ function ItemEditorBody({
           );
           return;
         }
-        toast.error(errorMessage(error));
+        setFormError(errorMessage(error));
       }
     },
     (errs) => setTab(tabForError(errs)),
@@ -236,9 +242,10 @@ function ItemEditorBody({
   return (
     <form onSubmit={onSubmit} noValidate className="flex h-full min-h-0 flex-col">
       <SheetHeader className="border-b">
-        <SheetTitle>{item ? `Edit ${item.name}` : "New menu item"}</SheetTitle>
+        <SheetTitle>{item ? `Edit ${item.name}` : "Add menu item"}</SheetTitle>
         <SheetDescription>
-          Prices are shared by every branch unless a branch overrides them.
+          The item appears on the menu of every branch of this restaurant. Prices are shared unless
+          a branch overrides them. Fields marked * are required.
         </SheetDescription>
       </SheetHeader>
       <SheetBody className="py-4">
@@ -266,7 +273,11 @@ function ItemEditorBody({
           </TabsList>
 
           <TabsContent value="details" className="flex flex-col gap-4">
-            <FormField label="Photo" error={errors.imageKey?.message}>
+            <FormField
+              label="Photo"
+              description="Optional. Shown on the QR menu; counts towards your plan's storage."
+              error={errors.imageKey?.message}
+            >
               {() => (
                 <ImageUpload
                   workspaceId={workspaceId}
@@ -377,6 +388,7 @@ function ItemEditorBody({
               />
               <FormField
                 label="Prep time (minutes)"
+                description="Estimate shown to guests when enabled for the restaurant."
                 error={errors.prepTimeMinutes?.message}
                 required
               >
@@ -394,7 +406,12 @@ function ItemEditorBody({
                   name="isAvailable"
                   render={({ field }) => (
                     <label className="flex items-center justify-between gap-3 text-sm">
-                      Available
+                      <span>
+                        Available
+                        <span className="block text-xs text-muted-foreground">
+                          Off hides it at every branch.
+                        </span>
+                      </span>
                       <Switch checked={field.value ?? true} onCheckedChange={field.onChange} />
                     </label>
                   )}
@@ -404,7 +421,12 @@ function ItemEditorBody({
                   name="isFeatured"
                   render={({ field }) => (
                     <label className="flex items-center justify-between gap-3 text-sm">
-                      Featured
+                      <span>
+                        Featured
+                        <span className="block text-xs text-muted-foreground">
+                          Highlighted at the top of the menu.
+                        </span>
+                      </span>
                       <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
                     </label>
                   )}
@@ -479,6 +501,12 @@ function ItemEditorBody({
         </Tabs>
         {tab !== "branch" && <PricePreview control={control} currency={currency} />}
       </SheetBody>
+      {plan.error || formError ? (
+        <div className="grid gap-2 border-t px-4 pt-3">
+          <PlanErrorNotice error={plan.error} workspaceId={workspaceId} />
+          <FormError>{formError}</FormError>
+        </div>
+      ) : null}
       <SheetFooter className="flex-row items-center border-t">
         {item && (
           <Button
@@ -487,7 +515,7 @@ function ItemEditorBody({
             className="text-destructive hover:text-destructive"
             onClick={() => setConfirmDelete(true)}
           >
-            <Trash2 aria-hidden /> Delete
+            <Trash2 aria-hidden /> Delete item
           </Button>
         )}
         <div className="ml-auto flex gap-2">
@@ -496,7 +524,7 @@ function ItemEditorBody({
           </Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting && <Spinner decorative />}
-            {item ? "Save changes" : "Add item"}
+            {item ? "Save item" : "Add item"}
           </Button>
         </div>
       </SheetFooter>
@@ -505,7 +533,7 @@ function ItemEditorBody({
           open={confirmDelete}
           onOpenChange={setConfirmDelete}
           title={`Delete ${item.name}?`}
-          description="It disappears from every branch's menu. Past orders and bills keep their record of it."
+          description="It disappears from every branch's menu right away. Past orders and bills keep their record of it, and it stops counting towards your plan's menu item limit."
           confirmLabel="Delete item"
           destructive
           getErrorMessage={errorMessage}
@@ -674,7 +702,12 @@ function AddonGroupsFields({ control, register, errors, currency }: FieldsProps)
               <FormField label="Group name" error={e?.name?.message} required>
                 <Input {...register(`addonGroups.${i}.name`)} placeholder="e.g. Toppings" />
               </FormField>
-              <FormField label="Min" error={e?.minSelect?.message} required>
+              <FormField
+                label="Min"
+                description="0 = optional"
+                error={e?.minSelect?.message}
+                required
+              >
                 <Input
                   type="number"
                   inputMode="numeric"
@@ -682,7 +715,12 @@ function AddonGroupsFields({ control, register, errors, currency }: FieldsProps)
                   {...register(`addonGroups.${i}.minSelect`, { valueAsNumber: true })}
                 />
               </FormField>
-              <FormField label="Max" error={e?.maxSelect?.message} required>
+              <FormField
+                label="Max"
+                description="Most a guest can pick"
+                error={e?.maxSelect?.message}
+                required
+              >
                 <Input
                   type="number"
                   inputMode="numeric"

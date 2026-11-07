@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
@@ -12,9 +11,9 @@ import {
 } from "@ros/ui/ui/dialog";
 import type { BranchDto } from "@ros/contracts/tenancy";
 import { isCurrencyCode } from "@ros/domain/shared/money";
+import { PlanErrorNotice, usePlanError } from "@ros/web-core/features/subscriptions/limit-notice";
 import { BranchForm } from "@/features/branches/branch-form";
 
-import { handlePlanError } from "./plan-error";
 import { useCreateBranch } from "./queries";
 
 export function CreateBranchDialog({
@@ -32,15 +31,22 @@ export function CreateBranchDialog({
   onOpenChange: (open: boolean) => void;
   onCreated?: (branch: BranchDto) => void;
 }) {
-  const router = useRouter();
   const create = useCreateBranch(workspaceId);
+  const plan = usePlanError(workspaceId);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) plan.clear();
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>New branch{restaurant ? ` for ${restaurant.name}` : ""}</DialogTitle>
+          <DialogTitle>Add branch{restaurant ? ` to ${restaurant.name}` : ""}</DialogTitle>
           <DialogDescription>
-            Each branch has its own tables, staff, orders and billing settings.
+            A branch is a physical location. Each branch has its own tables, staff, orders, bills
+            and settings, and shares the restaurant&apos;s menu.
           </DialogDescription>
         </DialogHeader>
         {restaurant ? (
@@ -53,8 +59,10 @@ export function CreateBranchDialog({
                 : undefined
             }
             submitLabel="Create branch"
+            notice={<PlanErrorNotice error={plan.error} workspaceId={workspaceId} />}
             onCancel={() => onOpenChange(false)}
             onSubmit={async (data) => {
+              plan.clear();
               try {
                 const branch = await create.mutateAsync({ restaurantId: restaurant.id, data });
                 toast.success(`${branch.name} created`, {
@@ -63,7 +71,7 @@ export function CreateBranchDialog({
                 onOpenChange(false);
                 onCreated?.(branch);
               } catch (error) {
-                if (!handlePlanError(error, workspaceId, (href) => router.push(href))) throw error;
+                if (!plan.capture(error)) throw error;
               }
             }}
           />

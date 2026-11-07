@@ -8,6 +8,7 @@ import { useState } from "react";
 import {
   EmptyState,
   ErrorState,
+  GatedAction,
   PageHeader,
   PageSkeleton,
   StatusBadge,
@@ -15,8 +16,13 @@ import {
 import { Badge } from "@ros/ui/ui/badge";
 import { Button } from "@ros/ui/ui/button";
 import { Card, CardContent, CardHeader } from "@ros/ui/ui/card";
+import type { WorkspaceUsageDto } from "@ros/contracts/platform";
 import type { RestaurantListItemDto } from "@ros/contracts/tenancy";
+import type { Entitlements } from "@ros/domain/subscriptions/entitlements";
 import { permissionChecker, useWorkspaceStructure } from "@ros/web-core/features/session/queries";
+import { canAddBranch } from "@ros/web-core/features/subscriptions/limits";
+import { LimitNoticeView, useLimit } from "@ros/web-core/features/subscriptions/limit-notice";
+import { StructureExplainer } from "@ros/web-core/features/workspaces/structure-explainer";
 import { errorMessage } from "@ros/api-client";
 
 import { CreateBranchDialog } from "./create-branch-dialog";
@@ -54,12 +60,15 @@ export function RestaurantLogo({
 function RestaurantCard({
   workspaceId,
   restaurant,
-  canAddBranch,
+  canAddBranch: mayAddBranch,
+  branchBlockedReason,
   onAddBranch,
 }: {
   workspaceId: string;
   restaurant: RestaurantListItemDto;
   canAddBranch: boolean;
+  /** Plan reason the branch button is disabled, if any. */
+  branchBlockedReason: string | null;
   onAddBranch: () => void;
 }) {
   return (
@@ -116,17 +125,23 @@ function RestaurantCard({
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">No branches yet.</p>
+          <p className="text-sm text-muted-foreground">
+            No branches yet. Add one to start taking orders.
+          </p>
         )}
-        <div className="mt-auto flex flex-wrap gap-2 pt-2">
-          {canAddBranch && (
-            <Button variant="outline" size="sm" onClick={onAddBranch}>
-              <Plus aria-hidden /> Add branch
-            </Button>
+        <div className="mt-auto flex flex-wrap items-start gap-2 pt-2">
+          {mayAddBranch && (
+            <GatedAction reason={branchBlockedReason}>
+              {(gate) => (
+                <Button variant="outline" size="sm" onClick={onAddBranch} {...gate}>
+                  <Plus aria-hidden /> Add branch
+                </Button>
+              )}
+            </GatedAction>
           )}
           <Button variant="ghost" size="sm" asChild>
             <Link href={`/app/w/${workspaceId}/restaurants/${restaurant.id}`}>
-              Details <ArrowRight aria-hidden />
+              Manage restaurant <ArrowRight aria-hidden />
             </Link>
           </Button>
         </div>
@@ -135,28 +150,41 @@ function RestaurantCard({
   );
 }
 
+function branchReason(
+  data: { entitlements: Entitlements; usage: WorkspaceUsageDto } | undefined,
+  restaurant: RestaurantListItemDto,
+): string | null {
+  if (!data) return null;
+  return canAddBranch(data.entitlements, data.usage, restaurant.branches.length).reason;
+}
+
 export function RestaurantsPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const structure = useWorkspaceStructure(workspaceId);
   const restaurants = useRestaurants(workspaceId);
+  const limit = useLimit(workspaceId, "maxRestaurants");
   const [createOpen, setCreateOpen] = useState(false);
   const [branchFor, setBranchFor] = useState<{ id: string; name: string } | null>(null);
   const can = permissionChecker(structure.data?.permissions);
   const canCreate = can("restaurant.create");
   // Workspace-level permission list; restaurant managers also hold branch.create via assignments.
-  const canAddBranch = can("branch.create");
+  const mayAddBranch = can("branch.create");
+
+  const createButton = (
+    <GatedAction reason={limit.reason} align="end">
+      {(gate) => (
+        <Button onClick={() => setCreateOpen(true)} {...gate}>
+          <Plus aria-hidden /> Create restaurant
+        </Button>
+      )}
+    </GatedAction>
+  );
 
   const header = (
     <PageHeader
       title="Restaurants"
-      description="Your brands and their branches. Each restaurant has its own menu."
-      actions={
-        canCreate ? (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus aria-hidden /> New restaurant
-          </Button>
-        ) : null
-      }
+      description="Your brands and their branches. Each restaurant has its own menu; each branch is a location with its own tables and staff."
+      actions={canCreate ? createButton : null}
     />
   );
 
@@ -179,15 +207,9 @@ export function RestaurantsPage() {
         description={
           canCreate
             ? "Create your first restaurant to set up its menu, branches and tables."
-            : "You haven't been assigned to a restaurant yet."
+            : "You haven't been assigned to a restaurant yet. Ask a workspace owner or admin to give you access."
         }
-        action={
-          canCreate ? (
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus aria-hidden /> New restaurant
-            </Button>
-          ) : null
-        }
+        action={canCreate ? createButton : null}
       />
     );
   else
@@ -198,7 +220,8 @@ export function RestaurantsPage() {
             key={r.id}
             workspaceId={workspaceId}
             restaurant={r}
-            canAddBranch={canAddBranch}
+            canAddBranch={mayAddBranch}
+            branchBlockedReason={branchReason(limit.data, r)}
             onAddBranch={() => setBranchFor({ id: r.id, name: r.name })}
           />
         ))}
@@ -208,12 +231,30 @@ export function RestaurantsPage() {
   return (
     <div className="flex flex-col gap-6">
       {header}
+      <StructureExplainer
+        storageKey="restaurants"
+        title="About restaurants and branches"
+        entitlements={limit.data?.entitlements}
+      />
+      {limit.data && (canCreate || mayAddBranch) ? (
+        <LimitNoticeView
+          workspaceId={workspaceId}
+          limitKey="maxRestaurants"
+          entitlements={limit.data.entitlements}
+          usage={limit.data.usage}
+        />
+      ) : null}
       {body}
       <CreateRestaurantDialog
         workspaceId={workspaceId}
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreated={(r) => setBranchFor({ id: r.id, name: r.name })}
+        onCreated={(r) => {
+          // Offer the first branch only when the plan still has room for one.
+          if (limit.data && !canAddBranch(limit.data.entitlements, limit.data.usage, 0).allowed)
+            return;
+          setBranchFor({ id: r.id, name: r.name });
+        }}
       />
       <CreateBranchDialog
         workspaceId={workspaceId}

@@ -5,6 +5,7 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import type { z } from "zod";
 
+import { FormError } from "@ros/ui/shared/feedback";
 import { Button } from "@ros/ui/ui/button";
 import {
   Dialog,
@@ -94,7 +95,7 @@ function CategoryForm({
       onDone();
     } catch (error) {
       if (!applyFieldErrors(error, setError, ["name", "description", "isVisible"])) {
-        toast.error(errorMessage(error));
+        setError("root.server", { type: "server", message: errorMessage(error) });
       }
     }
   });
@@ -102,8 +103,11 @@ function CategoryForm({
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <DialogHeader>
-        <DialogTitle>{category ? "Edit category" : "New category"}</DialogTitle>
-        <DialogDescription>Categories group items on every branch&apos;s menu.</DialogDescription>
+        <DialogTitle>{category ? "Edit category" : "Add category"}</DialogTitle>
+        <DialogDescription>
+          Categories (e.g. Starters, Drinks) group items on the menu of every branch of this
+          restaurant.
+        </DialogDescription>
       </DialogHeader>
       <FormField label="Name" error={errors.name?.message} required>
         <Input {...register("name")} placeholder="e.g. Starters" autoFocus />
@@ -126,13 +130,14 @@ function CategoryForm({
           </label>
         )}
       />
+      <FormError>{errors.root?.server?.message}</FormError>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDone}>
           Cancel
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Spinner decorative />}
-          {category ? "Save" : "Add category"}
+          {category ? "Save category" : "Add category"}
         </Button>
       </DialogFooter>
     </form>

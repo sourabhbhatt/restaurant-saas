@@ -13,6 +13,7 @@ import {
   ConfirmDialog,
   EmptyState,
   ErrorState,
+  GatedAction,
   PageHeader,
   PageSkeleton,
 } from "@ros/ui/shared/feedback";
@@ -24,6 +25,9 @@ import { Switch } from "@ros/ui/ui/switch";
 import { Textarea } from "@ros/ui/ui/textarea";
 import { restaurantSettingsSchema, type RestaurantDetailDto } from "@ros/contracts/tenancy";
 import { ApiError, applyFieldErrors, errorMessage } from "@ros/api-client";
+import { canAddBranch } from "@ros/web-core/features/subscriptions/limits";
+import { LimitNoticeView, useLimit } from "@ros/web-core/features/subscriptions/limit-notice";
+import { StructureExplainer } from "@ros/web-core/features/workspaces/structure-explainer";
 
 import { CreateBranchDialog } from "./create-branch-dialog";
 import { useArchiveRestaurant, useRestaurant, useUpdateRestaurant } from "./queries";
@@ -85,11 +89,19 @@ function CustomerMenuSettings({
   return (
     <form onSubmit={submit} noValidate className="grid gap-4">
       <fieldset disabled={disabled} className="grid gap-4">
-        {toggle("showPrepTime", "Show preparation time", "Customers see estimated prep time.")}
-        {toggle("showAllergens", "Show allergens", "Allergen tags appear on menu items.")}
+        {toggle(
+          "showPrepTime",
+          "Show preparation time",
+          "Guests see each item's estimated prep time on the QR menu.",
+        )}
+        {toggle(
+          "showAllergens",
+          "Show allergens",
+          "Allergen tags (e.g. nuts, gluten) appear on menu items.",
+        )}
         <FormField
           label="Welcome message"
-          description="Shown at the top of the QR menu."
+          description="Optional. Shown at the top of the QR menu, e.g. a greeting or today's special."
           error={errors.welcomeMessage?.message}
         >
           <Textarea rows={2} {...register("welcomeMessage")} />
@@ -98,7 +110,7 @@ function CustomerMenuSettings({
       {!disabled && (
         <div className="flex justify-end">
           <Button type="submit" disabled={isSubmitting || !isDirty}>
-            {isSubmitting && <Spinner decorative />} Save
+            {isSubmitting && <Spinner decorative />} Save menu settings
           </Button>
         </div>
       )}
@@ -112,6 +124,7 @@ export function RestaurantDetailPage() {
   const query = useRestaurant(restaurantId);
   const update = useUpdateRestaurant(workspaceId, restaurantId);
   const archive = useArchiveRestaurant(workspaceId);
+  const limit = useLimit(workspaceId, "maxBranches");
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
 
@@ -146,6 +159,9 @@ export function RestaurantDetailPage() {
   const r = query.data;
   const can = (p: string) => (r.permissions as string[]).includes(p);
   const canEdit = can("restaurant.update");
+  const branchCheck = limit.data
+    ? canAddBranch(limit.data.entitlements, limit.data.usage, r.branches.length)
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -166,10 +182,16 @@ export function RestaurantDetailPage() {
         actions={
           can("restaurant.delete") ? (
             <Button variant="outline" onClick={() => setArchiveOpen(true)}>
-              <Archive aria-hidden /> Archive
+              <Archive aria-hidden /> Archive restaurant
             </Button>
           ) : null
         }
+      />
+
+      <StructureExplainer
+        storageKey="restaurant-detail"
+        title="About restaurants and branches"
+        entitlements={limit.data?.entitlements}
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -178,7 +200,9 @@ export function RestaurantDetailPage() {
             <CardHeader>
               <CardTitle>Details</CardTitle>
               <CardDescription>
-                {canEdit ? "Name, branding and contact details." : "You can view these details."}
+                {canEdit
+                  ? "Name, branding and contact details. Shared by all branches of this restaurant."
+                  : "You can view these details. Ask a workspace admin to change them."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -198,7 +222,7 @@ export function RestaurantDetailPage() {
                     website: r.website ?? "",
                     brandColor: r.brandColor ?? "",
                   }}
-                  submitLabel="Save changes"
+                  submitLabel="Save restaurant details"
                   onSubmit={async (values) => {
                     await update.mutateAsync({ ...values, version: r.version });
                     toast.success("Restaurant updated");
@@ -226,7 +250,9 @@ export function RestaurantDetailPage() {
           <Card>
             <CardHeader>
               <CardTitle>Customer menu</CardTitle>
-              <CardDescription>How the QR menu looks to guests.</CardDescription>
+              <CardDescription>
+                What guests see when they scan a table QR code at any branch.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <CustomerMenuSettings
@@ -240,24 +266,40 @@ export function RestaurantDetailPage() {
         </div>
 
         <Card className="h-fit">
-          <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardHeader className="flex flex-row items-start justify-between gap-2">
             <div>
               <CardTitle>Branches</CardTitle>
-              <CardDescription>{r.branches.length} active</CardDescription>
+              <CardDescription>
+                {r.branches.length} active · each is a location with its own tables and staff
+              </CardDescription>
             </div>
-            {can("branch.create") && (
-              <Button size="sm" onClick={() => setBranchOpen(true)}>
-                <Plus aria-hidden /> Add
-              </Button>
-            )}
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-4">
+            {can("branch.create") && (
+              <GatedAction reason={branchCheck?.reason}>
+                {(gate) => (
+                  <Button size="sm" onClick={() => setBranchOpen(true)} {...gate}>
+                    <Plus aria-hidden /> Add branch
+                  </Button>
+                )}
+              </GatedAction>
+            )}
+            {can("branch.create") && limit.data ? (
+              <LimitNoticeView
+                workspaceId={workspaceId}
+                limitKey="maxBranches"
+                entitlements={limit.data.entitlements}
+                usage={limit.data.usage}
+                check={branchCheck ?? undefined}
+                scopeNote="Branches count across all restaurants in this workspace."
+              />
+            ) : null}
             {r.branches.length === 0 ? (
               <EmptyState
                 size="compact"
                 icon={<MapPin />}
                 title="No branches"
-                description="Add a branch to start taking orders."
+                description="Add a branch (a location) to set up tables and start taking orders."
               />
             ) : (
               <ul className="flex flex-col divide-y">
@@ -298,7 +340,7 @@ export function RestaurantDetailPage() {
         onOpenChange={setArchiveOpen}
         destructive
         title={`Archive ${r.name}?`}
-        description={`The restaurant and its ${r.branches.length} branch${r.branches.length === 1 ? "" : "es"} will be hidden and stop accepting orders. Past orders and bills are kept.`}
+        description={`The restaurant and its ${r.branches.length} branch${r.branches.length === 1 ? "" : "es"} will be hidden and stop accepting orders. Past orders and bills are kept, and they stop counting towards your plan's restaurant and branch limits. There is no undo in the console.`}
         confirmLabel="Archive restaurant"
         pendingLabel="Archiving…"
         getErrorMessage={errorMessage}

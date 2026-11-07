@@ -14,6 +14,7 @@ import type {
 } from "@ros/contracts/tenancy";
 import { api } from "@ros/api-client";
 import { sessionKeys } from "@ros/web-core/features/session/queries";
+import { invalidateEntitlements } from "@ros/web-core/features/subscriptions/queries";
 
 const tenancyKeys = {
   restaurants: (workspaceId: string) => ["workspace", workspaceId, "restaurants"] as const,
@@ -25,7 +26,10 @@ export function fileUrl(key: string | null | undefined): string | null {
   return key ? `/api/v1/files/${key.split("/").map(encodeURIComponent).join("/")}` : null;
 }
 
-/** Invalidate everything that shows the workspace structure (shell, switcher, lists). */
+/**
+ * Invalidate everything that shows the workspace structure (shell, switcher,
+ * lists) and the plan usage meters, which count restaurants and branches.
+ */
 function useInvalidateStructure() {
   const qc = useQueryClient();
   return async (workspaceId: string) => {
@@ -33,6 +37,7 @@ function useInvalidateStructure() {
       qc.invalidateQueries({ queryKey: sessionKeys.structure(workspaceId) }),
       qc.invalidateQueries({ queryKey: sessionKeys.me }),
       qc.invalidateQueries({ queryKey: tenancyKeys.restaurants(workspaceId) }),
+      invalidateEntitlements(qc, workspaceId),
     ]);
   };
 }

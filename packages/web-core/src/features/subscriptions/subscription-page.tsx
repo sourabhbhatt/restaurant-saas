@@ -18,15 +18,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ros/
 import { Progress } from "@ros/ui/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@ros/ui/ui/table";
 import type { PublicPlanDto, SubscriptionOverviewDto } from "@ros/contracts/platform";
-import {
-  ADVERTISED_FEATURES,
-  FEATURES,
-  LIMIT_KEYS,
-  type LimitKey,
-} from "@ros/domain/subscriptions/entitlements";
+import { ADVERTISED_FEATURES, FEATURES, LIMIT_KEYS } from "@ros/domain/subscriptions/entitlements";
 import { errorMessage } from "@ros/api-client";
 import { cn } from "@ros/ui/utils";
 
+import { usedFor } from "./limits";
 import { useSubscriptionOverview } from "./queries";
 import {
   eventLabel,
@@ -42,20 +38,6 @@ import {
 } from "./subscription-ui";
 import { UpgradeRequestsCard } from "./upgrade-requests-card";
 import { UpgradeModal } from "./upgrade-modal";
-
-const USAGE_FIELD: Record<LimitKey, keyof SubscriptionOverviewDto["usage"]> = {
-  maxRestaurants: "restaurants",
-  maxBranches: "branches",
-  maxStaff: "staff",
-  maxTables: "tables",
-  maxMenuItems: "menuItems",
-  storageMb: "storageBytes",
-};
-
-function usedValue(d: SubscriptionOverviewDto, key: LimitKey): number {
-  const v = d.usage[USAGE_FIELD[key]];
-  return key === "storageMb" ? Math.ceil(v / (1024 * 1024)) : v;
-}
 
 function StatusNotice({ d }: { d: SubscriptionOverviewDto }) {
   const e = d.entitlements;
@@ -160,10 +142,20 @@ function CurrentPlanCard({ d, onUpgrade }: { d: SubscriptionOverviewDto; onUpgra
         </dl>
         {d.canRequestUpgrade ? (
           <div className="flex flex-wrap gap-2">
-            <Button onClick={onUpgrade} disabled={d.workspaceStatus !== "ACTIVE"}>
+            <Button
+              onClick={onUpgrade}
+              disabled={d.workspaceStatus !== "ACTIVE"}
+              aria-describedby={d.workspaceStatus !== "ACTIVE" ? "upgrade-blocked" : undefined}
+            >
               <Sparkles aria-hidden />
-              {e.phase === "ACTIVE" ? "Change plan" : "Upgrade"}
+              {e.phase === "ACTIVE" ? "Change plan" : "Upgrade plan"}
             </Button>
+            {d.workspaceStatus !== "ACTIVE" ? (
+              <p id="upgrade-blocked" className="w-full text-sm text-muted-foreground">
+                Plan changes are unavailable while the workspace is{" "}
+                {d.workspaceStatus.toLowerCase()}. Contact support to restore it first.
+              </p>
+            ) : null}
             {d.pendingUpgrade ? (
               <p className="self-center text-sm text-muted-foreground">
                 {d.pendingUpgrade.requestedPlanName} plan requested{" "}
@@ -232,13 +224,17 @@ function UsageMeters({ d }: { d: SubscriptionOverviewDto }) {
     <Card>
       <CardHeader>
         <CardTitle>Usage</CardTitle>
-        <CardDescription>What your workspace uses against the plan limits.</CardDescription>
+        <CardDescription>
+          What your workspace uses against the plan limits. Limits are workspace-wide totals: e.g.
+          branches count across all restaurants and tables across all branches. Create buttons are
+          disabled once a limit is reached.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {LIMIT_KEYS.map((key) => {
             const limit = d.entitlements.limits[key];
-            const used = usedValue(d, key);
+            const used = usedFor(d.usage, key);
             const pct = limit === null ? 0 : limit === 0 ? 100 : Math.round((used / limit) * 100);
             const near = limit !== null && pct >= 80;
             return (
