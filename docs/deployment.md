@@ -30,6 +30,10 @@ See [technology decisions](technology-decisions.md): Neon free Postgres (Singapo
 - Uploaded files: back up `STORAGE_LOCAL_DIR` (or bucket versioning).
 - Free managed tiers often have limited or no point-in-time recovery; do not rely on it.
 
+### Restoring as a different user
+
+`pnpm db:restore` does not require the restoring user to be the dump's owner (for example a PGlite dump owned by `postgres` restored into a managed Postgres as `ros_owner`). Objects are re-owned by the restoring user (`--no-owner`), and the dump's own `ALTER DEFAULT PRIVILEGES FOR ROLE <owner>` entries are replayed without `FOR ROLE`, so later migrations run by that user still hand the tenant roles their grants. Grants and row-level security policies come from the dump, never from re-applied migration files. The restoring user needs `CREATEROLE` on a cluster without `ros_tenant`/`ros_runtime` (it creates them and so holds the ADMIN option); if the roles already exist, it needs the ADMIN option on `ros_tenant` or the memberships granted by an admin beforehand (`GRANT ros_tenant TO ros_runtime; GRANT ros_tenant TO <user>;`), otherwise the restore refuses with exit 3 before writing anything. Pair the restore with a client of the server's major version (`PG_DOCKER_CONTAINER=<postgres:18 container>` runs `pg_restore`/`psql` from the server's image).
+
 ## Data retention
 
 Expired or suspended workspaces keep their data (read-only or blocked). Nothing is deleted automatically. Deleting a workspace on request is a manual, audited operation; disclose retention in the Privacy Policy (the legal pages are templates to be reviewed by a lawyer).
