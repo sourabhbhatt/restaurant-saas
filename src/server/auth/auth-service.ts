@@ -19,6 +19,8 @@ const genericSignInError = () =>
     fieldErrors: { password: ["Email or password is incorrect"] },
   });
 
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
 let dummyHash: Promise<string> | null = null;
 
 export function createAuthService(c: Deps) {
@@ -75,6 +77,25 @@ export function createAuthService(c: Deps) {
     },
 
     async signIn(input: { email: string; password: string }, meta: RequestMeta) {
+      // Per-account bucket: rotating IPs must not allow unlimited guesses at one account.
+      const attempt = await c.repos.rateLimit.hit(
+        `signin-account:${normalizeEmail(input.email)}`,
+        15 * 60_000,
+        c.clock.now(),
+      );
+      if (attempt.count > 10) {
+        throw new DomainError(
+          "RATE_LIMITED",
+          "Too many attempts. Please wait a moment and try again.",
+          {
+            details: {
+              retryAfterSeconds: Math.ceil(
+                (attempt.resetAt.getTime() - c.clock.now().getTime()) / 1000,
+              ),
+            },
+          },
+        );
+      }
       const user = await users.findUserByEmail(input.email);
       // Always run a hash comparison so response time does not reveal whether the email exists.
       const ok = user?.passwordHash
@@ -121,6 +142,13 @@ export function createAuthService(c: Deps) {
 
     /** Always succeeds from the caller's view, to avoid account enumeration. */
     async requestPasswordReset(email: string, meta: RequestMeta) {
+      // Over the limit we still report success so the response never reveals the account.
+      const attempt = await c.repos.rateLimit.hit(
+        `forgot-account:${normalizeEmail(email)}`,
+        60 * 60_000,
+        c.clock.now(),
+      );
+      if (attempt.count > 3) return;
       const user = await users.findUserByEmail(email);
       if (!user || user.disabledAt) return;
       const since = new Date(c.clock.now().getTime() - 60 * 60_000);

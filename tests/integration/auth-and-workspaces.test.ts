@@ -171,3 +171,65 @@ describe("trusted proxy client IP", () => {
     }
   });
 });
+
+describe("per-account throttling", () => {
+  let local: Container;
+  let previous: string | undefined;
+  beforeAll(async () => {
+    previous = process.env.TRUSTED_PROXY_HOPS;
+    process.env.TRUSTED_PROXY_HOPS = "1";
+    resetEnvCache();
+    local = await createTestContainer();
+  });
+  afterAll(async () => {
+    if (previous === undefined) delete process.env.TRUSTED_PROXY_HOPS;
+    else process.env.TRUSTED_PROXY_HOPS = previous;
+    resetEnvCache();
+    await local.close();
+    setContainerForTests(c);
+  });
+
+  const fromIp = (i: number) => ({ "x-forwarded-for": `198.51.100.${i}` });
+
+  it("11th sign-in for one email from 11 different IPs is rate limited", async () => {
+    const email = uniqueEmail();
+    let last;
+    for (let i = 1; i <= 11; i++) {
+      last = await call(signIn, {
+        body: { email, password: "wrong-password-1" },
+        headers: fromIp(i),
+      });
+    }
+    expect(last!.status).toBe(429);
+    expect(last!.body.error?.code).toBe("RATE_LIMITED");
+  });
+
+  it("correct password during lockout is still rate limited", async () => {
+    const user = await signUpUser();
+    for (let i = 1; i <= 10; i++) {
+      await call(signIn, {
+        body: { email: user.email, password: "wrong-password-1" },
+        headers: fromIp(i),
+      });
+    }
+    const res = await call(signIn, {
+      body: { email: user.email.toUpperCase(), password: user.password },
+      headers: fromIp(50),
+    });
+    expect(res.status).toBe(429);
+    expect(res.body.error?.code).toBe("RATE_LIMITED");
+  });
+
+  it("4th forgot-password for one email within an hour returns 200 but queues no 4th email", async () => {
+    const user = await signUpUser();
+    for (let i = 1; i <= 4; i++) {
+      const res = await call(forgot, { body: { email: user.email }, headers: fromIp(100 + i) });
+      expect(res.status).toBe(200);
+    }
+    const mails = await local.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.toAddress, user.email));
+    expect(mails.filter((m) => m.template === "reset_password")).toHaveLength(3);
+  });
+});
