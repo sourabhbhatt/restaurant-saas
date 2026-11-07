@@ -1039,9 +1039,7 @@ Runs after Tasks 15–18 merge, because it needs organization-level subscription
       receipt: string;
       notes: Record<string, string>;
     }): Promise<{ orderId: string }>;
-    fetchOrderPayments(
-      orderId: string,
-    ): Promise<
+    fetchOrderPayments(orderId: string): Promise<
       {
         paymentId: string;
         status: "captured" | "authorized" | "failed" | string;
