@@ -1,30 +1,84 @@
 # Environment Variables
 
-Validated at startup by `src/server/config/env.ts` (Zod). Invalid configuration fails fast with a list of problems. Copy `.env.example` to `.env.local` for development. Never commit real values.
+Never commit real values. For local development copy `.env.example` to `.env.local` at the repo root and link it into the API app (`ln -s ../../.env.local apps/api/.env.local`): the root `db:*` scripts read the root file, while `next dev` in `apps/api` reads env files from `apps/api`. The frontends need no file locally; their defaults point at the local ports.
 
-| Variable | Default | Required in prod | Purpose |
-| --- | --- | --- | --- |
-| `NODE_ENV` | `development` | set by host | `production` enables strict checks below |
-| `APP_URL` | `http://localhost:3000` | **yes** | Public origin; used for links in emails, QR URLs and the CSRF origin check |
-| `APP_NAME` | `RestaurantOS` | no | Product name in emails |
-| `DATABASE_PROVIDER` | `postgres` | no | `postgres` or `pglite` (embedded, dev/test only) |
-| `DATABASE_URL` | local dev URL | **yes** | Postgres connection string (use TLS in prod) |
-| `DATABASE_POOL_MAX` | `10` | no | Pool size; lower on serverless Postgres |
-| `PGLITE_DATA_DIR` | — | no | Persist PGlite to disk; empty = in-memory |
-| `APP_SECRET` | dev placeholder | **yes (≥32 chars)** | Derives the QR token encryption key. Rotating it makes stored QR codes un-downloadable (regenerate them) |
-| `SESSION_TTL_DAYS` | `30` | no | Sliding session lifetime |
-| `COOKIE_SECURE` | auto (https → true) | no | Force the `Secure` cookie flag |
-| `EMAIL_PROVIDER` | `outbox` | no | `outbox` (no delivery, dev mailbox), `resend`, `brevo` |
-| `EMAIL_FROM` | `RestaurantOS <no-reply@restaurantos.local>` | if delivering | Sender |
-| `RESEND_API_KEY` / `BREVO_API_KEY` | — | with that provider | API keys |
-| `STORAGE_PROVIDER` | `local` | no | `local`; `s3` requires the S3 adapter (see migration guide) |
-| `STORAGE_LOCAL_DIR` | `.data/uploads` | no | Local storage directory (must be persistent) |
-| `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | — | with s3 | S3-compatible storage |
-| `REALTIME_PROVIDER` | `memory` | no | `memory` (single instance SSE) or `none` (polling only) |
-| `PUSH_PROVIDER` | `none` | no | `webpush` requires the adapter + VAPID keys |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | — | with webpush | Web Push |
-| `LOG_LEVEL` | `info` | no | `debug`/`info`/`warn`/`error` |
-| `ERROR_REPORTER` | `log` | no | `log` or `none` |
-| `CRON_SECRET` | — | for jobs | Bearer secret for `/api/v1/jobs/*` (≥16 chars) |
-| `ENABLE_TEST_HOOKS` | `false` | **must be false** | Enables test clock + dev mailbox; startup fails if true in production |
-| `SEED_SUPER_ADMIN_EMAIL`, `SEED_SUPER_ADMIN_PASSWORD` | — | for seeding | First Super Admin created by `pnpm db:seed` |
+## API (`apps/api`)
+
+Validated once at startup by `packages/application/src/config/env.ts` (Zod). Invalid configuration fails fast with the list of problems.
+
+| Variable                                                             | Default                                                                | Required in prod    | Purpose                                                                                                                                                                                                       |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                                                           | `development`                                                          | set by host         | `production` enables the strict checks below                                                                                                                                                                  |
+| `APP_URL`                                                            | `http://localhost:3000`                                                | **yes**             | Public **console** origin: links in emails, the default QR base and the default allowed origin. `COOKIE_SECURE` defaults to true when it is `https://`                                                        |
+| `ALLOWED_ORIGINS`                                                    | `APP_URL`'s origin                                                     | **yes** (3 origins) | Comma-separated origins allowed to send cookie-authenticated writes (CSRF check). List the console, ops and admin origins. `http(s)` only, no wildcards. A warning is logged when it omits `APP_URL`'s origin |
+| `QR_BASE_URL`                                                        | `APP_URL`                                                              | no                  | Base of the links printed on table QR codes (`<base>/t/<token>`)                                                                                                                                              |
+| `TRUSTED_PROXY_HOPS`                                                 | `0`                                                                    | **yes**             | Number of proxies you operate in front of the API. The client IP is the n-th `X-Forwarded-For` entry from the right; `0` ignores the header. Startup fails in production when unset. See below                |
+| `APP_NAME`                                                           | `RestaurantOS`                                                         | no                  | Product name in emails                                                                                                                                                                                        |
+| `APP_VERSION`                                                        | —                                                                      | no                  | Build or release id reported by `/api/v1/health`                                                                                                                                                              |
+| `DATABASE_PROVIDER`                                                  | `postgres`                                                             | no                  | `postgres` or `pglite` (embedded Postgres 18, dev/test only, one process at a time)                                                                                                                           |
+| `DATABASE_URL`                                                       | `postgres://restaurantos:restaurantos@localhost:5432/restaurantos_dev` | **yes**             | Postgres connection string (TLS in prod). The API should connect as `ros_runtime`, migrations as the owner                                                                                                    |
+| `DATABASE_POOL_MAX`                                                  | `10`                                                                   | no                  | Pool size (1–100); lower it on hosts with connection limits                                                                                                                                                   |
+| `DATABASE_TENANT_ROLE`                                               | `ros_tenant`                                                           | no                  | Role each tenant transaction switches into (`SET LOCAL ROLE`) so row-level security applies. `none` disables the switch: emergency only, logs `tenant_role_disabled` at startup                               |
+| `PGLITE_DATA_DIR`                                                    | — (in-memory)                                                          | no                  | PGlite data directory. Use an absolute path (the API runs in `apps/api`, the root scripts in the repo root)                                                                                                   |
+| `APP_SECRET`                                                         | dev placeholder                                                        | **yes (≥32 chars)** | Derives the QR token encryption key. Startup fails in production with the placeholder. Rotating it makes stored QR codes un-downloadable (regenerate them)                                                    |
+| `SESSION_TTL_DAYS`                                                   | `30`                                                                   | no                  | Sliding session lifetime (1–90)                                                                                                                                                                               |
+| `COOKIE_SECURE`                                                      | `APP_URL` is https                                                     | no                  | Force the `Secure` cookie flag (`true`/`false`)                                                                                                                                                               |
+| `EMAIL_PROVIDER`                                                     | `outbox`                                                               | no                  | `outbox` (no delivery; read mail at `/dev/mailbox`), `resend`, `brevo`. A provider without its key falls back to `outbox` with a warning                                                                      |
+| `EMAIL_FROM`                                                         | `RestaurantOS <no-reply@restaurantos.local>`                           | if delivering       | Sender                                                                                                                                                                                                        |
+| `RESEND_API_KEY` / `BREVO_API_KEY`                                   | —                                                                      | with that provider  | API keys                                                                                                                                                                                                      |
+| `STORAGE_PROVIDER`                                                   | `local`                                                                | no                  | `local` (filesystem) or `s3` (any S3-compatible store)                                                                                                                                                        |
+| `STORAGE_LOCAL_DIR`                                                  | `.data/uploads`                                                        | with local          | Local storage directory; must be persistent. Use an absolute path                                                                                                                                             |
+| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | —                                                                      | with s3             | Required with `STORAGE_PROVIDER=s3`, or startup fails. The bucket must exist; the adapter never creates it                                                                                                    |
+| `S3_ENDPOINT`                                                        | — (AWS)                                                                | with non-AWS S3     | Endpoint URL for MinIO, R2, B2, GCS interoperability, …                                                                                                                                                       |
+| `S3_FORCE_PATH_STYLE`                                                | `false`                                                                | MinIO               | Path-style URLs (`<endpoint>/<bucket>/<key>`); needed for MinIO                                                                                                                                               |
+| `REALTIME_PROVIDER`                                                  | `memory`                                                               | no                  | `memory` (one API process), `postgres` (`LISTEN/NOTIFY`, several instances; requires `DATABASE_PROVIDER=postgres`), `none` (polling only)                                                                     |
+| `PUSH_PROVIDER`                                                      | `none`                                                                 | no                  | Only `none` is implemented; `webpush` is reserved (see the migration guide)                                                                                                                                   |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`             | —                                                                      | with webpush        | Reserved for the Web Push adapter                                                                                                                                                                             |
+| `PAYMENT_PROVIDER`                                                   | `none`                                                                 | no                  | `none` (manual upgrade requests only) or `razorpay` (online checkout; see [deployment](deployment.md#razorpay-setup))                                                                                         |
+| `RAZORPAY_KEY_ID`                                                    | —                                                                      | with razorpay       | Publishable key id; the only Razorpay value sent to the browser                                                                                                                                               |
+| `RAZORPAY_KEY_SECRET`                                                | —                                                                      | with razorpay       | API secret for the Orders API and the checkout signature                                                                                                                                                      |
+| `RAZORPAY_WEBHOOK_SECRET`                                            | —                                                                      | with razorpay       | Secret entered when creating the webhook in the Razorpay dashboard; verifies `X-Razorpay-Signature`. With `razorpay`, startup fails unless all three keys are set                                             |
+| `LOG_LEVEL`                                                          | `info`                                                                 | no                  | `debug`/`info`/`warn`/`error`                                                                                                                                                                                 |
+| `ERROR_REPORTER`                                                     | `log`                                                                  | no                  | `log` or `none`                                                                                                                                                                                               |
+| `CRON_SECRET`                                                        | —                                                                      | for jobs            | Bearer secret for `/api/v1/jobs/*` (≥16 chars)                                                                                                                                                                |
+| `ENABLE_TEST_HOOKS`                                                  | `false`                                                                | **must be false**   | Enables the test clock endpoint and the dev mailbox outside development; startup fails if true in production                                                                                                  |
+| `PORT`                                                               | `4000` (`next dev/start -p 4000`)                                      | set by host         | Listening port of the standalone server in Docker                                                                                                                                                             |
+
+### `TRUSTED_PROXY_HOPS` in practice
+
+Browser requests reach the API through a frontend's `/api/v1` proxy, which forwards the incoming `X-Forwarded-For` unchanged. Count every proxy you operate that appends to that header:
+
+- Local `pnpm dev` and the compose stack: `1`.
+- A load balancer or CDN in front of the frontends adds one more hop each (for example `2` with one load balancer).
+
+With `0`, rate limits and audit IPs see no client address at all.
+
+## Frontends (`apps/console`, `apps/ops`, `apps/admin`)
+
+Read at request time (`connection()` / per-request handlers), never inlined at build time, so one image runs in every environment. No `NEXT_PUBLIC_*` value is required.
+
+| Variable           | Default                 | Purpose                                                                                            |
+| ------------------ | ----------------------- | -------------------------------------------------------------------------------------------------- |
+| `API_INTERNAL_URL` | `http://localhost:4000` | Where the `/api/v1/*` proxy sends requests (an internal URL such as `http://api:4000`)             |
+| `CONSOLE_URL`      | `http://localhost:3000` | Public console origin for cross-app links (sign-up, password reset, dashboard)                     |
+| `OPS_URL`          | `http://localhost:3001` | Public ops origin for the Waiter / Kitchen / Cashier links                                         |
+| `ADMIN_URL`        | `http://localhost:3002` | Public admin origin for the Super Admin link                                                       |
+| `APP_VERSION`      | —                       | Reported by `/healthz`                                                                             |
+| `PORT`             | per app                 | Listening port of the standalone server (compose runs every frontend on 3000 inside its container) |
+
+Optional site text (console): `NEXT_PUBLIC_LEGAL_ENTITY` and `NEXT_PUBLIC_SUPPORT_EMAIL` fill the legal templates and contact details (`packages/web-core/src/features/site/brand.ts`); being `NEXT_PUBLIC_`, they are baked in at build time.
+
+## Scripts and tests
+
+| Variable                                                                         | Used by                                     | Purpose                                                                                          |
+| -------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `SNAPSHOT_DIR`                                                                   | `db:snapshot`, `db:migrate` (PGlite)        | Overrides the snapshots root (default `<PGLITE_DATA_DIR parent>/snapshots`)                      |
+| `PG_DOCKER_CONTAINER`                                                            | `db:dump`, `db:restore`, restore tests      | Runs `pg_dump`/`pg_restore`/`psql` inside that container, so the client matches the server major |
+| `SMOKE_EMAIL`, `SMOKE_PASSWORD`                                                  | `pnpm smoke`                                | Owner login used by the smoke run (defaults to the seeded demo owner)                            |
+| `PG_TEST_URL`                                                                    | `db-restore-postgres`, `postgres-bus` tests | Superuser URL of a throwaway Postgres 18 for what PGlite cannot cover; skipped when unset        |
+| `S3_TEST_ENDPOINT`, `S3_TEST_BUCKET`, `S3_TEST_ACCESS_KEY`, `S3_TEST_SECRET_KEY` | `s3-storage.test.ts`                        | S3 contract test against MinIO; skipped when unset                                               |
+| `E2E_BASE_URL`, `E2E_PORT`, `E2E_API_PORT`                                       | Playwright                                  | Test an existing deployment, or the ports of the servers Playwright starts (3100 / 4100)         |
+
+## Compose
+
+`infra/compose/.env.compose.example` lists the values the stack needs: `POSTGRES_PASSWORD`, `RUNTIME_PASSWORD` (login for `ros_runtime`), `MINIO_ROOT_PASSWORD`, `APP_SECRET`, plus optional `POSTGRES_USER`, `POSTGRES_DB`, `MINIO_ROOT_USER`, `S3_BUCKET`, `CONSOLE_URL`, `OPS_URL`, `ADMIN_URL`, `APP_VERSION`. The compose file sets the rest (`DATABASE_TENANT_ROLE=ros_tenant`, `REALTIME_PROVIDER=postgres`, `STORAGE_PROVIDER=s3` with `S3_FORCE_PATH_STYLE=true`, `TRUSTED_PROXY_HOPS=1`, `ALLOWED_ORIGINS` = the three frontend origins, `API_INTERNAL_URL=http://api:4000`).

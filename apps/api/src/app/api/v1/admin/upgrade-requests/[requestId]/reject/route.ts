@@ -1,0 +1,13 @@
+import { z } from "zod";
+
+import { rejectUpgradeSchema } from "@ros/contracts/upgrades";
+import { platformService } from "@/composition/platform";
+import { route } from "@ros/application/http/route";
+
+/** Reject with a reason; the subscription is unchanged. */
+export const POST = route(
+  { auth: "platform", params: z.object({ requestId: z.uuid() }), body: rejectUpgradeSchema },
+  async ({ actor, params, body, meta, c }) => ({
+    data: await platformService(c).rejectUpgradeRequest(actor, params.requestId, body.reason, meta),
+  }),
+);

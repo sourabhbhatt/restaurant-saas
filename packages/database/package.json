@@ -1,0 +1,42 @@
+{
+  "name": "@ros/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": [
+      "./src/*.ts",
+      "./src/*.tsx",
+      "./src/*/index.ts",
+      "./src/*/index.tsx"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --max-warnings=0 .",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio",
+    "migrate": "tsx --env-file-if-exists=../../.env.local scripts/migrate.ts",
+    "make-admin": "tsx --env-file-if-exists=../../.env.local scripts/make-admin.ts",
+    "snapshot": "tsx --env-file-if-exists=../../.env.local scripts/db-snapshot.ts",
+    "dump": "tsx --env-file-if-exists=../../.env.local scripts/db-dump.ts",
+    "restore": "tsx --env-file-if-exists=../../.env.local scripts/db-restore.ts",
+    "verify": "tsx --env-file-if-exists=../../.env.local scripts/db-verify.ts",
+    "revoke-cookie-jar": "tsx --env-file-if-exists=../../.env.local scripts/revoke-cookie-jar.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.15",
+    "@ros/contracts": "workspace:*",
+    "@ros/domain": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite-tools": "0.4.15",
+    "@ros/tooling": "workspace:*",
+    "@types/pg": "8.23.1",
+    "drizzle-kit": "0.31.11",
+    "tsx": "4.23.15"
+  }
+}

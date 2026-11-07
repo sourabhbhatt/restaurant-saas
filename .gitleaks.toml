@@ -1,0 +1,16 @@
+title = "restaurant-saas gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fixtures, examples and the historical cookie jars"
+paths = [
+  '''^src/test/''',
+  '''^tests/''',
+  '''^\.env\.example$''',
+  # Local-dev cookie jars committed by mistake in 586e3b4 (see SECURITY.md).
+  # Newer gitleaks rulesets may flag these historical files; see SECURITY.md.
+  '''^n\.jar$''',
+  '''^o\.jar$''',
+]

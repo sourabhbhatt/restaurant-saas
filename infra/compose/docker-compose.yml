@@ -1,0 +1,186 @@
+# Local parity stack and VPS exit target: Postgres 18 + MinIO + the four apps.
+#   cp infra/compose/.env.compose.example infra/compose/.env.compose  (replace the placeholders)
+#   docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env.compose up -d --build
+# Images are built from the repo root with infra/docker/next-app.Dockerfile.
+name: ros
+
+x-build: &build
+  context: ../..
+  dockerfile: infra/docker/next-app.Dockerfile
+
+x-frontend-env: &frontend-env
+  NODE_ENV: production
+  API_INTERNAL_URL: http://api:4000
+  CONSOLE_URL: ${CONSOLE_URL:-http://localhost:3000}
+  OPS_URL: ${OPS_URL:-http://localhost:3001}
+  ADMIN_URL: ${ADMIN_URL:-http://localhost:3002}
+  APP_VERSION: ${APP_VERSION:-compose}
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-restaurantos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-restaurantos}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-restaurantos} -d ${POSTGRES_DB:-restaurantos}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio:/data
+    ports:
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # Creates the uploads bucket once; the storage adapter never creates buckets.
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 '${MINIO_ROOT_USER:-minio}' '${MINIO_ROOT_PASSWORD}' &&
+      mc mb --ignore-existing local/${S3_BUCKET:-ros-uploads}
+      "
+    restart: "no"
+
+  # One-shot: applies migrations as the database owner, then syncs system data.
+  migrate:
+    build:
+      <<: *build
+      target: migrate
+      args:
+        APP: api
+    environment:
+      DATABASE_PROVIDER: postgres
+      DATABASE_URL: postgres://${POSTGRES_USER:-restaurantos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-restaurantos}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # One-shot: gives the runtime role (created NOLOGIN by the migrations) a login.
+  roles:
+    image: postgres:18
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./init-roles.sql:/init-roles.sql:ro
+    command: >
+      psql -h postgres -U ${POSTGRES_USER:-restaurantos} -d ${POSTGRES_DB:-restaurantos}
+      -v ON_ERROR_STOP=1 -v pw="${RUNTIME_PASSWORD:?set RUNTIME_PASSWORD}" -v db="${POSTGRES_DB:-restaurantos}"
+      -f /init-roles.sql
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  api:
+    build:
+      <<: *build
+      args:
+        APP: api
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      APP_URL: ${CONSOLE_URL:-http://localhost:3000}
+      ALLOWED_ORIGINS: ${CONSOLE_URL:-http://localhost:3000},${OPS_URL:-http://localhost:3001},${ADMIN_URL:-http://localhost:3002}
+      APP_SECRET: ${APP_SECRET:?set APP_SECRET}
+      APP_VERSION: ${APP_VERSION:-compose}
+      # Requests arrive through one frontend proxy, which sets x-forwarded-for.
+      TRUSTED_PROXY_HOPS: 1
+      DATABASE_PROVIDER: postgres
+      # Connects as the runtime role; tenant transactions switch to ros_tenant (RLS).
+      DATABASE_URL: postgres://ros_runtime:${RUNTIME_PASSWORD}@postgres:5432/${POSTGRES_DB:-restaurantos}
+      DATABASE_TENANT_ROLE: ros_tenant
+      REALTIME_PROVIDER: postgres
+      STORAGE_PROVIDER: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: ${S3_BUCKET:-ros-uploads}
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_FORCE_PATH_STYLE: "true"
+      EMAIL_PROVIDER: outbox
+      PAYMENT_PROVIDER: none
+      PUSH_PROVIDER: none
+      COOKIE_SECURE: "false"
+    ports:
+      - "4000:4000"
+    depends_on:
+      roles:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  console:
+    build:
+      <<: *build
+      args:
+        APP: console
+    environment:
+      <<: *frontend-env
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ops:
+    build:
+      <<: *build
+      args:
+        APP: ops
+    environment:
+      <<: *frontend-env
+      PORT: 3000
+    ports:
+      - "3001:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  admin:
+    build:
+      <<: *build
+      args:
+        APP: admin
+    environment:
+      <<: *frontend-env
+      PORT: 3000
+    ports:
+      - "3002:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  minio:

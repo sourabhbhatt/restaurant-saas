@@ -1,0 +1,14 @@
+import { z } from "zod";
+
+import { previewBillSchema } from "@ros/contracts/billing";
+import { billingService } from "@/composition/billing";
+import { route } from "@ros/application/http/route";
+
+/** Bill totals for a session computed from order snapshots, without saving (bills.generate). */
+export const POST = route(
+  { auth: "user", params: z.object({ branchId: z.uuid() }), body: previewBillSchema },
+  async ({ actor, params, body, c }) => {
+    const scope = await c.access.forBranch(actor, params.branchId);
+    return { data: await billingService(c).preview(scope, body) };
+  },
+);

@@ -1,0 +1,43 @@
+{
+  "name": "@ros/web-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": [
+      "./src/*.ts",
+      "./src/*.tsx",
+      "./src/*/index.ts",
+      "./src/*/index.tsx"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --max-warnings=0 .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^7.0.2",
+    "@ros/api-client": "workspace:*",
+    "@ros/contracts": "workspace:*",
+    "@ros/domain": "workspace:*",
+    "@ros/ui": "workspace:*",
+    "@serwist/turbopack": "^9.5.13",
+    "@tanstack/react-query": "^5.105.3",
+    "dexie": "^4.4.7",
+    "lucide-react": "^1.68.0",
+    "next": "16.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-hook-form": "^7.91.0",
+    "recharts": "3.10.1",
+    "sonner": "2.0.8",
+    "zod": "^4.6.7",
+    "zustand": "^5.0.16"
+  },
+  "devDependencies": {
+    "@ros/tooling": "workspace:*",
+    "@types/react": "^19",
+    "@types/react-dom": "^19"
+  }
+}
