@@ -5,7 +5,7 @@ import {
   type OrderItemStatus,
   type OrderPriority,
   type OrderStatus,
-} from "@/domain/orders/order-status";
+} from "@ros/domain/orders/order-status";
 
 /**
  * Order API contract shared by the customer app, waiter, kitchen, billing and

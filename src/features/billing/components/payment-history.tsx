@@ -4,7 +4,7 @@ import { Ban, Undo2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import type { BillDto, PaymentDto } from "@/contracts/billing";
+import type { BillDto, PaymentDto } from "@ros/contracts/billing";
 import { StatusBadge } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

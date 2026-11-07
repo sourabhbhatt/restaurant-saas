@@ -7,8 +7,8 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { recordPaymentSchema, type BillDto } from "@/contracts/billing";
-import type { PaymentMethod } from "@/domain/billing/payments";
+import { recordPaymentSchema, type BillDto } from "@ros/contracts/billing";
+import type { PaymentMethod } from "@ros/domain/billing/payments";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import type { BillDto, PaymentSummaryDto } from "@/contracts/billing";
+import type { BillDto, PaymentSummaryDto } from "@ros/contracts/billing";
 import type {
   BillListResponse,
   BillPreviewDto,
@@ -9,7 +9,7 @@ import type {
   PaymentResultDto,
   ReceiptDto,
   SessionCloseResultDto,
-} from "@/contracts/billing-extra";
+} from "@ros/contracts/billing-extra";
 import { GET as getBillRoute } from "@/app/api/v1/bills/[billId]/route";
 import { POST as recordPaymentRoute } from "@/app/api/v1/bills/[billId]/payments/route";
 import { GET as receiptRoute } from "@/app/api/v1/bills/[billId]/receipt/route";

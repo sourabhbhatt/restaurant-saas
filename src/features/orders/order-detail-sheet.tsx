@@ -20,13 +20,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { OrderDto } from "@/contracts/orders";
+import type { OrderDto } from "@ros/contracts/orders";
 import {
   ORDER_PRIORITIES,
   TERMINAL_ORDER_STATUSES,
   type OrderPriority,
-} from "@/domain/orders/order-status";
-import { formatMoney } from "@/domain/shared/money";
+} from "@ros/domain/orders/order-status";
+import { formatMoney } from "@ros/domain/shared/money";
 import { errorMessage } from "@/lib/api-client";
 
 import { OrderActionButtons } from "./order-actions";

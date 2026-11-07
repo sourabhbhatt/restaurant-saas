@@ -13,7 +13,7 @@ import {
   PATCH as patchWorkspace,
 } from "@/app/api/v1/workspaces/[workspaceId]/route";
 import { POST as createWorkspace } from "@/app/api/v1/workspaces/route";
-import type { AdminSettingsDto } from "@/contracts/platform";
+import type { AdminSettingsDto } from "@ros/contracts/platform";
 import { connectPglite } from "@/infrastructure/database/providers/postgres/client";
 import { platformSettings } from "@/infrastructure/database/providers/postgres/schema";
 import { buildContainer, setContainerForTests, type Container } from "@/server/container";

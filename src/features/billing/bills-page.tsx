@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 
-import type { BillListItemDto } from "@/contracts/billing-extra";
-import { PAYMENT_STATUSES, type PaymentStatus } from "@/domain/billing/payments";
+import type { BillListItemDto } from "@ros/contracts/billing-extra";
+import { PAYMENT_STATUSES, type PaymentStatus } from "@ros/domain/billing/payments";
 import {
   DataTable,
   EmptyState,

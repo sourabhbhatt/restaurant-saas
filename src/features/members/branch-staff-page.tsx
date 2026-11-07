@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
-import type { BranchStaffDto } from "@/contracts/tenancy";
+import type { BranchStaffDto } from "@ros/contracts/tenancy";
 import { api, errorMessage } from "@/lib/api-client";
 import { useAction } from "@/lib/use-action";
 

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { forgotPasswordSchema } from "@/contracts/auth";
+import { forgotPasswordSchema } from "@ros/contracts/auth";
 import { api, applyFieldErrors, errorMessage } from "@/lib/api-client";
 
 import { AuthCard } from "./auth-card";

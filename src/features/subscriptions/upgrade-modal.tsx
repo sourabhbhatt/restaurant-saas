@@ -22,8 +22,8 @@ import { FormField } from "@/components/ui/form-field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import type { PublicPlanDto } from "@/contracts/platform";
-import { BILLING_CYCLES } from "@/domain/subscriptions/entitlements";
+import type { PublicPlanDto } from "@ros/contracts/platform";
+import { BILLING_CYCLES } from "@ros/domain/subscriptions/entitlements";
 import { applyFieldErrors, errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 

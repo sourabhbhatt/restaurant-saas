@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { auditQuerySchema } from "@/contracts/platform";
+import { auditQuerySchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

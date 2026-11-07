@@ -1,4 +1,4 @@
-import { adminWorkspaceListQuerySchema } from "@/contracts/platform";
+import { adminWorkspaceListQuerySchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

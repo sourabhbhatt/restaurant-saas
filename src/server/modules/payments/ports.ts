@@ -1,5 +1,5 @@
-import type { PaymentOrderStatus } from "@/contracts/payments";
-import type { BillingCycle } from "@/domain/subscriptions/entitlements";
+import type { PaymentOrderStatus } from "@ros/contracts/payments";
+import type { BillingCycle } from "@ros/domain/subscriptions/entitlements";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
 import type { PlatformRepository } from "../platform/ports";

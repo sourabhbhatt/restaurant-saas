@@ -17,6 +17,12 @@ importers:
       '@hookform/resolvers':
         specifier: ^7.0.2
         version: 7.0.2(@standard-schema/spec@1.1.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(zod@4.6.7)
+      '@ros/contracts':
+        specifier: workspace:*
+        version: link:packages/contracts
+      '@ros/domain':
+        specifier: workspace:*
+        version: link:packages/domain
       '@tanstack/react-query':
         specifier: ^5.105.3
         version: 5.105.3(@types/react@19.3.0)(react@19.3.0)
@@ -177,6 +183,29 @@ importers:
       vitest:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
+  packages/contracts:
+    dependencies:
+      '@ros/domain':
+        specifier: workspace:*
+        version: link:../domain
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../tooling
+
+  packages/domain:
+    dependencies:
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../tooling
 
   packages/tooling: {}
 

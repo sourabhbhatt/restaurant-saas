@@ -1,4 +1,4 @@
-import { listNotificationsQuerySchema } from "@/contracts/notifications-api";
+import { listNotificationsQuerySchema } from "@ros/contracts/notifications-api";
 import { notificationService } from "@/server/composition/notifications";
 import { route } from "@/server/http/route";
 

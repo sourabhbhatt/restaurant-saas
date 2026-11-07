@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import type { WorkspaceDto } from "@/contracts/workspaces";
+import type { WorkspaceDto } from "@ros/contracts/workspaces";
 import { sessionKeys } from "@/features/session/queries";
 import { api, errorMessage } from "@/lib/api-client";
 import { useAction } from "@/lib/use-action";

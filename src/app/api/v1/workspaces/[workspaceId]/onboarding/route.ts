@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { onboardingProgressSchema } from "@/contracts/workspaces";
+import { onboardingProgressSchema } from "@ros/contracts/workspaces";
 import { workspaceService } from "@/server/composition/workspaces";
 import { route } from "@/server/http/route";
 

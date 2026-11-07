@@ -10,7 +10,7 @@ import type {
   SupportRequestDetailDto,
   SupportRequestDto,
   SupportStatus,
-} from "@/contracts/platform";
+} from "@ros/contracts/platform";
 import { api } from "@/lib/api-client";
 
 export const supportKeys = {

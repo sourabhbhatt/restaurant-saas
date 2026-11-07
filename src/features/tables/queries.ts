@@ -9,7 +9,7 @@ import type {
   TableDto,
   TableQrDto,
   UpdateTableInput,
-} from "@/contracts/tables";
+} from "@ros/contracts/tables";
 import { ApiError, api } from "@/lib/api-client";
 
 export const tableKeys = {

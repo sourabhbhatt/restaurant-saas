@@ -1,4 +1,4 @@
-import { platformSettingsSchema } from "@/contracts/platform";
+import { platformSettingsSchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { forgetMaintenanceFlag, route } from "@/server/http/route";
 

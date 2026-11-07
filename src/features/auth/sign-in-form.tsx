@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { signInSchema, type SignInInput } from "@/contracts/auth";
+import { signInSchema, type SignInInput } from "@ros/contracts/auth";
 import { useMe } from "@/features/session/queries";
 import { api, ApiError, applyFieldErrors, errorMessage } from "@/lib/api-client";
 

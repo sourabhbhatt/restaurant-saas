@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
-import type { SessionStatus } from "@/domain/tables/table-status";
+import type { SessionStatus } from "@ros/domain/tables/table-status";
 import type {
   BranchTenant,
   QrTokenRecord,

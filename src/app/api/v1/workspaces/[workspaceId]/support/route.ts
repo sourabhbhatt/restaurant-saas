@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { createSupportRequestSchema, supportListQuerySchema } from "@/contracts/platform";
+import { createSupportRequestSchema, supportListQuerySchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

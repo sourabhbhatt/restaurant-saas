@@ -6,8 +6,8 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { refundSchema, type BillDto } from "@/contracts/billing";
-import { PAYMENT_METHODS, type PaymentMethod } from "@/domain/billing/payments";
+import { refundSchema, type BillDto } from "@ros/contracts/billing";
+import { PAYMENT_METHODS, type PaymentMethod } from "@ros/domain/billing/payments";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {

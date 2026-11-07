@@ -2,7 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { defaultBusinessHours, type BusinessHoursDayDto } from "@/contracts/tenancy";
+import { defaultBusinessHours, type BusinessHoursDayDto } from "@ros/contracts/tenancy";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 

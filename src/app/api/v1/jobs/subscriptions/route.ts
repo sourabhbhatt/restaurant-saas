@@ -1,4 +1,4 @@
-import { DomainError } from "@/domain/shared/errors";
+import { DomainError } from "@ros/domain/shared/errors";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 import { isAuthorizedCron } from "@/server/modules/platform/cron-auth";

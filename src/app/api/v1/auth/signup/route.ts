@@ -1,4 +1,4 @@
-import { signUpSchema } from "@/contracts/auth";
+import { signUpSchema } from "@ros/contracts/auth";
 import { createAuthService } from "@/server/auth/auth-service";
 import { route } from "@/server/http/route";
 import { sessionCookieHeader } from "@/server/http/session-cookie";

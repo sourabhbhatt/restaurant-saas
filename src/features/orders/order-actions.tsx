@@ -5,8 +5,8 @@ import { useState } from "react";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import type { OrderDto, OrderTransitionInput } from "@/contracts/orders";
-import { canTransition, ORDER_TRANSITIONS } from "@/domain/orders/order-status";
+import type { OrderDto, OrderTransitionInput } from "@ros/contracts/orders";
+import { canTransition, ORDER_TRANSITIONS } from "@ros/domain/orders/order-status";
 import { cn } from "@/lib/utils";
 import { NeedsConnectionNote, useIsOffline } from "@/features/offline";
 

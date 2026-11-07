@@ -1,4 +1,4 @@
-import { announcementInputSchema } from "@/contracts/platform";
+import { announcementInputSchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

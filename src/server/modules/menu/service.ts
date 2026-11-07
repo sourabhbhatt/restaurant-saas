@@ -6,9 +6,9 @@ import type {
   MenuItemDto,
   MenuTreeDto,
   UpdateItemData,
-} from "@/contracts/menu";
-import type { Permission } from "@/domain/access/permissions";
-import { conflict, DomainError, notFound, validationFailed } from "@/domain/shared/errors";
+} from "@ros/contracts/menu";
+import type { Permission } from "@ros/domain/access/permissions";
+import { conflict, DomainError, notFound, validationFailed } from "@ros/domain/shared/errors";
 import type { TransactionRunner } from "@/infrastructure/database/interfaces/transaction";
 
 import { recordAudit } from "../../audit/audit-service";

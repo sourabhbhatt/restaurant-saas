@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { generateBillSchema } from "@/contracts/billing";
-import { billListQuerySchema } from "@/contracts/billing-extra";
+import { generateBillSchema } from "@ros/contracts/billing";
+import { billListQuerySchema } from "@ros/contracts/billing-extra";
 import { billingService } from "@/server/composition/billing";
 import { route } from "@/server/http/route";
 

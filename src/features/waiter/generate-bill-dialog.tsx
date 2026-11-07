@@ -31,9 +31,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import type { BillDto } from "@/contracts/billing";
-import { billDiscountSchema } from "@/contracts/billing";
-import { formatMoney, isCurrencyCode, toMinor } from "@/domain/shared/money";
+import type { BillDto } from "@ros/contracts/billing";
+import { billDiscountSchema } from "@ros/contracts/billing";
+import { formatMoney, isCurrencyCode, toMinor } from "@ros/domain/shared/money";
 import { applyFieldErrors, errorMessage, newIdempotencyKey } from "@/lib/api-client";
 
 import { useBillPreview, useGenerateBill, type DiscountInput } from "./queries";

@@ -10,8 +10,8 @@ import { PATCH as patchItem } from "@/app/api/v1/orders/[orderId]/items/[itemId]
 import { PATCH as patchPriority } from "@/app/api/v1/orders/[orderId]/priority/route";
 import { GET as getOrder } from "@/app/api/v1/orders/[orderId]/route";
 import { POST as transition } from "@/app/api/v1/orders/[orderId]/transition/route";
-import type { OrderDto } from "@/contracts/orders";
-import type { BranchSessionsDto, KitchenFeedDto, SessionDetailDto } from "@/contracts/staff-ops";
+import type { OrderDto } from "@ros/contracts/orders";
+import type { BranchSessionsDto, KitchenFeedDto, SessionDetailDto } from "@ros/contracts/staff-ops";
 import {
   auditLogs,
   notifications,

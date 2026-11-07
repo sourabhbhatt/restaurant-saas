@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { analyticsRangeQuerySchema } from "@/contracts/analytics";
+import { analyticsRangeQuerySchema } from "@ros/contracts/analytics";
 import { analyticsService } from "@/server/composition/analytics";
 import { route } from "@/server/http/route";
 

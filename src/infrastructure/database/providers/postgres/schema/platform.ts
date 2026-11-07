@@ -16,7 +16,7 @@ import type {
   FeatureKey,
   PlanLimits,
   SubscriptionStatus,
-} from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/subscriptions/entitlements";
 
 import { id, money, timestamps, tstz } from "./_helpers";
 import { users } from "./identity";

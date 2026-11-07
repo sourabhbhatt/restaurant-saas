@@ -12,17 +12,17 @@ import type {
   MemberDto,
   RoleDto,
   updateRoleSchema,
-} from "@/contracts/tenancy";
-import { allowedPermissionsForScope } from "@/contracts/tenancy";
+} from "@ros/contracts/tenancy";
+import { allowedPermissionsForScope } from "@ros/contracts/tenancy";
 import {
   conflict,
   DomainError,
   forbidden,
   notFound,
   validationFailed,
-} from "@/domain/shared/errors";
-import { generateToken, hashToken, isWellFormedToken } from "@/domain/shared/tokens";
-import { addDays } from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/shared/errors";
+import { generateToken, hashToken, isWellFormedToken } from "@ros/domain/shared/tokens";
+import { addDays } from "@ros/domain/subscriptions/entitlements";
 import { UniqueViolationError } from "@/infrastructure/database/interfaces/transaction";
 
 import { recordAudit } from "../../audit/audit-service";

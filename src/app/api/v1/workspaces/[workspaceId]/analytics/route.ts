@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { workspaceAnalyticsQuerySchema } from "@/contracts/analytics";
+import { workspaceAnalyticsQuerySchema } from "@ros/contracts/analytics";
 import { analyticsService } from "@/server/composition/analytics";
 import { route } from "@/server/http/route";
 

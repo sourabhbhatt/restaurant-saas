@@ -10,9 +10,9 @@ import { EmptyState, ErrorState, PageSkeleton } from "@/components/shared/feedba
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type { KitchenOrderDto } from "@/contracts/staff-ops";
-import type { BranchContextDto } from "@/contracts/structure";
-import type { OrderPriority } from "@/domain/orders/order-status";
+import type { KitchenOrderDto } from "@ros/contracts/staff-ops";
+import type { BranchContextDto } from "@ros/contracts/structure";
+import type { OrderPriority } from "@ros/domain/orders/order-status";
 import { errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { OrderItemsList, OrderStatusBadge } from "@/features/orders/order-ui";

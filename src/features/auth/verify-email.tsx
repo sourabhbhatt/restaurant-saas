@@ -9,7 +9,7 @@ import { BadgeCheckIcon, MailWarningIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { verifyEmailSchema } from "@/contracts/auth";
+import { verifyEmailSchema } from "@ros/contracts/auth";
 import { sessionKeys, useMe } from "@/features/session/queries";
 import { api, errorMessage } from "@/lib/api-client";
 

@@ -24,13 +24,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { PublicPlanDto, SubscriptionOverviewDto } from "@/contracts/platform";
+import type { PublicPlanDto, SubscriptionOverviewDto } from "@ros/contracts/platform";
 import {
   ADVERTISED_FEATURES,
   FEATURES,
   LIMIT_KEYS,
   type LimitKey,
-} from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/subscriptions/entitlements";
 import { errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 

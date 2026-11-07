@@ -6,7 +6,7 @@ import {
   type BillStatus,
   type PaymentMethod,
   type PaymentStatus,
-} from "@/domain/billing/payments";
+} from "@ros/domain/billing/payments";
 
 import type { BillDto, BillItemDto, BillTotalsDto, PaymentDto } from "./billing";
 

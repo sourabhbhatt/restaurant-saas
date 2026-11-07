@@ -1,4 +1,4 @@
-import { resetPasswordSchema } from "@/contracts/auth";
+import { resetPasswordSchema } from "@ros/contracts/auth";
 import { createAuthService } from "@/server/auth/auth-service";
 import { route } from "@/server/http/route";
 

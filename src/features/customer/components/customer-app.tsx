@@ -13,10 +13,10 @@ import {
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import type { BranchMenuItem } from "@/contracts/menu";
-import type { GuestOrderViewDto } from "@/contracts/ordering";
-import { effectiveItemPrice } from "@/domain/menu/pricing";
-import { formatMoney } from "@/domain/shared/money";
+import type { BranchMenuItem } from "@ros/contracts/menu";
+import type { GuestOrderViewDto } from "@ros/contracts/ordering";
+import { effectiveItemPrice } from "@ros/domain/menu/pricing";
+import { formatMoney } from "@ros/domain/shared/money";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

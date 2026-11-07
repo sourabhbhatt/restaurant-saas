@@ -29,7 +29,7 @@ import type {
   RestaurantDetailDto,
   RestaurantDto,
   RestaurantListItemDto,
-} from "@/contracts/tenancy";
+} from "@ros/contracts/tenancy";
 import {
   auditLogs,
   branchSettings,

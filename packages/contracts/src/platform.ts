@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { platformSettingsSchema, type PlatformSettings } from "@/domain/platform/settings";
-import { SUPPORTED_CURRENCIES } from "@/domain/shared/money";
+import { platformSettingsSchema, type PlatformSettings } from "@ros/domain/platform/settings";
+import { SUPPORTED_CURRENCIES } from "@ros/domain/shared/money";
 import {
   BILLING_CYCLES,
   FEATURE_KEYS,
@@ -15,7 +15,7 @@ import {
   type SubscriptionPhase,
   type SubscriptionStatus,
   type WorkspaceStatus,
-} from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/subscriptions/entitlements";
 
 /**
  * Platform module contracts: plans, subscriptions, Super Admin, support,

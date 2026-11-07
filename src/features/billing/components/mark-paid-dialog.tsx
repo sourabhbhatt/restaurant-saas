@@ -4,8 +4,8 @@ import { CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import type { BillDto } from "@/contracts/billing";
-import { PAYMENT_METHODS, type PaymentMethod } from "@/domain/billing/payments";
+import type { BillDto } from "@ros/contracts/billing";
+import { PAYMENT_METHODS, type PaymentMethod } from "@ros/domain/billing/payments";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

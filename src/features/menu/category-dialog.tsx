@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { createCategorySchema, type MenuCategoryDto } from "@/contracts/menu";
+import { createCategorySchema, type MenuCategoryDto } from "@ros/contracts/menu";
 import { applyFieldErrors, errorMessage } from "@/lib/api-client";
 
 import { useCreateCategory, useUpdateCategory } from "./queries";

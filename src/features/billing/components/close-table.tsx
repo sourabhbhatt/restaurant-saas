@@ -4,7 +4,7 @@ import { DoorClosed, Info } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import type { BillDto } from "@/contracts/billing";
+import type { BillDto } from "@ros/contracts/billing";
 import { ConfirmDialog } from "@/components/shared/feedback";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

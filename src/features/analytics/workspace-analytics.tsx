@@ -14,7 +14,7 @@ import {
 } from "@/components/shared/feedback";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import type { WorkspaceAnalyticsDto } from "@/contracts/analytics";
+import type { WorkspaceAnalyticsDto } from "@ros/contracts/analytics";
 
 import { BranchFilter, type BranchFilterValue } from "./branch-filter";
 import { BarList, chartColor, ChartCard, DonutChart, methodColor, TrendChart } from "./charts";

@@ -1,10 +1,10 @@
 import { and, asc, eq, inArray, isNull, ne, notInArray, sql } from "drizzle-orm";
 
-import type { GuestBillDto } from "@/contracts/billing";
-import type { GuestOrderStepDto, GuestOrderViewDto } from "@/contracts/ordering";
-import type { OrderItemAddonDto } from "@/contracts/orders";
-import type { PaymentStatus } from "@/domain/billing/payments";
-import type { OrderStatus } from "@/domain/orders/order-status";
+import type { GuestBillDto } from "@ros/contracts/billing";
+import type { GuestOrderStepDto, GuestOrderViewDto } from "@ros/contracts/ordering";
+import type { OrderItemAddonDto } from "@ros/contracts/orders";
+import type { PaymentStatus } from "@ros/domain/billing/payments";
+import type { OrderStatus } from "@ros/domain/orders/order-status";
 import type {
   GuestRecord,
   OrderingRepository,

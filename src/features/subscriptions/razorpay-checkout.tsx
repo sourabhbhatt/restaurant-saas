@@ -6,8 +6,8 @@ import { toast } from "sonner";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import type { CheckoutSessionDto } from "@/contracts/payments";
-import type { BillingCycle } from "@/domain/subscriptions/entitlements";
+import type { CheckoutSessionDto } from "@ros/contracts/payments";
+import type { BillingCycle } from "@ros/domain/subscriptions/entitlements";
 import { useSyncStore } from "@/features/offline/sync-store";
 import { applyFieldErrors, errorMessage } from "@/lib/api-client";
 

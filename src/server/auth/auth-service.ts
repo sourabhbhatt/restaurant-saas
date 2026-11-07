@@ -1,5 +1,5 @@
-import { DomainError } from "@/domain/shared/errors";
-import { generateToken, hashToken, isWellFormedToken } from "@/domain/shared/tokens";
+import { DomainError } from "@ros/domain/shared/errors";
+import { generateToken, hashToken, isWellFormedToken } from "@ros/domain/shared/tokens";
 
 import { recordAudit } from "../audit/audit-service";
 import type { Container } from "../container";

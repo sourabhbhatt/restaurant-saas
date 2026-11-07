@@ -1,12 +1,12 @@
-import { NOTIFICATION_TYPES } from "@/contracts/notifications";
+import { NOTIFICATION_TYPES } from "@ros/contracts/notifications";
 import type {
   MarkNotificationsReadResult,
   NotificationListDto,
   NotificationPreferenceDto,
   PushConfigDto,
-} from "@/contracts/notifications-api";
-import type { NotificationType } from "@/contracts/notifications";
-import { DomainError, validationFailed } from "@/domain/shared/errors";
+} from "@ros/contracts/notifications-api";
+import type { NotificationType } from "@ros/contracts/notifications";
+import { DomainError, validationFailed } from "@ros/domain/shared/errors";
 import type { TransactionRunner } from "@/infrastructure/database/interfaces/transaction";
 
 import { recordAudit } from "../../audit/audit-service";

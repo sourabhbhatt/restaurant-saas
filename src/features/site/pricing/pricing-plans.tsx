@@ -8,7 +8,7 @@ import { EmptyState, ErrorState } from "@/components/shared/feedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ADVERTISED_FEATURES, FEATURES, LIMIT_KEYS } from "@/domain/subscriptions/entitlements";
+import { ADVERTISED_FEATURES, FEATURES, LIMIT_KEYS } from "@ros/domain/subscriptions/entitlements";
 import { cn } from "@/lib/utils";
 
 import { BillingToggle } from "./billing-toggle";

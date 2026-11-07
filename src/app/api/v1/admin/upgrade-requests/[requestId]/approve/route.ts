@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { approveUpgradeSchema } from "@/contracts/upgrades";
+import { approveUpgradeSchema } from "@ros/contracts/upgrades";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

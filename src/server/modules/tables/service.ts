@@ -5,9 +5,9 @@ import {
   type QrSheetDto,
   type TableDto,
   type TableQrDto,
-} from "@/contracts/tables";
-import { conflict, DomainError, notFound, validationFailed } from "@/domain/shared/errors";
-import { deriveTableStatus } from "@/domain/tables/table-status";
+} from "@ros/contracts/tables";
+import { conflict, DomainError, notFound, validationFailed } from "@ros/domain/shared/errors";
+import { deriveTableStatus } from "@ros/domain/tables/table-status";
 import {
   UniqueViolationError,
   type TransactionRunner,

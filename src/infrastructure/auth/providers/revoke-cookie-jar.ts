@@ -1,6 +1,6 @@
 import { and, inArray, isNull } from "drizzle-orm";
 
-import { hashToken } from "@/domain/shared/tokens";
+import { hashToken } from "@ros/domain/shared/tokens";
 
 import type { Executor } from "../../database/providers/postgres/client";
 import { sessions } from "../../database/providers/postgres/schema";

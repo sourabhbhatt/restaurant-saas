@@ -7,9 +7,9 @@ import type {
   CheckoutVerifyDto,
   CreateCheckoutInput,
   VerifyCheckoutInput,
-} from "@/contracts/payments";
-import type { PublicPlanDto, SubscriptionOverviewDto } from "@/contracts/platform";
-import type { CreateUpgradeRequestInput, UpgradeRequestDto } from "@/contracts/upgrades";
+} from "@ros/contracts/payments";
+import type { PublicPlanDto, SubscriptionOverviewDto } from "@ros/contracts/platform";
+import type { CreateUpgradeRequestInput, UpgradeRequestDto } from "@ros/contracts/upgrades";
 import { api, ApiError } from "@/lib/api-client";
 
 export const subscriptionKeys = {

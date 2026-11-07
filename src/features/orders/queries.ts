@@ -3,8 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import type { OrderDto, OrderTransitionInput } from "@/contracts/orders";
-import type { OrderPriority } from "@/domain/orders/order-status";
+import type { OrderDto, OrderTransitionInput } from "@ros/contracts/orders";
+import type { OrderPriority } from "@ros/domain/orders/order-status";
 import { api, ApiError, errorMessage } from "@/lib/api-client";
 
 import { staffOpsKeys } from "./keys";

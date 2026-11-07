@@ -1,11 +1,11 @@
-import type { NotificationInput } from "@/contracts/notifications";
+import type { NotificationInput } from "@ros/contracts/notifications";
 import type {
   CreateUpgradeRequestInput,
   UpgradeRequestDetailDto,
   UpgradeRequestDto,
   UpgradeRequestListDto,
-} from "@/contracts/upgrades";
-import { nextUpgradeStatus } from "@/domain/subscriptions/upgrade-request";
+} from "@ros/contracts/upgrades";
+import { nextUpgradeStatus } from "@ros/domain/subscriptions/upgrade-request";
 import type {
   ActivateSubscriptionInput,
   AdminAuditQuery,
@@ -34,22 +34,22 @@ import type {
   SupportRequestDetailDto,
   SupportRequestDto,
   SupportStatus,
-} from "@/contracts/platform";
-import { createSupportRequestSchema } from "@/contracts/platform";
+} from "@ros/contracts/platform";
+import { createSupportRequestSchema } from "@ros/contracts/platform";
 import {
   extendedTrialEnd,
   periodEndFromDate,
   planSubscriptionSweep,
   remindersAfterExtension,
-} from "@/domain/platform/subscription-sweep";
-import { mergePlatformSettings, type PlatformSettings } from "@/domain/platform/settings";
-import { conflict, DomainError, forbidden, notFound } from "@/domain/shared/errors";
+} from "@ros/domain/platform/subscription-sweep";
+import { mergePlatformSettings, type PlatformSettings } from "@ros/domain/platform/settings";
+import { conflict, DomainError, forbidden, notFound } from "@ros/domain/shared/errors";
 import {
   FEATURE_META,
   FEATURES,
   resolveEntitlements,
   type WorkspaceStatus,
-} from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/subscriptions/entitlements";
 import {
   UniqueViolationError,
   type TransactionRunner,

@@ -1,5 +1,5 @@
-import { DEV_MAILBOX_LIMIT } from "@/contracts/dev-mailbox";
-import { DomainError } from "@/domain/shared/errors";
+import { DEV_MAILBOX_LIMIT } from "@ros/contracts/dev-mailbox";
+import { DomainError } from "@ros/domain/shared/errors";
 import { devMailbox } from "@/server/composition/dev-mailbox";
 import { route } from "@/server/http/route";
 

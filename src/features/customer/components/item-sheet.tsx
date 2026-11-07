@@ -4,10 +4,10 @@ import Image from "next/image";
 import { ClockIcon } from "lucide-react";
 import { useId, useRef, useState } from "react";
 
-import { ALLERGEN_LABELS, DIETARY_LABELS, type BranchMenuItem } from "@/contracts/menu";
-import { effectiveItemPrice, priceSelection } from "@/domain/menu/pricing";
-import { DomainError } from "@/domain/shared/errors";
-import { formatMoney } from "@/domain/shared/money";
+import { ALLERGEN_LABELS, DIETARY_LABELS, type BranchMenuItem } from "@ros/contracts/menu";
+import { effectiveItemPrice, priceSelection } from "@ros/domain/menu/pricing";
+import { DomainError } from "@ros/domain/shared/errors";
+import { formatMoney } from "@ros/domain/shared/money";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";

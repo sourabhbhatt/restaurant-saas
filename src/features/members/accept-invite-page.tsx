@@ -7,7 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ErrorState, PageSkeleton } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { AcceptInvitationResultDto, InvitationPreviewDto } from "@/contracts/tenancy";
+import type { AcceptInvitationResultDto, InvitationPreviewDto } from "@ros/contracts/tenancy";
 import { useMe } from "@/features/session/queries";
 import { api, errorMessage } from "@/lib/api-client";
 import { useAction } from "@/lib/use-action";

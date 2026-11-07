@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 
-import type { MeResponse } from "@/contracts/auth";
-import type { BranchContextDto, WorkspaceStructureDto } from "@/contracts/structure";
+import type { MeResponse } from "@ros/contracts/auth";
+import type { BranchContextDto, WorkspaceStructureDto } from "@ros/contracts/structure";
 import { clearDeviceUserData } from "@/features/offline";
 import { api, ApiError } from "@/lib/api-client";
 

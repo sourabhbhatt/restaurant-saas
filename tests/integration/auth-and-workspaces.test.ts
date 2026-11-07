@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
+import { DEFAULT_PLATFORM_SETTINGS } from "@ros/domain/platform/settings";
 import { GET as me } from "@/app/api/v1/auth/me/route";
 import { POST as forgot } from "@/app/api/v1/auth/forgot-password/route";
 import { POST as reset } from "@/app/api/v1/auth/reset-password/route";

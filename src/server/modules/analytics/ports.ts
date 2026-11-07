@@ -3,9 +3,9 @@ import type {
   HeatmapCellDto,
   ItemPerformanceDto,
   KitchenItemDto,
-} from "@/contracts/analytics";
-import type { OpeningHoursDay } from "@/domain/analytics/business-hours";
-import type { WorkspaceSubscriptionRow } from "@/domain/analytics/subscription-summary";
+} from "@ros/contracts/analytics";
+import type { OpeningHoursDay } from "@ros/domain/analytics/business-hours";
+import type { WorkspaceSubscriptionRow } from "@ros/domain/analytics/subscription-summary";
 
 /** A branch as analytics needs it. `timezone` comes from the branch row, never from a client. */
 export interface AnalyticsBranch {

@@ -10,8 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { BranchDto } from "@/contracts/tenancy";
-import { isCurrencyCode } from "@/domain/shared/money";
+import type { BranchDto } from "@ros/contracts/tenancy";
+import { isCurrencyCode } from "@ros/domain/shared/money";
 import { BranchForm } from "@/features/branches/branch-form";
 
 import { handlePlanError } from "./plan-error";

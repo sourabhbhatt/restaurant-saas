@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { createRestaurantSchema } from "@/contracts/tenancy";
+import { createRestaurantSchema } from "@ros/contracts/tenancy";
 import { tenancyService } from "@/server/composition/tenancy";
 import { route } from "@/server/http/route";
 

@@ -3,10 +3,10 @@ import {
   UPLOAD_PURPOSES,
   type UploadPurpose,
   type UploadResultDto,
-} from "@/contracts/menu";
-import type { Permission } from "@/domain/access/permissions";
-import { additionalStorageMb, sniffImage } from "@/domain/menu/image-sniff";
-import { DomainError, forbidden, validationFailed } from "@/domain/shared/errors";
+} from "@ros/contracts/menu";
+import type { Permission } from "@ros/domain/access/permissions";
+import { additionalStorageMb, sniffImage } from "@ros/domain/menu/image-sniff";
+import { DomainError, forbidden, validationFailed } from "@ros/domain/shared/errors";
 import type { TransactionRunner } from "@/infrastructure/database/interfaces/transaction";
 import type { ObjectStorage } from "@/infrastructure/storage/interfaces/object-storage";
 

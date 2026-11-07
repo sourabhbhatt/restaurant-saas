@@ -1,13 +1,13 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
-import type { OrderDto, OrderItemDto, OrderStatusEventDto } from "@/contracts/orders";
+import type { OrderDto, OrderItemDto, OrderStatusEventDto } from "@ros/contracts/orders";
 import type {
   KitchenOrderDto,
   SessionBillSummaryDto,
   TableSessionSummaryDto,
-} from "@/contracts/staff-ops";
-import type { PaymentStatus } from "@/domain/billing/payments";
+} from "@ros/contracts/staff-ops";
+import type { PaymentStatus } from "@ros/domain/billing/payments";
 import {
   ACTIVE_ORDER_STATUSES,
   BILLABLE_ORDER_STATUSES,
@@ -15,8 +15,8 @@ import {
   type OrderItemStatus,
   type OrderPriority,
   type OrderStatus,
-} from "@/domain/orders/order-status";
-import type { SessionStatus } from "@/domain/tables/table-status";
+} from "@ros/domain/orders/order-status";
+import type { SessionStatus } from "@ros/domain/tables/table-status";
 import type {
   BranchTarget,
   OrderRecord,

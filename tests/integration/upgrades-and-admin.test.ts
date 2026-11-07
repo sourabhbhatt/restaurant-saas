@@ -19,12 +19,12 @@ import {
   GET as listMineRoute,
   POST as createRoute,
 } from "@/app/api/v1/workspaces/[workspaceId]/upgrade-requests/route";
-import type { AdminRestaurantMenuDto } from "@/contracts/menu";
+import type { AdminRestaurantMenuDto } from "@ros/contracts/menu";
 import type {
   UpgradeRequestDetailDto,
   UpgradeRequestDto,
   UpgradeRequestListDto,
-} from "@/contracts/upgrades";
+} from "@ros/contracts/upgrades";
 import {
   menuItems,
   menus,

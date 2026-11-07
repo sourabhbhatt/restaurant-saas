@@ -7,9 +7,9 @@ import type {
   BranchAnalyticsDto,
   BranchLiveDto,
   WorkspaceAnalyticsDto,
-} from "@/contracts/analytics";
-import type { OrderDto } from "@/contracts/orders";
-import type { WorkspaceDto } from "@/contracts/workspaces";
+} from "@ros/contracts/analytics";
+import type { OrderDto } from "@ros/contracts/orders";
+import type { WorkspaceDto } from "@ros/contracts/workspaces";
 import { api, ApiError } from "@/lib/api-client";
 
 export const analyticsKeys = {

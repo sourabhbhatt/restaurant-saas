@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import type { BranchDto, BranchSettingsDto } from "@/contracts/tenancy";
+import type { BranchDto, BranchSettingsDto } from "@ros/contracts/tenancy";
 import { useBranchContext, permissionChecker } from "@/features/session/queries";
 import { api, errorMessage } from "@/lib/api-client";
 import { useAction } from "@/lib/use-action";

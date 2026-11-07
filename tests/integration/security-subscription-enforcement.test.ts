@@ -13,14 +13,14 @@ import { POST as createInvitation } from "@/app/api/v1/workspaces/[workspaceId]/
 import { POST as createRestaurant } from "@/app/api/v1/workspaces/[workspaceId]/restaurants/route";
 import { GET as getWorkspace } from "@/app/api/v1/workspaces/[workspaceId]/route";
 import { POST as createWorkspace } from "@/app/api/v1/workspaces/route";
-import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
+import { DEFAULT_PLATFORM_SETTINGS } from "@ros/domain/platform/settings";
 import {
   isOperationAllowed,
   type AccessLevel,
   type Entitlements,
   type OperationKind,
   type SubscriptionPhase,
-} from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/subscriptions/entitlements";
 import { menuItems, roles } from "@/infrastructure/database/providers/postgres/schema";
 import type { Container } from "@/server/container";
 import {

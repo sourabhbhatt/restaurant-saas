@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 
-import { voidSchema } from "@/contracts/billing";
+import { voidSchema } from "@ros/contracts/billing";
 import { ConfirmDialog } from "@/components/shared/feedback";
 import { FormField } from "@/components/ui/form-field";
 import { Textarea } from "@/components/ui/textarea";

@@ -7,7 +7,7 @@ import { InboxIcon, MailIcon, RefreshCwIcon } from "lucide-react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared/feedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { DevMailboxEmailDto } from "@/contracts/dev-mailbox";
+import type { DevMailboxEmailDto } from "@ros/contracts/dev-mailbox";
 import { api, ApiError, errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 

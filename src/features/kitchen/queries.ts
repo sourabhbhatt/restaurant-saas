@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import type { KitchenFeedDto } from "@/contracts/staff-ops";
+import type { KitchenFeedDto } from "@ros/contracts/staff-ops";
 import { api } from "@/lib/api-client";
 import { staffOpsKeys } from "@/features/orders/keys";
 

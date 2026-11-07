@@ -1,12 +1,12 @@
-import type { NotificationInput } from "@/contracts/notifications";
-import type { OrderDto, OrderTransitionInput } from "@/contracts/orders";
+import type { NotificationInput } from "@ros/contracts/notifications";
+import type { OrderDto, OrderTransitionInput } from "@ros/contracts/orders";
 import type {
   BranchSessionsDto,
   KitchenFeedDto,
   SessionDetailDto,
   StaffOrderListQuery,
-} from "@/contracts/staff-ops";
-import type { Permission } from "@/domain/access/permissions";
+} from "@ros/contracts/staff-ops";
+import type { Permission } from "@ros/domain/access/permissions";
 import {
   canTransitionItem,
   KITCHEN_STATUSES,
@@ -16,10 +16,10 @@ import {
   type OrderItemStatus,
   type OrderPriority,
   type OrderStatus,
-} from "@/domain/orders/order-status";
-import { DomainError, forbidden, notFound } from "@/domain/shared/errors";
-import { assertFeature } from "@/domain/subscriptions/entitlements";
-import { deriveTableStatus } from "@/domain/tables/table-status";
+} from "@ros/domain/orders/order-status";
+import { DomainError, forbidden, notFound } from "@ros/domain/shared/errors";
+import { assertFeature } from "@ros/domain/subscriptions/entitlements";
+import { deriveTableStatus } from "@ros/domain/tables/table-status";
 import type { TransactionRunner } from "@/infrastructure/database/interfaces/transaction";
 import type { RealtimePublisher } from "@/infrastructure/realtime/interfaces/realtime";
 

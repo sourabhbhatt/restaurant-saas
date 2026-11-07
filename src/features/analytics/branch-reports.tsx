@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 
 import { DataTable, PageHeader, PageSkeleton, StatCard } from "@/components/shared/feedback";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { BranchAnalyticsDto } from "@/contracts/analytics";
+import type { BranchAnalyticsDto } from "@ros/contracts/analytics";
 import { useBranchContext } from "@/features/session/queries";
 
 import {

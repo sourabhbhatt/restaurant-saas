@@ -14,9 +14,9 @@ import type {
   TableUtilizationDto,
   WorkspaceAnalyticsDto,
   WorkspaceAnalyticsQuery,
-} from "@/contracts/analytics";
-import { canViewBranchReports } from "@/domain/analytics/access";
-import { occupancyPercent, openMinutesInRange } from "@/domain/analytics/business-hours";
+} from "@ros/contracts/analytics";
+import { canViewBranchReports } from "@ros/domain/analytics/access";
+import { occupancyPercent, openMinutesInRange } from "@ros/domain/analytics/business-hours";
 import {
   addDaysIso,
   enumerateDates,
@@ -24,15 +24,15 @@ import {
   percentChange,
   resolveRange,
   type ResolvedRange,
-} from "@/domain/analytics/date-range";
-import { classifyWorkspace, conversionRate } from "@/domain/analytics/subscription-summary";
-import { forbidden, notFound } from "@/domain/shared/errors";
+} from "@ros/domain/analytics/date-range";
+import { classifyWorkspace, conversionRate } from "@ros/domain/analytics/subscription-summary";
+import { forbidden, notFound } from "@ros/domain/shared/errors";
 import {
   assertFeature,
   assertOperationAllowed,
   FEATURES,
   type SubscriptionPhase,
-} from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/subscriptions/entitlements";
 import type { TransactionRunner } from "@/infrastructure/database/interfaces/transaction";
 
 import type { BranchScope, WorkspaceScope } from "../../authz/access-service";

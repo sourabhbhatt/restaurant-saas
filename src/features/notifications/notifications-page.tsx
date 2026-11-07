@@ -17,8 +17,8 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { NOTIFICATION_TYPES, type NotificationType } from "@/contracts/notifications";
-import { NOTIFICATION_TYPE_LABELS } from "@/contracts/notifications-api";
+import { NOTIFICATION_TYPES, type NotificationType } from "@ros/contracts/notifications";
+import { NOTIFICATION_TYPE_LABELS } from "@ros/contracts/notifications-api";
 import { OfflineDataNotice } from "@/features/offline/components/offline-data-notice";
 import { AuthGate } from "@/features/session/auth-gate";
 import { useMe } from "@/features/session/queries";

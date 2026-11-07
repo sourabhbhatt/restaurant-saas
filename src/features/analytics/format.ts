@@ -1,4 +1,4 @@
-import { formatMoney, isCurrencyCode, toMajor } from "@/domain/shared/money";
+import { formatMoney, isCurrencyCode, toMajor } from "@ros/domain/shared/money";
 
 export { formatMoney };
 

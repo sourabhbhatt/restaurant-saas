@@ -1,7 +1,7 @@
 import {
   deletePushSubscriptionSchema,
   pushSubscriptionSchema,
-} from "@/contracts/notifications-api";
+} from "@ros/contracts/notifications-api";
 import { notificationService } from "@/server/composition/notifications";
 import { route } from "@/server/http/route";
 

@@ -2,7 +2,7 @@ import "server-only";
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
-import { generateToken, hashToken, isWellFormedToken } from "@/domain/shared/tokens";
+import { generateToken, hashToken, isWellFormedToken } from "@ros/domain/shared/tokens";
 
 /**
  * QR table tokens. A token is 32 random bytes (base64url) and appears only in

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { recordPaymentSchema } from "@/contracts/billing";
+import { recordPaymentSchema } from "@ros/contracts/billing";
 import { billingService, scopeForBill } from "@/server/composition/billing";
 import { route } from "@/server/http/route";
 

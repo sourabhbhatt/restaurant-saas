@@ -4,10 +4,10 @@ import Image from "next/image";
 import { PlusIcon, SearchXIcon, SparklesIcon, UtensilsCrossedIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { BranchMenuCategory, BranchMenuItem } from "@/contracts/menu";
-import type { PublicBrandingDto } from "@/contracts/ordering";
-import { effectiveItemPrice, startingPrice } from "@/domain/menu/pricing";
-import { formatMoney } from "@/domain/shared/money";
+import type { BranchMenuCategory, BranchMenuItem } from "@ros/contracts/menu";
+import type { PublicBrandingDto } from "@ros/contracts/ordering";
+import { effectiveItemPrice, startingPrice } from "@ros/domain/menu/pricing";
+import { formatMoney } from "@ros/domain/shared/money";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { EmptyState } from "@/components/shared/feedback/empty-state";

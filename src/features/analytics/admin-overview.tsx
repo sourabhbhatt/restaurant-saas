@@ -11,7 +11,7 @@ import {
   StatusBadge,
   type StatusTone,
 } from "@/components/shared/feedback";
-import type { SubscriptionPhase } from "@/domain/subscriptions/entitlements";
+import type { SubscriptionPhase } from "@ros/domain/subscriptions/entitlements";
 
 import { chartColor, ChartCard, ColumnChart, DonutChart, TrendChart } from "./charts";
 import { formatCount, formatCountCompact, formatDay, formatPercent } from "./format";

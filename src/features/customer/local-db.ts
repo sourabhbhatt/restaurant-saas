@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 
-import type { PublicQrDto } from "@/contracts/ordering";
+import type { PublicQrDto } from "@ros/contracts/ordering";
 
 /**
  * Customer-device storage (IndexedDB via Dexie), keyed per QR token so two

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { notFound } from "@/domain/shared/errors";
+import { notFound } from "@ros/domain/shared/errors";
 import { uploadService } from "@/server/composition/menu";
 import { route } from "@/server/http/route";
 

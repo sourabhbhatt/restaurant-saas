@@ -11,12 +11,12 @@ import type {
   RestaurantListItemDto,
   updateBranchSchema,
   updateRestaurantSchema,
-} from "@/contracts/tenancy";
-import { OBJECT_KEY } from "@/contracts/menu";
-import { defaultBusinessHours } from "@/contracts/tenancy";
-import { effectivePermissions } from "@/domain/access/permissions";
-import { validateTaxConfig } from "@/domain/billing/bill-calculator";
-import { conflict, DomainError, notFound, validationFailed } from "@/domain/shared/errors";
+} from "@ros/contracts/tenancy";
+import { OBJECT_KEY } from "@ros/contracts/menu";
+import { defaultBusinessHours } from "@ros/contracts/tenancy";
+import { effectivePermissions } from "@ros/domain/access/permissions";
+import { validateTaxConfig } from "@ros/domain/billing/bill-calculator";
+import { conflict, DomainError, notFound, validationFailed } from "@ros/domain/shared/errors";
 import { UniqueViolationError } from "@/infrastructure/database/interfaces/transaction";
 
 import { recordAudit } from "../../audit/audit-service";

@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
-import type { Permission } from "@/domain/access/permissions";
+import type { Permission } from "@ros/domain/access/permissions";
 import type { Executor } from "../client";
 import {
   notificationPreferences,
@@ -18,7 +18,7 @@ import {
  * best-effort side channels; the app never depends on them.
  */
 
-import type { NotificationInput } from "@/contracts/notifications";
+import type { NotificationInput } from "@ros/contracts/notifications";
 
 /** Users holding `permission` at a branch (workspace role, restaurant grant or branch grant). */
 export async function usersWithPermissionAtBranch(

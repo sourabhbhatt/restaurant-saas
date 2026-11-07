@@ -4,8 +4,8 @@ import { ArrowLeft, BellRing, Clock, Receipt, RefreshCw, Utensils } from "lucide
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import type { BillListItemDto, SessionAwaitingBillDto } from "@/contracts/billing-extra";
-import type { PaymentMethod } from "@/domain/billing/payments";
+import type { BillListItemDto, SessionAwaitingBillDto } from "@ros/contracts/billing-extra";
+import type { PaymentMethod } from "@ros/domain/billing/payments";
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

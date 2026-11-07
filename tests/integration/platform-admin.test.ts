@@ -1,5 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
-import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
+import { DEFAULT_PLATFORM_SETTINGS } from "@ros/domain/platform/settings";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { GET as getAnnouncements } from "@/app/api/v1/admin/announcements/route";
@@ -24,7 +24,7 @@ import type {
   PlanInput,
   PublicAnnouncementDto,
   PublicPlanDto,
-} from "@/contracts/platform";
+} from "@ros/contracts/platform";
 import { auditLogs } from "@/infrastructure/database/providers/postgres/schema";
 import type { Container } from "@/server/container";
 import { createWorkspaceAs, signUpUser, type TestUser } from "@/test/fixtures";

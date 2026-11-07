@@ -1,4 +1,4 @@
-import type { Entitlements } from "@/domain/subscriptions/entitlements";
+import type { Entitlements } from "@ros/domain/subscriptions/entitlements";
 
 export interface StructureBranchDto {
   id: string;

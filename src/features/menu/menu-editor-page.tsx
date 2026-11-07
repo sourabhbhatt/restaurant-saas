@@ -53,9 +53,9 @@ import {
   type MenuCategoryDto,
   type MenuItemDto,
   type MenuTreeDto,
-} from "@/contracts/menu";
-import { DIETARY_TYPES, startingPrice, type PricedItem } from "@/domain/menu/pricing";
-import { formatMoney } from "@/domain/shared/money";
+} from "@ros/contracts/menu";
+import { DIETARY_TYPES, startingPrice, type PricedItem } from "@ros/domain/menu/pricing";
+import { formatMoney } from "@ros/domain/shared/money";
 import { errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { permissionChecker, useBranchContext } from "@/features/session/queries";

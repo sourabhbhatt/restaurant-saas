@@ -26,8 +26,8 @@ import type {
   MenuItemDto,
   MenuTreeDto,
   UploadResultDto,
-} from "@/contracts/menu";
-import { priceSelection } from "@/domain/menu/pricing";
+} from "@ros/contracts/menu";
+import { priceSelection } from "@ros/domain/menu/pricing";
 import { loadBranchMenu } from "@/infrastructure/database/providers/postgres/repositories/menu";
 import {
   addonGroups,

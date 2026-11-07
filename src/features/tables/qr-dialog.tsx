@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import type { TableDto } from "@/contracts/tables";
+import type { TableDto } from "@ros/contracts/tables";
 import { ApiError, errorMessage } from "@/lib/api-client";
 
 import { downloadPng, downloadSvg, safeFilename, svgDataUrl } from "./qr-download";

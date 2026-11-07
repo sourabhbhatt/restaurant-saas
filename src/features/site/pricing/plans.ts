@@ -9,8 +9,8 @@ import {
   LIMIT_KEYS,
   type FeatureKey,
   type LimitKey,
-} from "@/domain/subscriptions/entitlements";
-import { isCurrencyCode, toMajor } from "@/domain/shared/money";
+} from "@ros/domain/subscriptions/entitlements";
+import { isCurrencyCode, toMajor } from "@ros/domain/shared/money";
 import { api, ApiError } from "@/lib/api-client";
 
 /**

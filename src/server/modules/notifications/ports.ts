@@ -1,5 +1,5 @@
-import type { NotificationPreferenceDto } from "@/contracts/notifications-api";
-import type { NotificationDto, NotificationType } from "@/contracts/notifications";
+import type { NotificationPreferenceDto } from "@ros/contracts/notifications-api";
+import type { NotificationDto, NotificationType } from "@ros/contracts/notifications";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
 /** Keyset position for paging (newest first). */

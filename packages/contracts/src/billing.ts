@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-import { DISCOUNT_TYPES } from "@/domain/billing/bill-calculator";
+import { DISCOUNT_TYPES } from "@ros/domain/billing/bill-calculator";
 import {
   PAYMENT_METHODS,
   type BillStatus,
   type PaymentMethod,
   type PaymentStatus,
-} from "@/domain/billing/payments";
+} from "@ros/domain/billing/payments";
 
 /** Billing API contract (waiter bill generation, cashier, customer bill view). */
 

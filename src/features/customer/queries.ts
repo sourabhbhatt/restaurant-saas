@@ -9,8 +9,8 @@ import type {
   GuestSessionDto,
   JoinSessionDto,
   PublicQrDto,
-} from "@/contracts/ordering";
-import type { PlaceOrderInput } from "@/contracts/orders";
+} from "@ros/contracts/ordering";
+import type { PlaceOrderInput } from "@ros/contracts/orders";
 import { api, ApiError } from "@/lib/api-client";
 
 import { customerDb } from "./local-db";

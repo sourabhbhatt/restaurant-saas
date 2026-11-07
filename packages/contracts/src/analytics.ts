@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { daysInclusive, MAX_RANGE_DAYS } from "@/domain/analytics/date-range";
-import type { SubscriptionPhase } from "@/domain/subscriptions/entitlements";
+import { daysInclusive, MAX_RANGE_DAYS } from "@ros/domain/analytics/date-range";
+import type { SubscriptionPhase } from "@ros/domain/subscriptions/entitlements";
 
 /**
  * Analytics API contracts.

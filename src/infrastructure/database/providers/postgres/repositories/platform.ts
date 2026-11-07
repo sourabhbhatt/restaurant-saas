@@ -24,7 +24,7 @@ import type {
   SupportCategory,
   SupportNoteDto,
   SupportRequestDto,
-} from "@/contracts/platform";
+} from "@ros/contracts/platform";
 import type {
   AdminWorkspaceBaseRow,
   PlatformRepository,

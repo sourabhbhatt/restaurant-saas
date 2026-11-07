@@ -50,16 +50,16 @@ import {
   type CreateItemInput,
   type MenuCategoryDto,
   type MenuItemDto,
-} from "@/contracts/menu";
+} from "@ros/contracts/menu";
 import {
   ALLERGENS,
   DIETARY_TYPES,
   priceSelection,
   startingPrice,
   type PricedItem,
-} from "@/domain/menu/pricing";
-import { DomainError } from "@/domain/shared/errors";
-import { formatMoney } from "@/domain/shared/money";
+} from "@ros/domain/menu/pricing";
+import { DomainError } from "@ros/domain/shared/errors";
+import { formatMoney } from "@ros/domain/shared/money";
 import { ApiError, applyFieldErrors, errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 

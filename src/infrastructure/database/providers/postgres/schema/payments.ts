@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { check, index, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
-import type { BillingCycle } from "@/domain/subscriptions/entitlements";
+import type { BillingCycle } from "@ros/domain/subscriptions/entitlements";
 
 import { id, money, timestamps, tstz } from "./_helpers";
 import { users } from "./identity";

@@ -21,9 +21,9 @@ import { EmptyState, ErrorState, PageSkeleton, StatusBadge } from "@/components/
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { BranchContextDto } from "@/contracts/structure";
-import type { OrderDto } from "@/contracts/orders";
-import { formatMoney } from "@/domain/shared/money";
+import type { BranchContextDto } from "@ros/contracts/structure";
+import type { OrderDto } from "@ros/contracts/orders";
+import { formatMoney } from "@ros/domain/shared/money";
 import { errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { OrderDetailSheet } from "@/features/orders/order-detail-sheet";

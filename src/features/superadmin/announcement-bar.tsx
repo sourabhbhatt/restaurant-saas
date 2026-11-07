@@ -4,7 +4,7 @@ import { Info, Megaphone, TriangleAlert, X } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { AnnouncementLevel } from "@/contracts/platform";
+import type { AnnouncementLevel } from "@ros/contracts/platform";
 import { cn } from "@/lib/utils";
 
 import { usePublicAnnouncements } from "./queries";

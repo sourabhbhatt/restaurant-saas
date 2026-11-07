@@ -2,11 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { BillDto } from "@/contracts/billing";
-import type { BillPreviewDto } from "@/contracts/billing-extra";
-import type { BranchMenu } from "@/contracts/menu";
-import type { OrderDto } from "@/contracts/orders";
-import type { BranchSessionsDto, SessionDetailDto } from "@/contracts/staff-ops";
+import type { BillDto } from "@ros/contracts/billing";
+import type { BillPreviewDto } from "@ros/contracts/billing-extra";
+import type { BranchMenu } from "@ros/contracts/menu";
+import type { OrderDto } from "@ros/contracts/orders";
+import type { BranchSessionsDto, SessionDetailDto } from "@ros/contracts/staff-ops";
 import { api, ApiError } from "@/lib/api-client";
 import { staffOpsKeys } from "@/features/orders/keys";
 

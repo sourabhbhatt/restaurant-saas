@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { BillItemDto, BillTotalsDto } from "@/contracts/billing";
+import type { BillItemDto, BillTotalsDto } from "@ros/contracts/billing";
 import { cn } from "@/lib/utils";
 
 import { bpsLabel, money } from "../format";

@@ -6,7 +6,7 @@ import { ArrowRightIcon, UserCheckIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import type { MeResponse } from "@/contracts/auth";
+import type { MeResponse } from "@ros/contracts/auth";
 import { useSignOut } from "@/features/session/queries";
 
 import { AuthCard } from "./auth-card";

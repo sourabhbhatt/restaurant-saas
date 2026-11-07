@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { signUpSchema } from "@/contracts/auth";
+import { signUpSchema } from "@ros/contracts/auth";
 import { BRAND } from "@/features/site/brand";
 import { useMe } from "@/features/session/queries";
 import { api, ApiError, applyFieldErrors, errorMessage } from "@/lib/api-client";

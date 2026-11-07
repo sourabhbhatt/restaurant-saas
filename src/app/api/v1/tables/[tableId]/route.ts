@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { updateTableSchema } from "@/contracts/tables";
+import { updateTableSchema } from "@ros/contracts/tables";
 import { tableService } from "@/server/composition/tables";
 import { route } from "@/server/http/route";
 

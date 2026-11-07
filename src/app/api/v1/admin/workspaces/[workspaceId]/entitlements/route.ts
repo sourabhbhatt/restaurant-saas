@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { deleteOverrideQuerySchema, entitlementOverrideSchema } from "@/contracts/platform";
+import { deleteOverrideQuerySchema, entitlementOverrideSchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

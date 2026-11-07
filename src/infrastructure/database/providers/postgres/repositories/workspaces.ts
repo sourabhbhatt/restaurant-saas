@@ -1,6 +1,6 @@
 import { and, count, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
-import type { WorkspaceDto } from "@/contracts/workspaces";
+import type { WorkspaceDto } from "@ros/contracts/workspaces";
 import type { WorkspaceRepository } from "@/server/modules/workspaces/ports";
 
 import type { Executor } from "../client";

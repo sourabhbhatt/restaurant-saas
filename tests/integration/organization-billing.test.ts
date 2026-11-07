@@ -6,9 +6,9 @@ import { GET as getAdminWorkspace } from "@/app/api/v1/admin/workspaces/[workspa
 import { POST as activate } from "@/app/api/v1/admin/workspaces/[workspaceId]/subscription/activate/route";
 import { POST as extendTrial } from "@/app/api/v1/admin/workspaces/[workspaceId]/subscription/extend-trial/route";
 import { GET as getEntitlements } from "@/app/api/v1/workspaces/[workspaceId]/entitlements/route";
-import type { AdminWorkspaceDetailDto } from "@/contracts/platform";
-import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
-import type { Entitlements } from "@/domain/subscriptions/entitlements";
+import type { AdminWorkspaceDetailDto } from "@ros/contracts/platform";
+import { DEFAULT_PLATFORM_SETTINGS } from "@ros/domain/platform/settings";
+import type { Entitlements } from "@ros/domain/subscriptions/entitlements";
 import {
   auditLogs,
   organizationMembers,

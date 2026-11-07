@@ -11,7 +11,7 @@ import {
   daysInclusive,
   localDate,
   MAX_RANGE_DAYS,
-} from "@/domain/analytics/date-range";
+} from "@ros/domain/analytics/date-range";
 import { cn } from "@/lib/utils";
 
 import { formatRange } from "./format";

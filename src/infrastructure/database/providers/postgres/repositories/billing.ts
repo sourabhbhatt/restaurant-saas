@@ -1,22 +1,22 @@
 import { and, asc, desc, eq, gte, inArray, lt, ne, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
-import type { BillDto, BillItemDto, PaymentDto } from "@/contracts/billing";
-import type { BillListItemDto, SessionAwaitingBillDto } from "@/contracts/billing-extra";
+import type { BillDto, BillItemDto, PaymentDto } from "@ros/contracts/billing";
+import type { BillListItemDto, SessionAwaitingBillDto } from "@ros/contracts/billing-extra";
 import {
   buildBillLines,
   countSessionOrders,
   type SnapshotOrder,
-} from "@/domain/billing/bill-lines";
+} from "@ros/domain/billing/bill-lines";
 import {
   PAYMENT_METHODS,
   type BillStatus,
   type PaymentKind,
   type PaymentMethod,
   type PaymentStatus,
-} from "@/domain/billing/payments";
-import type { OrderStatus } from "@/domain/orders/order-status";
-import { sum } from "@/domain/shared/money";
+} from "@ros/domain/billing/payments";
+import type { OrderStatus } from "@ros/domain/orders/order-status";
+import { sum } from "@ros/domain/shared/money";
 import type {
   BillingRepository,
   BillRecord,

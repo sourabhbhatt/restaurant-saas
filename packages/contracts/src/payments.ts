@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { BILLING_CYCLES, type BillingCycle } from "@/domain/subscriptions/entitlements";
+import { BILLING_CYCLES, type BillingCycle } from "@ros/domain/subscriptions/entitlements";
 
 export const PAYMENT_ORDER_STATUSES = ["CREATED", "PAID", "FAILED", "EXPIRED"] as const;
 export type PaymentOrderStatus = (typeof PAYMENT_ORDER_STATUSES)[number];

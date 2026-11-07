@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { orderPrioritySchema } from "@/contracts/orders";
+import { orderPrioritySchema } from "@ros/contracts/orders";
 import { staffOpsService } from "@/server/composition/staff-ops";
 import { route } from "@/server/http/route";
 

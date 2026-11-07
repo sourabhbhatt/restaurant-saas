@@ -1,5 +1,5 @@
-import { mergePlatformSettings, type PlatformSettings } from "@/domain/platform/settings";
-import { notFound } from "@/domain/shared/errors";
+import { mergePlatformSettings, type PlatformSettings } from "@ros/domain/platform/settings";
+import { notFound } from "@ros/domain/shared/errors";
 import {
   assertFeature,
   assertOperationAllowed,
@@ -9,11 +9,11 @@ import {
   type FeatureKey,
   type LimitKey,
   type OperationKind,
-} from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/subscriptions/entitlements";
 import {
   effectiveMaxWorkspaces,
   type WorkspaceLimitInput,
-} from "@/domain/subscriptions/workspace-limit";
+} from "@ros/domain/subscriptions/workspace-limit";
 
 import type {
   EntitlementRepository,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { createRoleSchema } from "@/contracts/tenancy";
+import { createRoleSchema } from "@ros/contracts/tenancy";
 import { tenancyService } from "@/server/composition/tenancy";
 import { route } from "@/server/http/route";
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import type { AdminRestaurantMenuDto } from "@/contracts/menu";
-import { notFound } from "@/domain/shared/errors";
+import type { AdminRestaurantMenuDto } from "@ros/contracts/menu";
+import { notFound } from "@ros/domain/shared/errors";
 import { menuService } from "@/server/composition/menu";
 import { bindWorkspace } from "@/server/db-context";
 import { route } from "@/server/http/route";

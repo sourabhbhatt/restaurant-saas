@@ -30,12 +30,12 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import type { BranchMenuItem } from "@/contracts/menu";
-import { staffPlaceOrderSchema } from "@/contracts/orders";
-import { ORDER_PRIORITIES } from "@/domain/orders/order-status";
-import { effectiveItemPrice, priceSelection } from "@/domain/menu/pricing";
-import { DomainError } from "@/domain/shared/errors";
-import { formatMoney } from "@/domain/shared/money";
+import type { BranchMenuItem } from "@ros/contracts/menu";
+import { staffPlaceOrderSchema } from "@ros/contracts/orders";
+import { ORDER_PRIORITIES } from "@ros/domain/orders/order-status";
+import { effectiveItemPrice, priceSelection } from "@ros/domain/menu/pricing";
+import { DomainError } from "@ros/domain/shared/errors";
+import { formatMoney } from "@ros/domain/shared/money";
 import { ApiError, applyFieldErrors, errorMessage, newIdempotencyKey } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import {

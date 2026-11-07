@@ -1,13 +1,13 @@
-import { operationKindFor } from "@/domain/access/operation-kinds";
+import { operationKindFor } from "@ros/domain/access/operation-kinds";
 import {
   effectivePermissions,
   hasPermission,
   isPermission,
   type AccessGrants,
   type Permission,
-} from "@/domain/access/permissions";
-import { DomainError, forbidden, notFound } from "@/domain/shared/errors";
-import { assertOperationAllowed, type Entitlements } from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/access/permissions";
+import { DomainError, forbidden, notFound } from "@ros/domain/shared/errors";
+import { assertOperationAllowed, type Entitlements } from "@ros/domain/subscriptions/entitlements";
 
 import type { UserActor } from "../context";
 import { bindWorkspace } from "../db-context";

@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
 
-import { addDaysIso } from "@/domain/analytics/date-range";
+import { addDaysIso } from "@ros/domain/analytics/date-range";
 import type {
   AnalyticsBranch,
   AnalyticsRepository,

@@ -24,8 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AdminRestaurantMenuDto, MenuItemDto } from "@/contracts/menu";
-import { formatMoney } from "@/domain/shared/money";
+import type { AdminRestaurantMenuDto, MenuItemDto } from "@ros/contracts/menu";
+import { formatMoney } from "@ros/domain/shared/money";
 import { api, errorMessage } from "@/lib/api-client";
 
 const DOT = {

@@ -3,9 +3,9 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { POST as runJob } from "@/app/api/v1/jobs/subscriptions/route";
 import { GET as getEntitlements } from "@/app/api/v1/workspaces/[workspaceId]/entitlements/route";
-import type { SubscriptionSweepResult } from "@/contracts/platform";
-import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
-import type { Entitlements } from "@/domain/subscriptions/entitlements";
+import type { SubscriptionSweepResult } from "@ros/contracts/platform";
+import { DEFAULT_PLATFORM_SETTINGS } from "@ros/domain/platform/settings";
+import type { Entitlements } from "@ros/domain/subscriptions/entitlements";
 import {
   connectPglite,
   runMigrations,

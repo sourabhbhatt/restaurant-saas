@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { staffOrderListQuerySchema } from "@/contracts/staff-ops";
+import { staffOrderListQuerySchema } from "@ros/contracts/staff-ops";
 import { staffOpsService } from "@/server/composition/staff-ops";
 import { route } from "@/server/http/route";
 

@@ -10,7 +10,7 @@ import type {
   FeatureKey,
   SubscriptionRecord,
   WorkspaceStatus,
-} from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/subscriptions/entitlements";
 
 export interface UserRecord {
   id: string;

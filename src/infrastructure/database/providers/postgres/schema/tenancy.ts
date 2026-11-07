@@ -12,9 +12,9 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import type { OnboardingProgress } from "@/contracts/workspaces";
-import type { RoleScope } from "@/domain/access/permissions";
-import type { WorkspaceStatus } from "@/domain/subscriptions/entitlements";
+import type { OnboardingProgress } from "@ros/contracts/workspaces";
+import type { RoleScope } from "@ros/domain/access/permissions";
+import type { WorkspaceStatus } from "@ros/domain/subscriptions/entitlements";
 
 import { id, softDelete, timestamps, tstz, version } from "./_helpers";
 import { users } from "./identity";

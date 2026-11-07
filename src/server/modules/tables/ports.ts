@@ -1,4 +1,4 @@
-import type { SessionStatus } from "@/domain/tables/table-status";
+import type { SessionStatus } from "@ros/domain/tables/table-status";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
 export interface BranchTenant {

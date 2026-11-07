@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { SessionStatus, TableStatus } from "@/domain/tables/table-status";
+import type { SessionStatus, TableStatus } from "@ros/domain/tables/table-status";
 
 export const MAX_BULK_TABLES = 100;
 

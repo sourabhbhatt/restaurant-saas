@@ -11,8 +11,8 @@ import type {
   RestaurantDto,
   RoleDto,
   StaffAssignmentDto,
-} from "@/contracts/tenancy";
-import { isPermission } from "@/domain/access/permissions";
+} from "@ros/contracts/tenancy";
+import { isPermission } from "@ros/domain/access/permissions";
 import type {
   InvitationRecord,
   RoleRecord,

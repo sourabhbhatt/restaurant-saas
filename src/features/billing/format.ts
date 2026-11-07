@@ -1,6 +1,6 @@
 import type { StatusTone } from "@/components/shared/feedback";
-import type { BillStatus, PaymentMethod, PaymentStatus } from "@/domain/billing/payments";
-import { formatMoney } from "@/domain/shared/money";
+import type { BillStatus, PaymentMethod, PaymentStatus } from "@ros/domain/billing/payments";
+import { formatMoney } from "@ros/domain/shared/money";
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   UNPAID: "Unpaid",

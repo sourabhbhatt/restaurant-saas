@@ -44,7 +44,7 @@ import {
   SUPPORT_STATUSES,
   type CreateSupportRequestInput,
   type SupportStatus,
-} from "@/contracts/platform";
+} from "@ros/contracts/platform";
 import { formatDateTime } from "@/features/subscriptions/subscription-ui";
 import { applyFieldErrors, errorMessage } from "@/lib/api-client";
 

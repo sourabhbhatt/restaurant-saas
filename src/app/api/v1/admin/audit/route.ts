@@ -1,4 +1,4 @@
-import { adminAuditQuerySchema } from "@/contracts/platform";
+import { adminAuditQuerySchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

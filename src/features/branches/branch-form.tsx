@@ -17,8 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { createBranchSchema, type CreateBranchInput } from "@/contracts/tenancy";
-import { SUPPORTED_CURRENCIES } from "@/domain/shared/money";
+import { createBranchSchema, type CreateBranchInput } from "@ros/contracts/tenancy";
+import { SUPPORTED_CURRENCIES } from "@ros/domain/shared/money";
 import { applyFieldErrors, errorMessage } from "@/lib/api-client";
 
 import { BusinessHoursEditor, normaliseHours } from "./business-hours-editor";

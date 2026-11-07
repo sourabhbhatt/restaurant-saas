@@ -2,7 +2,7 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
-import type { AuditLogDto, Paginated } from "@/contracts/platform";
+import type { AuditLogDto, Paginated } from "@ros/contracts/platform";
 import { api } from "@/lib/api-client";
 
 export interface AuditFilters {

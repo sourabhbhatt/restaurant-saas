@@ -17,8 +17,8 @@ import type {
   MarkNotificationsReadResult,
   NotificationListDto,
   NotificationPreferenceDto,
-} from "@/contracts/notifications-api";
-import { NOTIFICATION_TYPES } from "@/contracts/notifications";
+} from "@ros/contracts/notifications-api";
+import { NOTIFICATION_TYPES } from "@ros/contracts/notifications";
 import { notifyUsers } from "@/infrastructure/database/providers/postgres/repositories/notifications";
 import {
   pushSubscriptions,

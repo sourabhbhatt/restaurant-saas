@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { subscriptionReasonSchema } from "@/contracts/platform";
+import { subscriptionReasonSchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

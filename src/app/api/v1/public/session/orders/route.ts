@@ -1,4 +1,4 @@
-import { placeOrderSchema } from "@/contracts/orders";
+import { placeOrderSchema } from "@ros/contracts/orders";
 import { orderingService } from "@/server/composition/ordering";
 import { readGuestToken } from "@/server/modules/ordering/http/guest-cookie";
 import { route } from "@/server/http/route";

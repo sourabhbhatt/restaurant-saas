@@ -1,10 +1,10 @@
 import type { StatusTone } from "@/components/shared/feedback";
-import { formatMoney } from "@/domain/shared/money";
+import { formatMoney } from "@ros/domain/shared/money";
 import {
   limitLabel,
   type LimitKey,
   type SubscriptionPhase,
-} from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/subscriptions/entitlements";
 
 /** Display helpers shared by the subscription, upgrade and Super Admin screens. */
 

@@ -16,8 +16,8 @@ import {
 import { FormField } from "@/components/ui/form-field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { orderTransitionSchema } from "@/contracts/orders";
-import { PRESET_REJECTION_REASONS } from "@/contracts/staff-ops";
+import { orderTransitionSchema } from "@ros/contracts/orders";
+import { PRESET_REJECTION_REASONS } from "@ros/contracts/staff-ops";
 import { cn } from "@/lib/utils";
 
 const reasonSchema = z.object({

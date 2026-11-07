@@ -1,4 +1,4 @@
-import type { OnboardingProgress, WorkspaceDto } from "@/contracts/workspaces";
+import type { OnboardingProgress, WorkspaceDto } from "@ros/contracts/workspaces";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
 export type { OnboardingProgress };

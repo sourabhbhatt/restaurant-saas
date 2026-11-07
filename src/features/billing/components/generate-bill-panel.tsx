@@ -8,9 +8,9 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { billDiscountSchema, type BillDto } from "@/contracts/billing";
-import type { BillPreviewDto } from "@/contracts/billing-extra";
-import type { BillDiscount } from "@/domain/billing/bill-calculator";
+import { billDiscountSchema, type BillDto } from "@ros/contracts/billing";
+import type { BillPreviewDto } from "@ros/contracts/billing-extra";
+import type { BillDiscount } from "@ros/domain/billing/bill-calculator";
 import { ErrorState, LoadingState } from "@/components/shared/feedback";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

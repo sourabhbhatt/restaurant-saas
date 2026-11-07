@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
+import { DEFAULT_PLATFORM_SETTINGS } from "@ros/domain/platform/settings";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { GET as adminSupportList } from "@/app/api/v1/admin/support/route";
@@ -24,7 +24,7 @@ import type {
   SupportRequestDetailDto,
   SupportRequestDto,
   TestClockDto,
-} from "@/contracts/platform";
+} from "@ros/contracts/platform";
 import {
   emailOutbox,
   notifications,

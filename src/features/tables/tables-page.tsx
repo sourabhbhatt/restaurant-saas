@@ -44,8 +44,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Toaster } from "@/components/ui/sonner";
-import type { TableDto } from "@/contracts/tables";
-import { TABLE_STATUSES, type TableStatus } from "@/domain/tables/table-status";
+import type { TableDto } from "@ros/contracts/tables";
+import { TABLE_STATUSES, type TableStatus } from "@ros/domain/tables/table-status";
 import { errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { permissionChecker, useBranchContext } from "@/features/session/queries";

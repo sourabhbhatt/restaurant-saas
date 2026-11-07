@@ -1,6 +1,6 @@
 import { desc } from "drizzle-orm";
 
-import type { DevMailboxEmailDto } from "@/contracts/dev-mailbox";
+import type { DevMailboxEmailDto } from "@ros/contracts/dev-mailbox";
 
 import type { Executor } from "../client";
 import { emailOutbox } from "../schema";

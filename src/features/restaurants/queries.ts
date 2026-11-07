@@ -14,7 +14,7 @@ import type {
   RestaurantListItemDto,
   updateBranchSchema,
   updateRestaurantSchema,
-} from "@/contracts/tenancy";
+} from "@ros/contracts/tenancy";
 import { api } from "@/lib/api-client";
 import { sessionKeys } from "@/features/session/queries";
 

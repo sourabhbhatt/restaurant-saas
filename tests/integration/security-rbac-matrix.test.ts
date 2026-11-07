@@ -19,7 +19,7 @@ import {
   type Permission,
   type RoleTemplate,
   type RoleTemplateKey,
-} from "@/domain/access/permissions";
+} from "@ros/domain/access/permissions";
 import {
   bills,
   payments,

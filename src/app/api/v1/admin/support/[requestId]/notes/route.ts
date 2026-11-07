@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { supportNoteSchema } from "@/contracts/platform";
+import { supportNoteSchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

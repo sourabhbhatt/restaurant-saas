@@ -13,10 +13,10 @@ import type {
   PlanInput,
   PlatformSettings,
   PublicAnnouncementDto,
-} from "@/contracts/platform";
-import type { UpgradeRequestDetailDto, UpgradeRequestListDto } from "@/contracts/upgrades";
-import type { SubscriptionPhase } from "@/domain/subscriptions/entitlements";
-import type { UpgradeStatus } from "@/domain/subscriptions/upgrade-request";
+} from "@ros/contracts/platform";
+import type { UpgradeRequestDetailDto, UpgradeRequestListDto } from "@ros/contracts/upgrades";
+import type { SubscriptionPhase } from "@ros/domain/subscriptions/entitlements";
+import type { UpgradeStatus } from "@ros/domain/subscriptions/upgrade-request";
 import { api } from "@/lib/api-client";
 
 export const adminKeys = {

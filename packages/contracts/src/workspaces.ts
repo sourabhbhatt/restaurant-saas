@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { SUPPORTED_CURRENCIES } from "@/domain/shared/money";
+import { SUPPORTED_CURRENCIES } from "@ros/domain/shared/money";
 
 export const ONBOARDING_STEPS = [
   "business",

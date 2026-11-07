@@ -6,7 +6,7 @@ import {
   type Allergen,
   type DietaryType,
   type PricedItem,
-} from "@/domain/menu/pricing";
+} from "@ros/domain/menu/pricing";
 
 /**
  * Menu contracts shared by the API handlers and the menu editor UI.

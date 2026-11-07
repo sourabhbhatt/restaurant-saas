@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { MAX_UPLOAD_BYTES, UPLOAD_CONTENT_TYPES, type UploadPurpose } from "@/contracts/menu";
+import { MAX_UPLOAD_BYTES, UPLOAD_CONTENT_TYPES, type UploadPurpose } from "@ros/contracts/menu";
 import { errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 

@@ -1,4 +1,4 @@
-import type { OrderDto, OrderItemDto } from "@/contracts/orders";
+import type { OrderDto, OrderItemDto } from "@ros/contracts/orders";
 import { staffOpsKeys } from "@/features/orders/keys";
 
 import type { OutboxItem } from "./db";

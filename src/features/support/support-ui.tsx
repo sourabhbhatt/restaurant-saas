@@ -4,7 +4,7 @@ import {
   type SupportCategory,
   type SupportPriority,
   type SupportStatus,
-} from "@/contracts/platform";
+} from "@ros/contracts/platform";
 
 export const SUPPORT_STATUS_LABEL: Record<SupportStatus, string> = {
   OPEN: "Open",

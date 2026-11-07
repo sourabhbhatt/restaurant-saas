@@ -1,4 +1,4 @@
-import { updateNotificationPreferencesSchema } from "@/contracts/notifications-api";
+import { updateNotificationPreferencesSchema } from "@ros/contracts/notifications-api";
 import { notificationService } from "@/server/composition/notifications";
 import { route } from "@/server/http/route";
 

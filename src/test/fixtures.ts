@@ -1,5 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
-import type { RoleTemplateKey } from "@/domain/access/permissions";
+import type { RoleTemplateKey } from "@ros/domain/access/permissions";
 import {
   branchSettings,
   branches,

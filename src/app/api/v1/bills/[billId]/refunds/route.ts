@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { refundSchema } from "@/contracts/billing";
+import { refundSchema } from "@ros/contracts/billing";
 import { billingService, scopeForBill } from "@/server/composition/billing";
 import { route } from "@/server/http/route";
 

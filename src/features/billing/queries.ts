@@ -2,7 +2,7 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { BillDto, PaymentSummaryDto } from "@/contracts/billing";
+import type { BillDto, PaymentSummaryDto } from "@ros/contracts/billing";
 import type {
   BillListResponse,
   BillPreviewDto,
@@ -10,9 +10,9 @@ import type {
   PaymentResultDto,
   ReceiptDto,
   SessionCloseResultDto,
-} from "@/contracts/billing-extra";
-import type { BillDiscount } from "@/domain/billing/bill-calculator";
-import type { PaymentMethod, PaymentStatus } from "@/domain/billing/payments";
+} from "@ros/contracts/billing-extra";
+import type { BillDiscount } from "@ros/domain/billing/bill-calculator";
+import type { PaymentMethod, PaymentStatus } from "@ros/domain/billing/payments";
 import { api, ApiError } from "@/lib/api-client";
 
 export const billingKeys = {

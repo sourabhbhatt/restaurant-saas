@@ -1,4 +1,4 @@
-import type { SyncPingDto } from "@/contracts/notifications-api";
+import type { SyncPingDto } from "@ros/contracts/notifications-api";
 import { route } from "@/server/http/route";
 
 /**

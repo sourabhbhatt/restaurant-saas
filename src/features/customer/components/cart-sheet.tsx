@@ -4,8 +4,8 @@ import { RefreshCwIcon, ShoppingBagIcon, WifiOffIcon } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 
-import type { GuestOrderViewDto } from "@/contracts/ordering";
-import { formatMoney } from "@/domain/shared/money";
+import type { GuestOrderViewDto } from "@ros/contracts/ordering";
+import { formatMoney } from "@ros/domain/shared/money";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {

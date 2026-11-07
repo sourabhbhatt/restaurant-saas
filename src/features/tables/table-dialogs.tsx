@@ -24,7 +24,7 @@ import {
   createTableSchema,
   MAX_BULK_TABLES,
   type TableDto,
-} from "@/contracts/tables";
+} from "@ros/contracts/tables";
 import { applyFieldErrors, errorMessage } from "@/lib/api-client";
 
 import { useBulkCreateTables, useCreateTable, useUpdateTable } from "./queries";

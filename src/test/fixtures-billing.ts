@@ -4,7 +4,7 @@
  */
 import { eq } from "drizzle-orm";
 
-import type { OrderStatus } from "@/domain/orders/order-status";
+import type { OrderStatus } from "@ros/domain/orders/order-status";
 import {
   branchSettings,
   diningTables,

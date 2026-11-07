@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { WorkspaceStructureDto } from "@/contracts/structure";
+import type { WorkspaceStructureDto } from "@ros/contracts/structure";
 import { route } from "@/server/http/route";
 
 export const GET = route(

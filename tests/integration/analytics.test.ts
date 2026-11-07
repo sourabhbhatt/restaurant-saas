@@ -10,7 +10,7 @@ import type {
   BranchAnalyticsDto,
   BranchLiveDto,
   WorkspaceAnalyticsDto,
-} from "@/contracts/analytics";
+} from "@ros/contracts/analytics";
 import {
   subscriptionEvents,
   subscriptionPlans,

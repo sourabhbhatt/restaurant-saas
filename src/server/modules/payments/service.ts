@@ -7,10 +7,10 @@ import type {
   PaymentOrderDto,
   VerifyCheckoutInput,
   WebhookResultDto,
-} from "@/contracts/payments";
-import { paidPeriodFor } from "@/domain/payments/period";
-import { DomainError, notFound } from "@/domain/shared/errors";
-import type { BillingCycle } from "@/domain/subscriptions/entitlements";
+} from "@ros/contracts/payments";
+import { paidPeriodFor } from "@ros/domain/payments/period";
+import { DomainError, notFound } from "@ros/domain/shared/errors";
+import type { BillingCycle } from "@ros/domain/subscriptions/entitlements";
 import type { TransactionRunner } from "@/infrastructure/database/interfaces/transaction";
 import type { PaymentGateway } from "@/server/ports/payment-gateway";
 

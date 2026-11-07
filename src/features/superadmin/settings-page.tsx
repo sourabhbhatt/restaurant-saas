@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import type { PlatformSettings } from "@/domain/platform/settings";
+import type { PlatformSettings } from "@ros/domain/platform/settings";
 import { errorMessage } from "@/lib/api-client";
 import { useAction } from "@/lib/use-action";
 

@@ -1,12 +1,12 @@
-import type { GuestBillDto } from "@/contracts/billing";
-import type { NotificationInput } from "@/contracts/notifications";
-import type { BranchMenu } from "@/contracts/menu";
-import type { GuestOrderViewDto } from "@/contracts/ordering";
-import type { OrderDto } from "@/contracts/orders";
-import type { Permission } from "@/domain/access/permissions";
-import type { OrderPriority, OrderStatus } from "@/domain/orders/order-status";
-import type { SnapshotLine } from "@/domain/orders/order-lines";
-import type { SessionStatus } from "@/domain/tables/table-status";
+import type { GuestBillDto } from "@ros/contracts/billing";
+import type { NotificationInput } from "@ros/contracts/notifications";
+import type { BranchMenu } from "@ros/contracts/menu";
+import type { GuestOrderViewDto } from "@ros/contracts/ordering";
+import type { OrderDto } from "@ros/contracts/orders";
+import type { Permission } from "@ros/domain/access/permissions";
+import type { OrderPriority, OrderStatus } from "@ros/domain/orders/order-status";
+import type { SnapshotLine } from "@ros/domain/orders/order-lines";
+import type { SessionStatus } from "@ros/domain/tables/table-status";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
 export interface BranchTarget {

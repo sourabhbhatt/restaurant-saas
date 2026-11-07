@@ -1,4 +1,4 @@
-import { planInputSchema } from "@/contracts/platform";
+import { planInputSchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

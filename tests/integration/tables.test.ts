@@ -17,7 +17,7 @@ import {
   GET as getTable,
   PATCH as patchTable,
 } from "@/app/api/v1/tables/[tableId]/route";
-import type { QrSheetDto, TableDto, TableQrDto } from "@/contracts/tables";
+import type { QrSheetDto, TableDto, TableQrDto } from "@ros/contracts/tables";
 import {
   auditLogs,
   tableQrTokens,

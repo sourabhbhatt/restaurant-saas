@@ -1,8 +1,8 @@
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 
-import { PERMISSIONS, ROLE_TEMPLATE_LIST } from "@/domain/access/permissions";
-import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
-import type { FeatureKey, PlanLimits } from "@/domain/subscriptions/entitlements";
+import { PERMISSIONS, ROLE_TEMPLATE_LIST } from "@ros/domain/access/permissions";
+import { DEFAULT_PLATFORM_SETTINGS } from "@ros/domain/platform/settings";
+import type { FeatureKey, PlanLimits } from "@ros/domain/subscriptions/entitlements";
 
 import type { Executor } from "./client";
 import { permissions, platformSettings, rolePermissions, roles, subscriptionPlans } from "./schema";

@@ -6,9 +6,9 @@ import {
   PERMISSIONS,
   type Permission,
   type RoleScope,
-} from "@/domain/access/permissions";
-import { PAYMENT_METHODS, type PaymentMethod } from "@/domain/billing/payments";
-import { MAX_BPS, SUPPORTED_CURRENCIES } from "@/domain/shared/money";
+} from "@ros/domain/access/permissions";
+import { PAYMENT_METHODS, type PaymentMethod } from "@ros/domain/billing/payments";
+import { MAX_BPS, SUPPORTED_CURRENCIES } from "@ros/domain/shared/money";
 
 import { emailSchema } from "./auth";
 import { OBJECT_KEY } from "./menu";

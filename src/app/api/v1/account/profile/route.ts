@@ -1,4 +1,4 @@
-import { updateProfileSchema } from "@/contracts/auth";
+import { updateProfileSchema } from "@ros/contracts/auth";
 import { tenancyService } from "@/server/composition/tenancy";
 import { route } from "@/server/http/route";
 

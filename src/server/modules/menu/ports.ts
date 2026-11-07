@@ -1,5 +1,5 @@
-import type { BranchMenu, BranchOverrideDto, MenuCategoryDto, MenuItemDto } from "@/contracts/menu";
-import type { Allergen, DietaryType } from "@/domain/menu/pricing";
+import type { BranchMenu, BranchOverrideDto, MenuCategoryDto, MenuItemDto } from "@ros/contracts/menu";
+import type { Allergen, DietaryType } from "@ros/domain/menu/pricing";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
 export type { BranchMenu };

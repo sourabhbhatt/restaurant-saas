@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { updateWorkspaceSchema } from "@/contracts/workspaces";
+import { updateWorkspaceSchema } from "@ros/contracts/workspaces";
 import { workspaceService } from "@/server/composition/workspaces";
 import { route } from "@/server/http/route";
 

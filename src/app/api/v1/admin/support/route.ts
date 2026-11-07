@@ -1,4 +1,4 @@
-import { supportListQuerySchema } from "@/contracts/platform";
+import { supportListQuerySchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

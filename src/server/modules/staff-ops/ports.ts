@@ -1,14 +1,14 @@
-import type { NotificationInput } from "@/contracts/notifications";
-import type { OrderDto } from "@/contracts/orders";
+import type { NotificationInput } from "@ros/contracts/notifications";
+import type { OrderDto } from "@ros/contracts/orders";
 import type {
   BranchTableDto,
   KitchenOrderDto,
   SessionBillSummaryDto,
   StaffOrderListQuery,
   TableSessionSummaryDto,
-} from "@/contracts/staff-ops";
-import type { Permission } from "@/domain/access/permissions";
-import type { OrderItemStatus, OrderPriority, OrderStatus } from "@/domain/orders/order-status";
+} from "@ros/contracts/staff-ops";
+import type { Permission } from "@ros/domain/access/permissions";
+import type { OrderItemStatus, OrderPriority, OrderStatus } from "@ros/domain/orders/order-status";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
 /** Tenant filter taken from a server-resolved branch scope. */

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 
 import { EmptyState, ErrorState, StatCard } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
-import type { SalesDeltasDto, SalesKpisDto } from "@/contracts/analytics";
+import type { SalesDeltasDto, SalesKpisDto } from "@ros/contracts/analytics";
 import { ApiError, errorMessage } from "@/lib/api-client";
 
 import { deltaLabel, formatCount, formatMoney } from "./format";

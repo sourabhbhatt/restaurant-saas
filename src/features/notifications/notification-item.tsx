@@ -15,7 +15,7 @@ import {
 import type { ComponentType, SVGProps } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { NotificationDto, NotificationType } from "@/contracts/notifications";
+import type { NotificationDto, NotificationType } from "@ros/contracts/notifications";
 import { absoluteTime, relativeTime } from "@/features/offline/format-time";
 import { cn } from "@/lib/utils";
 

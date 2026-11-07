@@ -1,4 +1,4 @@
-import type { MeResponse } from "@/contracts/auth";
+import type { MeResponse } from "@ros/contracts/auth";
 import { route } from "@/server/http/route";
 
 export const GET = route({ auth: "user" }, async ({ actor, c }) => {

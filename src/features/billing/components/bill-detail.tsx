@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import type { BillDto } from "@/contracts/billing";
+import type { BillDto } from "@ros/contracts/billing";
 import { StatusBadge } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";

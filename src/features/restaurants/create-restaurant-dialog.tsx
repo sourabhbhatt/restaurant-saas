@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { RestaurantDto } from "@/contracts/tenancy";
+import type { RestaurantDto } from "@ros/contracts/tenancy";
 
 import { handlePlanError } from "./plan-error";
 import { useCreateRestaurant } from "./queries";

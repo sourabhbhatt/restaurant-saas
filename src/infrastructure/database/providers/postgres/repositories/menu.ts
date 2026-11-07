@@ -7,8 +7,8 @@ import type {
   BranchOverrideDto,
   MenuCategoryDto,
   VariantDto,
-} from "@/contracts/menu";
-import { DomainError } from "@/domain/shared/errors";
+} from "@ros/contracts/menu";
+import { DomainError } from "@ros/domain/shared/errors";
 import type {
   AddonGroupRecordInput,
   MenuItemRecord,

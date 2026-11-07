@@ -1,4 +1,4 @@
-import { markNotificationsReadSchema } from "@/contracts/notifications-api";
+import { markNotificationsReadSchema } from "@ros/contracts/notifications-api";
 import { notificationService } from "@/server/composition/notifications";
 import { route } from "@/server/http/route";
 

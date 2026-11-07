@@ -5,7 +5,7 @@ import {
   branchSettingsSchema,
   createInvitationSchema,
   createRoleSchema,
-} from "@/contracts/tenancy";
+} from "@ros/contracts/tenancy";
 
 import { baseBranchCode, customRoleKey, lastOwnerViolation, nextFreeBranchCode } from "./rules";
 

@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 
-import { NOTIFICATION_TYPES, type NotificationType } from "@/contracts/notifications";
+import { NOTIFICATION_TYPES, type NotificationType } from "@ros/contracts/notifications";
 import type { NotificationCenterRepository } from "@/server/modules/notifications/ports";
 
 import type { Executor } from "../client";

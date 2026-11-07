@@ -22,8 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SUBSCRIPTION_PHASES, type AdminWorkspaceRowDto } from "@/contracts/platform";
-import { WORKSPACE_STATUSES, type SubscriptionPhase } from "@/domain/subscriptions/entitlements";
+import { SUBSCRIPTION_PHASES, type AdminWorkspaceRowDto } from "@ros/contracts/platform";
+import { WORKSPACE_STATUSES, type SubscriptionPhase } from "@ros/domain/subscriptions/entitlements";
 import { formatDate, PHASE_LABEL, PHASE_TONE } from "@/features/subscriptions/subscription-ui";
 import { errorMessage } from "@/lib/api-client";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { PAYMENT_METHODS } from "@/domain/billing/payments";
+import { PAYMENT_METHODS } from "@ros/domain/billing/payments";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { errorMessage } from "@/lib/api-client";

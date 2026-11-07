@@ -11,7 +11,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { createRestaurantSchema, type CreateRestaurantInput } from "@/contracts/tenancy";
+import { createRestaurantSchema, type CreateRestaurantInput } from "@ros/contracts/tenancy";
 import { applyFieldErrors, errorMessage } from "@/lib/api-client";
 
 import { ImageUploadField } from "./image-upload-field";

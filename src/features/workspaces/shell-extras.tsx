@@ -1,6 +1,6 @@
 "use client";
 
-import type { Entitlements } from "@/domain/subscriptions/entitlements";
+import type { Entitlements } from "@ros/domain/subscriptions/entitlements";
 import { AnnouncementBar } from "@/features/superadmin/announcement-bar";
 import { NotificationBell } from "@/features/notifications/notification-bell";
 import { TrialBanner } from "@/features/subscriptions/trial-banner";

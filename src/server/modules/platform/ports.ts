@@ -13,15 +13,15 @@ import type {
   SupportPriority,
   SupportRequestDto,
   SupportStatus,
-} from "@/contracts/platform";
-import type { NotificationInput } from "@/contracts/notifications";
+} from "@ros/contracts/platform";
+import type { NotificationInput } from "@ros/contracts/notifications";
 import type {
   BillingCycle,
   FeatureKey,
   PlanLimits,
   SubscriptionStatus,
   WorkspaceStatus,
-} from "@/domain/subscriptions/entitlements";
+} from "@ros/domain/subscriptions/entitlements";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
 /** Current subscription with its plan, dates as Date. */

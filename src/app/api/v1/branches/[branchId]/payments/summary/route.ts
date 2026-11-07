@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { paymentSummaryQuerySchema } from "@/contracts/billing-extra";
+import { paymentSummaryQuerySchema } from "@ros/contracts/billing-extra";
 import { billingService } from "@/server/composition/billing";
 import { route } from "@/server/http/route";
 

@@ -1,4 +1,4 @@
-import type { BillDto, BillTotalsDto, PaymentSummaryDto } from "@/contracts/billing";
+import type { BillDto, BillTotalsDto, PaymentSummaryDto } from "@ros/contracts/billing";
 import type {
   BillListQuery,
   BillListResponse,
@@ -7,15 +7,15 @@ import type {
   PaymentResultDto,
   ReceiptDto,
   SessionCloseResultDto,
-} from "@/contracts/billing-extra";
-import { calculateBill, type BillDiscount } from "@/domain/billing/bill-calculator";
+} from "@ros/contracts/billing-extra";
+import { calculateBill, type BillDiscount } from "@ros/domain/billing/bill-calculator";
 import {
   billWarnings,
   buildBillLines,
   countSessionOrders,
   type BillLine,
-} from "@/domain/billing/bill-lines";
-import { localDayRange } from "@/domain/billing/local-dates";
+} from "@ros/domain/billing/bill-lines";
+import { localDayRange } from "@ros/domain/billing/local-dates";
 import {
   assertPaymentAllowed,
   assertRefundAllowed,
@@ -26,9 +26,9 @@ import {
   type LedgerEntry,
   type PaymentKind,
   type PaymentMethod,
-} from "@/domain/billing/payments";
-import { conflict, DomainError, notFound } from "@/domain/shared/errors";
-import { checkSessionClosure } from "@/domain/tables/table-status";
+} from "@ros/domain/billing/payments";
+import { conflict, DomainError, notFound } from "@ros/domain/shared/errors";
+import { checkSessionClosure } from "@ros/domain/tables/table-status";
 import {
   UniqueViolationError,
   type TransactionRunner,

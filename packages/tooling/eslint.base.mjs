@@ -52,6 +52,8 @@ export function baseConfig(...extra) {
           { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
         ],
         "@typescript-eslint/consistent-type-imports": "error",
+        // App Router only: there is no `pages/` directory anywhere in the workspace.
+        "@next/next/no-html-link-for-pages": "off",
       },
     },
     ...extra,

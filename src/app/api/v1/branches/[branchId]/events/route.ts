@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { forbidden } from "@/domain/shared/errors";
-import { assertFeature } from "@/domain/subscriptions/entitlements";
+import { forbidden } from "@ros/domain/shared/errors";
+import { assertFeature } from "@ros/domain/subscriptions/entitlements";
 import { eventStreamResponse } from "@/server/modules/staff-ops/http/event-stream";
 import { route } from "@/server/http/route";
 

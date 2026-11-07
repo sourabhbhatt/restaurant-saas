@@ -7,10 +7,10 @@ import { POST as activate } from "@/app/api/v1/admin/workspaces/[workspaceId]/su
 import { GET as listOrganizations } from "@/app/api/v1/organizations/route";
 import { GET as getWorkspace } from "@/app/api/v1/workspaces/[workspaceId]/route";
 import { POST as createWorkspace } from "@/app/api/v1/workspaces/route";
-import type { AdminSettingsDto, PlatformSettings } from "@/contracts/platform";
-import type { OrganizationSummaryDto } from "@/contracts/workspaces";
-import type { WorkspaceDto } from "@/contracts/workspaces";
-import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
+import type { AdminSettingsDto, PlatformSettings } from "@ros/contracts/platform";
+import type { OrganizationSummaryDto } from "@ros/contracts/workspaces";
+import type { WorkspaceDto } from "@ros/contracts/workspaces";
+import { DEFAULT_PLATFORM_SETTINGS } from "@ros/domain/platform/settings";
 import {
   auditLogs,
   organizationMembers,

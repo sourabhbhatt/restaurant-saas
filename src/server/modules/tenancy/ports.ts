@@ -12,9 +12,9 @@ import type {
   RoleDto,
   RoleRefDto,
   StaffAssignmentDto,
-} from "@/contracts/tenancy";
-import type { Permission, RoleScope } from "@/domain/access/permissions";
-import type { PaymentMethod } from "@/domain/billing/payments";
+} from "@ros/contracts/tenancy";
+import type { Permission, RoleScope } from "@ros/domain/access/permissions";
+import type { PaymentMethod } from "@ros/domain/billing/payments";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
 /**

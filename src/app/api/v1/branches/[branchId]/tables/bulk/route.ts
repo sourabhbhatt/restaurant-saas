@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { bulkCreateTablesSchema } from "@/contracts/tables";
+import { bulkCreateTablesSchema } from "@ros/contracts/tables";
 import { tableService } from "@/server/composition/tables";
 import { route } from "@/server/http/route";
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { extendTrialSchema } from "@/contracts/platform";
+import { extendTrialSchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

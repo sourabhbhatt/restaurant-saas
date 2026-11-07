@@ -42,7 +42,7 @@ import {
   type SupportPriority,
   type SupportRequestDto,
   type SupportStatus,
-} from "@/contracts/platform";
+} from "@ros/contracts/platform";
 import { formatDateTime } from "@/features/subscriptions/subscription-ui";
 import { useMe } from "@/features/session/queries";
 import { useDebouncedValue } from "@/features/superadmin/use-debounced-value";

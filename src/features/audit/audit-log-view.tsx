@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AUDIT_ACTOR_TYPES, type AuditLogDto, type Paginated } from "@/contracts/platform";
+import { AUDIT_ACTOR_TYPES, type AuditLogDto, type Paginated } from "@ros/contracts/platform";
 import { formatDateTime } from "@/features/subscriptions/subscription-ui";
 import { errorMessage } from "@/lib/api-client";
 

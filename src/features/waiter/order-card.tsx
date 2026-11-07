@@ -3,8 +3,8 @@
 import { Timer, UserRound } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
-import type { OrderDto } from "@/contracts/orders";
-import { formatMoney } from "@/domain/shared/money";
+import type { OrderDto } from "@ros/contracts/orders";
+import { formatMoney } from "@ros/domain/shared/money";
 import { cn } from "@/lib/utils";
 import { OrderActionButtons } from "@/features/orders/order-actions";
 import {

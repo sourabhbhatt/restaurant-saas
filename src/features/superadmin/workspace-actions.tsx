@@ -33,8 +33,8 @@ import {
   organizationLimitOverrideSchema,
   subscriptionReasonSchema,
   type AdminOrganizationDto,
-} from "@/contracts/platform";
-import { BILLING_CYCLES } from "@/domain/subscriptions/entitlements";
+} from "@ros/contracts/platform";
+import { BILLING_CYCLES } from "@ros/domain/subscriptions/entitlements";
 import { api, applyFieldErrors, errorMessage } from "@/lib/api-client";
 
 import { useWorkspaceAction } from "./queries";

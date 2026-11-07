@@ -8,14 +8,14 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 
-import type { NotificationType } from "@/contracts/notifications";
+import type { NotificationType } from "@ros/contracts/notifications";
 import type {
   MarkNotificationsReadInput,
   MarkNotificationsReadResult,
   NotificationListDto,
   NotificationPreferenceDto,
   PushConfigDto,
-} from "@/contracts/notifications-api";
+} from "@ros/contracts/notifications-api";
 import { api } from "@/lib/api-client";
 
 export const BELL_POLL_MS = 30_000;

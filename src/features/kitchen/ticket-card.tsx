@@ -7,9 +7,9 @@ import { toast } from "sonner";
 import { StatusBadge } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import type { OrderItemDto } from "@/contracts/orders";
-import type { KitchenOrderDto } from "@/contracts/staff-ops";
-import { isDelayed, minutesSince } from "@/domain/orders/order-status";
+import type { OrderItemDto } from "@ros/contracts/orders";
+import type { KitchenOrderDto } from "@ros/contracts/staff-ops";
+import { isDelayed, minutesSince } from "@ros/domain/orders/order-status";
 import { errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import {

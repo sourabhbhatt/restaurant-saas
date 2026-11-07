@@ -15,7 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import type { RestaurantListItemDto } from "@/contracts/tenancy";
+import type { RestaurantListItemDto } from "@ros/contracts/tenancy";
 import { permissionChecker, useWorkspaceStructure } from "@/features/session/queries";
 import { errorMessage } from "@/lib/api-client";
 

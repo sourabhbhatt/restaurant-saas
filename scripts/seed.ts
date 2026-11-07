@@ -9,7 +9,7 @@
  */
 import { and, eq, isNull } from "drizzle-orm";
 
-import { addDays } from "../src/domain/subscriptions/entitlements";
+import { addDays } from "@ros/domain/subscriptions/entitlements";
 import { hashPasswordScrypt } from "../src/infrastructure/auth/providers/local-identity";
 import {
   connectPglite,

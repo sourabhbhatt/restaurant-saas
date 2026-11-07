@@ -15,8 +15,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { BranchTableDto } from "@/contracts/staff-ops";
-import { formatMoney } from "@/domain/shared/money";
+import type { BranchTableDto } from "@ros/contracts/staff-ops";
+import { formatMoney } from "@ros/domain/shared/money";
 import { errorMessage } from "@/lib/api-client";
 import {
   NeedsConnectionNote,

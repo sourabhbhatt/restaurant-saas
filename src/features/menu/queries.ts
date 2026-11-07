@@ -15,7 +15,7 @@ import type {
   UpdateItemInput,
   UploadPurpose,
   UploadResultDto,
-} from "@/contracts/menu";
+} from "@ros/contracts/menu";
 import { API_BASE, ApiError, api } from "@/lib/api-client";
 
 export const menuKeys = {

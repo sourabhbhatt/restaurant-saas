@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { BILLING_CYCLES } from "@/domain/subscriptions/entitlements";
-import type { UpgradeStatus } from "@/domain/subscriptions/upgrade-request";
+import { BILLING_CYCLES } from "@ros/domain/subscriptions/entitlements";
+import type { UpgradeStatus } from "@ros/domain/subscriptions/upgrade-request";
 
 export type { UpgradeStatus };
 

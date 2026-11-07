@@ -12,8 +12,8 @@ import type {
   GuestSessionDto,
   JoinSessionDto,
   PublicQrDto,
-} from "@/contracts/ordering";
-import type { GuestOrderDto, OrderDto } from "@/contracts/orders";
+} from "@ros/contracts/ordering";
+import type { GuestOrderDto, OrderDto } from "@ros/contracts/orders";
 import {
   auditLogs,
   billItems,
@@ -32,7 +32,7 @@ import {
   workspaces,
 } from "@/infrastructure/database/providers/postgres/schema";
 import type { Container } from "@/server/container";
-import { generateToken } from "@/domain/shared/tokens";
+import { generateToken } from "@ros/domain/shared/tokens";
 import { addStaffMember, insertRestaurantWithBranch, signUpUser } from "@/test/fixtures";
 import {
   createOrderingWorld,

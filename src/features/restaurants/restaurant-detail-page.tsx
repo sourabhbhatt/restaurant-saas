@@ -22,7 +22,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { restaurantSettingsSchema, type RestaurantDetailDto } from "@/contracts/tenancy";
+import { restaurantSettingsSchema, type RestaurantDetailDto } from "@ros/contracts/tenancy";
 import { ApiError, applyFieldErrors, errorMessage } from "@/lib/api-client";
 
 import { CreateBranchDialog } from "./create-branch-dialog";

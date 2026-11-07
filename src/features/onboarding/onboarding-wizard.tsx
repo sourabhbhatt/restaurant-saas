@@ -19,9 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { BranchDto, RestaurantDto } from "@/contracts/tenancy";
-import type { OrganizationSummaryDto, WorkspaceDto } from "@/contracts/workspaces";
-import { toMinor } from "@/domain/shared/money";
+import type { BranchDto, RestaurantDto } from "@ros/contracts/tenancy";
+import type { OrganizationSummaryDto, WorkspaceDto } from "@ros/contracts/workspaces";
+import { toMinor } from "@ros/domain/shared/money";
 import { sessionKeys, useMe } from "@/features/session/queries";
 import { UpgradeButton } from "@/features/subscriptions/upgrade-modal";
 import { api, ApiError } from "@/lib/api-client";

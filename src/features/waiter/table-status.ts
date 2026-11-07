@@ -1,5 +1,5 @@
 import type { StatusTone } from "@/components/shared/feedback";
-import type { TableStatus } from "@/domain/tables/table-status";
+import type { TableStatus } from "@ros/domain/tables/table-status";
 
 export const TABLE_STATUS_META: Record<
   TableStatus,

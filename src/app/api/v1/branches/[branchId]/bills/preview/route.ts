@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { previewBillSchema } from "@/contracts/billing";
+import { previewBillSchema } from "@ros/contracts/billing";
 import { billingService } from "@/server/composition/billing";
 import { route } from "@/server/http/route";
 

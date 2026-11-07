@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { orderItemStatusSchema } from "@/contracts/orders";
+import { orderItemStatusSchema } from "@ros/contracts/orders";
 import { staffOpsService } from "@/server/composition/staff-ops";
 import { route } from "@/server/http/route";
 

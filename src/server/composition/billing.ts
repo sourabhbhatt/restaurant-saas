@@ -1,7 +1,7 @@
 import { createSystemLookup } from "@/infrastructure/database/providers/postgres/client";
 import { billingRepository } from "@/infrastructure/database/providers/postgres/repositories/billing";
 import { auditRepository } from "@/infrastructure/database/providers/postgres/repositories/core";
-import { DomainError, notFound } from "@/domain/shared/errors";
+import { DomainError, notFound } from "@ros/domain/shared/errors";
 
 import type { BranchScope } from "../authz/access-service";
 import type { Container } from "../container";

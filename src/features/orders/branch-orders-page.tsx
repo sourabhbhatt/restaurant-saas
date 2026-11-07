@@ -22,9 +22,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Toaster } from "@/components/ui/sonner";
-import type { OrderDto } from "@/contracts/orders";
-import { ORDER_STATUSES } from "@/domain/orders/order-status";
-import { formatMoney } from "@/domain/shared/money";
+import type { OrderDto } from "@ros/contracts/orders";
+import { ORDER_STATUSES } from "@ros/domain/orders/order-status";
+import { formatMoney } from "@ros/domain/shared/money";
 import { errorMessage } from "@/lib/api-client";
 import { ConnectionStatus } from "@/features/realtime/connection-status";
 import { useBranchEvents } from "@/features/realtime/use-branch-events";

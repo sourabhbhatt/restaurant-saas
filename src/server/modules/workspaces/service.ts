@@ -3,10 +3,10 @@ import {
   type OnboardingStep,
   type OrganizationSummaryDto,
   type WorkspaceDto,
-} from "@/contracts/workspaces";
-import { conflict, DomainError, notFound } from "@/domain/shared/errors";
-import { addDays, assertOperationAllowed } from "@/domain/subscriptions/entitlements";
-import { assertCanCreateWorkspace } from "@/domain/subscriptions/workspace-limit";
+} from "@ros/contracts/workspaces";
+import { conflict, DomainError, notFound } from "@ros/domain/shared/errors";
+import { addDays, assertOperationAllowed } from "@ros/domain/subscriptions/entitlements";
+import { assertCanCreateWorkspace } from "@ros/domain/subscriptions/workspace-limit";
 import type { TransactionRunner } from "@/infrastructure/database/interfaces/transaction";
 
 import { recordAudit } from "../../audit/audit-service";

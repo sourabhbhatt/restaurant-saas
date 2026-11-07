@@ -1,18 +1,18 @@
-import type { PlaceOrderInput } from "@/contracts/orders";
+import type { PlaceOrderInput } from "@ros/contracts/orders";
 import type {
   BillRequestResultDto,
   GuestOrderViewDto,
   GuestSessionDto,
   JoinSessionDto,
   PublicQrDto,
-} from "@/contracts/ordering";
-import type { BranchMenu } from "@/contracts/menu";
-import type { OrderDto } from "@/contracts/orders";
-import type { OrderPriority } from "@/domain/orders/order-status";
-import { priceOrderLines, type MenuCatalogEntry } from "@/domain/orders/order-lines";
-import { DomainError, notFound } from "@/domain/shared/errors";
-import { formatMoney } from "@/domain/shared/money";
-import { generateToken, hashToken, isWellFormedToken } from "@/domain/shared/tokens";
+} from "@ros/contracts/ordering";
+import type { BranchMenu } from "@ros/contracts/menu";
+import type { OrderDto } from "@ros/contracts/orders";
+import type { OrderPriority } from "@ros/domain/orders/order-status";
+import { priceOrderLines, type MenuCatalogEntry } from "@ros/domain/orders/order-lines";
+import { DomainError, notFound } from "@ros/domain/shared/errors";
+import { formatMoney } from "@ros/domain/shared/money";
+import { generateToken, hashToken, isWellFormedToken } from "@ros/domain/shared/tokens";
 import type { TransactionRunner } from "@/infrastructure/database/interfaces/transaction";
 import type { RealtimePublisher } from "@/infrastructure/realtime/interfaces/realtime";
 

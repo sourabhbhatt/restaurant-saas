@@ -3,9 +3,9 @@
 import { useState, type ComponentProps } from "react";
 
 import { Input } from "@/components/ui/input";
-import { DIETARY_LABELS } from "@/contracts/menu";
-import type { DietaryType } from "@/domain/menu/pricing";
-import { toMajor, toMinor, isCurrencyCode } from "@/domain/shared/money";
+import { DIETARY_LABELS } from "@ros/contracts/menu";
+import type { DietaryType } from "@ros/domain/menu/pricing";
+import { toMajor, toMinor, isCurrencyCode } from "@ros/domain/shared/money";
 import { cn } from "@/lib/utils";
 
 const DIETARY_STYLE: Record<DietaryType, string> = {

@@ -44,8 +44,8 @@ import {
 } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import type { UpgradeRequestDto } from "@/contracts/upgrades";
-import { UPGRADE_STATUSES, type UpgradeStatus } from "@/domain/subscriptions/upgrade-request";
+import type { UpgradeRequestDto } from "@ros/contracts/upgrades";
+import { UPGRADE_STATUSES, type UpgradeStatus } from "@ros/domain/subscriptions/upgrade-request";
 import { formatDate, formatPrice } from "@/features/subscriptions/subscription-ui";
 import { errorMessage } from "@/lib/api-client";
 import { useAction } from "@/lib/use-action";

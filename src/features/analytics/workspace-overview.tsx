@@ -31,9 +31,9 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { BranchComparisonRowDto } from "@/contracts/analytics";
-import type { StructureBranchDto } from "@/contracts/structure";
-import { ONBOARDING_STEPS } from "@/contracts/workspaces";
+import type { BranchComparisonRowDto } from "@ros/contracts/analytics";
+import type { StructureBranchDto } from "@ros/contracts/structure";
+import { ONBOARDING_STEPS } from "@ros/contracts/workspaces";
 import { branchConsoles } from "@/features/navigation/nav-config";
 import {
   permissionChecker,

@@ -13,7 +13,7 @@ import {
   NOTIFICATION_TYPE_LABELS,
   updateNotificationPreferencesSchema,
   type NotificationPreferenceDto,
-} from "@/contracts/notifications-api";
+} from "@ros/contracts/notifications-api";
 import { applyFieldErrors, errorMessage } from "@/lib/api-client";
 
 import { PushOptIn } from "./push-opt-in";

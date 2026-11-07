@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { organizationLimitOverrideSchema } from "@/contracts/platform";
+import { organizationLimitOverrideSchema } from "@ros/contracts/platform";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

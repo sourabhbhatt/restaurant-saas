@@ -6,9 +6,9 @@ import { POST as checkout } from "@/app/api/v1/organizations/[organizationId]/ch
 import { POST as verify } from "@/app/api/v1/organizations/[organizationId]/checkout/verify/route";
 import { POST as webhook } from "@/app/api/v1/webhooks/razorpay/route";
 import { GET as getSubscription } from "@/app/api/v1/workspaces/[workspaceId]/subscription/route";
-import type { CheckoutSessionDto, CheckoutVerifyDto, WebhookResultDto } from "@/contracts/payments";
-import type { SubscriptionOverviewDto } from "@/contracts/platform";
-import { addBillingCycle } from "@/domain/payments/period";
+import type { CheckoutSessionDto, CheckoutVerifyDto, WebhookResultDto } from "@ros/contracts/payments";
+import type { SubscriptionOverviewDto } from "@ros/contracts/platform";
+import { addBillingCycle } from "@ros/domain/payments/period";
 import type { DbContext } from "@/infrastructure/database/interfaces/transaction";
 import {
   createTenantRunner,

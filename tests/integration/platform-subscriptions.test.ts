@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
+import { DEFAULT_PLATFORM_SETTINGS } from "@ros/domain/platform/settings";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -19,8 +19,8 @@ import {
 import { GET as getStructure } from "@/app/api/v1/workspaces/[workspaceId]/structure/route";
 import { GET as getSubscription } from "@/app/api/v1/workspaces/[workspaceId]/subscription/route";
 import { POST as createSupport } from "@/app/api/v1/workspaces/[workspaceId]/support/route";
-import type { SubscriptionOverviewDto } from "@/contracts/platform";
-import type { Entitlements } from "@/domain/subscriptions/entitlements";
+import type { SubscriptionOverviewDto } from "@ros/contracts/platform";
+import type { Entitlements } from "@ros/domain/subscriptions/entitlements";
 import {
   auditLogs,
   emailOutbox,

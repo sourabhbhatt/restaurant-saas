@@ -1,19 +1,19 @@
-import type { BillDto } from "@/contracts/billing";
+import type { BillDto } from "@ros/contracts/billing";
 import type {
   BillListItemDto,
   BillListQuery,
   ReceiptDto,
   SessionAwaitingBillDto,
-} from "@/contracts/billing-extra";
-import type { TaxRate } from "@/domain/billing/bill-calculator";
-import type { BillLine, SnapshotOrder } from "@/domain/billing/bill-lines";
+} from "@ros/contracts/billing-extra";
+import type { TaxRate } from "@ros/domain/billing/bill-calculator";
+import type { BillLine, SnapshotOrder } from "@ros/domain/billing/bill-lines";
 import type {
   BillStatus,
   PaymentKind,
   PaymentMethod,
   PaymentStatus,
-} from "@/domain/billing/payments";
-import type { SessionStatus } from "@/domain/tables/table-status";
+} from "@ros/domain/billing/payments";
+import type { SessionStatus } from "@ros/domain/tables/table-status";
 import type { AuditRepository } from "@/server/ports/core-repositories";
 
 /** Tenant coordinates taken from a server-resolved branch scope. */

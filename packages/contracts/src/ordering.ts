@@ -1,8 +1,8 @@
-import type { BranchMenu } from "@/contracts/menu";
-import type { GuestBillDto } from "@/contracts/billing";
-import type { GuestOrderDto } from "@/contracts/orders";
-import type { OrderStatus } from "@/domain/orders/order-status";
-import type { SessionStatus } from "@/domain/tables/table-status";
+import type { BranchMenu } from "./menu";
+import type { GuestBillDto } from "./billing";
+import type { GuestOrderDto } from "./orders";
+import type { OrderStatus } from "@ros/domain/orders/order-status";
+import type { SessionStatus } from "@ros/domain/tables/table-status";
 
 /**
  * Customer (QR) ordering contract: what a guest's phone receives from the

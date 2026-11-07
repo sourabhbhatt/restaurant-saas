@@ -3,8 +3,8 @@
 import { BellRing, Clock3, LayoutGrid } from "lucide-react";
 
 import { EmptyState, StatusBadge } from "@/components/shared/feedback";
-import type { BranchTableDto } from "@/contracts/staff-ops";
-import { formatMoney } from "@/domain/shared/money";
+import type { BranchTableDto } from "@ros/contracts/staff-ops";
+import { formatMoney } from "@ros/domain/shared/money";
 import { cn } from "@/lib/utils";
 import { formatElapsed } from "@/features/orders/use-now";
 

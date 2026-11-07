@@ -2,8 +2,8 @@ import "server-only";
 
 import { z } from "zod";
 
-import { DomainError } from "@/domain/shared/errors";
-import { hashToken } from "@/domain/shared/tokens";
+import { DomainError } from "@ros/domain/shared/errors";
+import { hashToken } from "@ros/domain/shared/tokens";
 
 import type { RequestMeta, UserActor } from "../context";
 import { getContainer, type Container } from "../container";

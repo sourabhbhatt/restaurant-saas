@@ -12,9 +12,9 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
-import type { GuestOrderViewDto, GuestSessionDto } from "@/contracts/ordering";
-import type { OrderStatus } from "@/domain/orders/order-status";
-import { formatMoney } from "@/domain/shared/money";
+import type { GuestOrderViewDto, GuestSessionDto } from "@ros/contracts/ordering";
+import type { OrderStatus } from "@ros/domain/orders/order-status";
+import { formatMoney } from "@ros/domain/shared/money";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

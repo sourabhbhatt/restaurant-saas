@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 
 import { and, eq, gt, isNull, ne } from "drizzle-orm";
 
-import { generateToken, hashToken, isWellFormedToken } from "@/domain/shared/tokens";
+import { generateToken, hashToken, isWellFormedToken } from "@ros/domain/shared/tokens";
 
 import type { Executor } from "../../database/providers/postgres/client";
 import { sessions } from "../../database/providers/postgres/schema";

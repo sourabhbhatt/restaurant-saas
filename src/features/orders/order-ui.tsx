@@ -3,8 +3,8 @@
 import { Flame, MessageSquareText, Zap } from "lucide-react";
 
 import { StatusBadge, type StatusTone } from "@/components/shared/feedback";
-import type { OrderItemDto, OrderStatusEventDto } from "@/contracts/orders";
-import type { OrderItemStatus, OrderPriority, OrderStatus } from "@/domain/orders/order-status";
+import type { OrderItemDto, OrderStatusEventDto } from "@ros/contracts/orders";
+import type { OrderItemStatus, OrderPriority, OrderStatus } from "@ros/domain/orders/order-status";
 import { cn } from "@/lib/utils";
 
 import { formatClock } from "./use-now";

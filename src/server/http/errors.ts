@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { DomainError, type DomainErrorCode, type FieldErrors } from "@/domain/shared/errors";
+import { DomainError, type DomainErrorCode, type FieldErrors } from "@ros/domain/shared/errors";
 import { UniqueViolationError } from "@/infrastructure/database/interfaces/transaction";
 
 export const STATUS_BY_CODE: Record<DomainErrorCode, number> = {

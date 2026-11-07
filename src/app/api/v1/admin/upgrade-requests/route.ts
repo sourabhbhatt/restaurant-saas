@@ -1,4 +1,4 @@
-import { upgradeListQuerySchema } from "@/contracts/upgrades";
+import { upgradeListQuerySchema } from "@ros/contracts/upgrades";
 import { platformService } from "@/server/composition/platform";
 import { route } from "@/server/http/route";
 

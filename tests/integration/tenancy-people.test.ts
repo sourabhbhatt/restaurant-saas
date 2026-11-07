@@ -40,7 +40,7 @@ import type {
   InvitationPreviewDto,
   MemberDto,
   RoleDto,
-} from "@/contracts/tenancy";
+} from "@ros/contracts/tenancy";
 import {
   emailOutbox,
   notifications,

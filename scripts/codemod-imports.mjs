@@ -6,7 +6,10 @@
  * forms. A specifier that lands inside the file's own package becomes a
  * relative path, so no package imports itself by name.
  *
- * Usage: node scripts/codemod-imports.mjs [--dry] <file|dir>...
+ * Usage: node scripts/codemod-imports.mjs [--dry] [--only=domain,contracts,...] <file|dir>...
+ * `--only` limits the rewrite to specifiers whose first segment after `@/` is
+ * listed (for example `--only=server,infrastructure`), so each extraction
+ * commit rewrites only the imports it moved.
  */
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -57,11 +60,12 @@ const PACKAGE_DIRS = {
  * Maps one `@/…` specifier to its new form, or returns it unchanged. Pure:
  * the same table as the plan's "Package names and import mapping".
  */
-export function mapSpecifier(spec) {
+export function mapSpecifier(spec, only = null) {
   if (!spec.startsWith("@/")) return spec;
   const rest = spec.slice(2);
   const [head, ...tail] = rest.split("/");
   const sub = tail.join("/");
+  if (only && !only.includes(head)) return spec;
 
   switch (head) {
     case "domain":
@@ -128,9 +132,9 @@ const SPECIFIER_RE =
  * Rewrites every matching specifier in `source`. `relFile` is the file's
  * repo-relative path after its move, used for same-package relative paths.
  */
-export function transform(source, relFile = "") {
+export function transform(source, relFile = "", only = null) {
   return source.replace(SPECIFIER_RE, (whole, prefix, _quote, spec, suffix) => {
-    const mapped = relativize(mapSpecifier(spec), relFile);
+    const mapped = relativize(mapSpecifier(spec, only), relFile);
     return mapped === spec ? whole : `${prefix}${mapped}${suffix}`;
   });
 }
@@ -152,6 +156,8 @@ function* walk(target) {
 
 function main(argv) {
   const dry = argv.includes("--dry");
+  const onlyArg = argv.find((a) => a.startsWith("--only="));
+  const only = onlyArg ? onlyArg.slice("--only=".length).split(",").filter(Boolean) : null;
   const targets = argv.filter((a) => !a.startsWith("--"));
   if (targets.length === 0) {
     console.error("usage: codemod-imports.mjs [--dry] <file|dir>...");
@@ -162,7 +168,7 @@ function main(argv) {
     for (const file of walk(path.resolve(target))) {
       const relFile = path.relative(REPO_ROOT, file).split(path.sep).join("/");
       const before = readFileSync(file, "utf8");
-      const after = transform(before, relFile);
+      const after = transform(before, relFile, only);
       if (after !== before) {
         changed++;
         if (dry) console.log(relFile);

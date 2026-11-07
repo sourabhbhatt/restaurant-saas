@@ -13,7 +13,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Spinner } from "@/components/ui/spinner";
-import { resetPasswordSchema } from "@/contracts/auth";
+import { resetPasswordSchema } from "@ros/contracts/auth";
 import { sessionKeys } from "@/features/session/queries";
 import { api, ApiError, applyFieldErrors, errorMessage } from "@/lib/api-client";
 

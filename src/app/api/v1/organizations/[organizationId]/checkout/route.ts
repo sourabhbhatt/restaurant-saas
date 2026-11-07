@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { createCheckoutSchema } from "@/contracts/payments";
+import { createCheckoutSchema } from "@ros/contracts/payments";
 import { paymentService } from "@/server/composition/payments";
 import { route, uuidParam } from "@/server/http/route";
 

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import type { PaymentStatus } from "@/domain/billing/payments";
-import { ORDER_STATUSES, type OrderStatus } from "@/domain/orders/order-status";
-import type { SessionStatus, TableStatus } from "@/domain/tables/table-status";
+import type { PaymentStatus } from "@ros/domain/billing/payments";
+import { ORDER_STATUSES, type OrderStatus } from "@ros/domain/orders/order-status";
+import type { SessionStatus, TableStatus } from "@ros/domain/tables/table-status";
 
 import { orderListQuerySchema, type OrderDto } from "./orders";
 

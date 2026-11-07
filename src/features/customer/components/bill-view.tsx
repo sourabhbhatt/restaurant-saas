@@ -2,9 +2,9 @@
 
 import { ReceiptIcon } from "lucide-react";
 
-import type { GuestBillDto } from "@/contracts/billing";
-import type { GuestSessionDto } from "@/contracts/ordering";
-import { formatMoney } from "@/domain/shared/money";
+import type { GuestBillDto } from "@ros/contracts/billing";
+import type { GuestSessionDto } from "@ros/contracts/ordering";
+import { formatMoney } from "@ros/domain/shared/money";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";

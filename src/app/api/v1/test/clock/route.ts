@@ -1,6 +1,6 @@
-import type { TestClockDto } from "@/contracts/platform";
-import { testClockSchema } from "@/contracts/platform";
-import { DomainError, notFound } from "@/domain/shared/errors";
+import type { TestClockDto } from "@ros/contracts/platform";
+import { testClockSchema } from "@ros/contracts/platform";
+import { DomainError, notFound } from "@ros/domain/shared/errors";
 import type { Container } from "@/server/container";
 import type { UserActor } from "@/server/context";
 import { route } from "@/server/http/route";

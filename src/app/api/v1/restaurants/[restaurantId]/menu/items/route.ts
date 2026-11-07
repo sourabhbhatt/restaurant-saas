@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { createItemSchema } from "@/contracts/menu";
+import { createItemSchema } from "@ros/contracts/menu";
 import { menuService } from "@/server/composition/menu";
 import { route } from "@/server/http/route";
 

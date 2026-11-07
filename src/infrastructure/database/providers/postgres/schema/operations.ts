@@ -12,9 +12,9 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import type { TaxRate } from "@/domain/billing/bill-calculator";
-import type { PaymentMethod } from "@/domain/billing/payments";
-import type { Allergen, DietaryType } from "@/domain/menu/pricing";
+import type { TaxRate } from "@ros/domain/billing/bill-calculator";
+import type { PaymentMethod } from "@ros/domain/billing/payments";
+import type { Allergen, DietaryType } from "@ros/domain/menu/pricing";
 
 import { bps, id, money, softDelete, timestamps, tstz, version } from "./_helpers";
 import { users } from "./identity";
