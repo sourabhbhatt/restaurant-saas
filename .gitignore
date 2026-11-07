@@ -49,3 +49,7 @@ next-env.d.ts
 
 # local database data and snapshots
 /.data/
+
+# exported browser/curl cookie jars hold live session tokens
+*.jar
+*.cookies
