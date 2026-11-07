@@ -1,7 +1,7 @@
 # Offline & sync
 
 Staff devices (waiter phones, kitchen tablets, the manager's laptop) keep working through short
-connection drops. This document describes what the code in `src/features/offline` actually does.
+connection drops. This document describes what the code in `packages/web-core/src/features/offline` actually does.
 
 ## Principles
 
@@ -185,7 +185,7 @@ manual **Sync now** (which ignores backoff timers). Each trigger first probes
 `GET /api/v1/sync/ping` (public, `no-store`) because `navigator.onLine` can say "online" on dead
 Wi-Fi. Background Sync API is not used.
 
-## Service worker (`src/app/sw.ts`, Serwist 9)
+## Service worker (`apps/console/src/app/sw.ts` and `apps/ops/src/app/sw.ts`, Serwist 9)
 
 - Precache (build manifest + `/~offline`), `skipWaiting`, `clientsClaim`, navigation preload.
 - `/api/**` → **NetworkOnly**. The worker never caches API responses. Data for offline use lives

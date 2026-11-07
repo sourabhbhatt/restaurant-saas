@@ -8,7 +8,7 @@ Error codes → HTTP: `VALIDATION_FAILED` 422, `BAD_REQUEST` 400, `UNAUTHENTICAT
 
 `Idempotency-Key` header is honoured on endpoints marked **idem**: a repeat with the same key and body returns the stored response (`idempotent-replay: true`).
 
-Ownership column = the module (`src/server/modules/<m>`) that implements it.
+Ownership column = the module (`packages/application/src/modules/<m>`) that implements it.
 
 ## Auth & session (core)
 

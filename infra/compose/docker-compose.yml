@@ -1,5 +1,6 @@
 # Local parity stack and VPS exit target: Postgres 18 + MinIO + the four apps.
-#   docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env.compose.example up -d
+#   cp infra/compose/.env.compose.example infra/compose/.env.compose  (replace the placeholders)
+#   docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env.compose up -d --build
 # Images are built from the repo root with infra/docker/next-app.Dockerfile.
 name: ros
 

@@ -1,61 +1,71 @@
 # Implementation Roadmap — status
 
-Last updated: 2026-11-04. Verified on this commit: `tsc` 0 errors, ESLint 0 errors (3 React Compiler warnings), **349 Vitest tests passing (41 files)**, `next build` passes.
+Last updated: 2026-11-07, after Phase 5 (clean-up and documentation) of the plan in `docs/superpowers/plans/2026-11-07-phases-0-5-security-tenancy-subscriptions-portability-monorepo.md`, against the design in `docs/superpowers/specs/2026-11-07-platform-split-and-gcp-design.md`.
 
-Module agents were stopped early at the owner's request (credit limit). Their server code (APIs + services + tests) is largely complete; several UI pages were unfinished and were **removed** so the build stays green. Items below marked ⚠️ have code in the repo that has not been reviewed end-to-end.
+Phases 4 and 5 were finished with static checks only (`pnpm turbo run typecheck lint`, `pnpm format:check`, one `next build` per app in Phase 4). Vitest, Playwright and the Docker images were not run after the monorepo split, at the owner's request; the owner verifies them manually (see "To verify" below).
 
-## Done ✅
+## Done
 
-- [x] Phase 0 audit; Phase 1 decisions (`technology-decisions.md`: PostgreSQL/Drizzle, in-app auth, SSE realtime, Neon + Render recommended, nothing paid activated)
-- [x] Full schema (45 tables) + migration + `ensureSystemData` (permissions, system roles, default plans/settings)
-- [x] Domain rules with unit tests: pricing (variants/add-ons/min-max), order state machine, bill calculator (tax incl./excl., discount, service charge), payment ledger, entitlements/trial→grace→read-only, permissions
-- [x] Provider ports + dev adapters: identity (scrypt + hashed sessions), email (outbox/Resend/Brevo), storage (local), realtime (memory bus), push (noop), logging
-- [x] HTTP wrapper: CSRF origin check, DB rate limits, Zod validation, idempotency replay, safe errors
-- [x] Auth API (sign up/in/out, me, forgot/reset, verify email, change password, switch workspace)
-- [x] Workspaces + trial start, tenant access service (404 across tenants), structure/branch-context APIs
-- [x] Design system UI kit + feedback components; dashboard / workspace / branch shells; proxy redirect
-- [x] Offline layer: Dexie cache, sync outbox engine (backoff, idempotency, conflicts), sync indicator + offline banner (mounted in dashboard shell), service worker rules, `/~offline`, `docs/offline-sync.md`
-- [x] Notifications API + bell + `/app/notifications` + preferences; push plumbing (disabled by default)
-- [x] Docs: architecture, api-reference, provider-abstractions, provider-migration-guide, tenant-security, database-schema, environment-variables, offline-sync
+### Product (before 2026-11-07)
 
-## Update (later session)
+- [x] Schema, migrations and `ensureSystemData` (permissions, system roles, default plans/settings)
+- [x] Domain rules with unit tests: pricing, order state machine, bill calculator, payment ledger, entitlements and trial lifecycle, permissions
+- [x] Auth, workspaces, tenancy (restaurants, branches, members, invitations, roles), menu, tables and QR, customer QR ordering, waiter / kitchen / cashier consoles, billing, notifications, analytics, Super Admin, support, upgrade requests, audit
+- [x] Offline layer: Dexie cache, sync outbox engine, service worker rules, `/~offline` (see `offline-sync.md`)
+- [x] Public site and legal templates; `pnpm db:seed` and `pnpm db:make-admin`
 
-- [x] Onboarding wizard rebuilt (`/app/onboarding`): workspace → restaurant+branch → first menu item → bulk tables → done; progress saved and resumable
-- [x] `pnpm db:seed` (demo owner/staff/admin, 2 branches, 6-category menu with variants and add-ons, 12 tables each with QR) and `pnpm db:make-admin <email>`
-- [x] **Verified end to end over HTTP against the running server:** QR scan → session → order → waiter accept → kitchen start/ready → serve → bill with GST → two partial payments (UPI + cash) → PAID → idempotent payment replay → session closed; role denials (cashier/waiter/kitchen) confirmed
+### Phase 0 — local data safety and security fixes
 
-## Browser walkthrough (headless Chromium, production build, seeded data)
+- [x] `pnpm db:snapshot`; a persistent PGlite directory is never auto-migrated; `db:migrate` snapshots it first
+- [x] Exposed cookie-jar sessions revoked (`pnpm db:revoke-cookie-jar`), `*.jar` / `*.cookies` ignored
+- [x] `TRUSTED_PROXY_HOPS` (client IP parsing), `ALLOWED_ORIGINS` (CSRF origin list), idempotency replay by the same user only, security headers, CI with secret scanning and `pnpm audit`
 
-Signed in as owner and Super Admin and opened every main screen: workspace (overview, restaurants, members, analytics, subscription, audit, support, settings), branch (overview, menu, tables, orders, bills, staff, settings, reports), waiter, kitchen, cashier, notifications, account, admin (overview, workspaces, plans, support, settings). All render with no 404s or server errors. Fixed in this pass: missing route files for subscription/support/audit/admin pages and the admin layout; added admin workspace detail, read-only plans page and platform settings form. Fixed: hydration mismatch (#418) caused by offline-cache restore racing hydration (AuthGate now renders the server skeleton until hydrated). admin plan editing and announcements UI are not built (APIs exist); screens were checked for loading/errors, not pixel-reviewed.
+### Phase 1 — tenant isolation in the database
 
-## Navigation, upgrade requests and admin menu (verified)
+- [x] Request DB context, tenant runner (`SET LOCAL ROLE ros_tenant` + `app.workspace_id` / `app.user_id`), system runner allow-list test
+- [x] Migration `0002_tenant_rls`: roles, grants, policies on every tenant table, down script
+- [x] RBAC matrix, tenant isolation and subscription enforcement suites
 
-- [x] Profile menu on every layout; server-confirmed identity; sign-out clears memory + device cache
-- [x] Workspace → Restaurant → Branch sidebar hierarchy; branch switch keeps the section; workspace name never replaced by a branch
-- [x] Route permission guard for typed URLs (UI) on top of server-side API checks
-- [x] Upgrade requests: tables + migration `0001`, owner request/cancel, Super Admin list/detail/approve/reject/notes/history, notifications, audit
-- [x] Super Admin read-only restaurant menu inspection (search, category and availability filters, variants, add-ons, branch overrides)
-- Verified by 10 new integration tests (`tests/integration/upgrades-and-admin.test.ts`), navigation unit tests, and a 33-check headless-browser run on the production build (Super Admin, owner, waiter).
+### Phase 2 — organizations, trials and workspace limits
 
-## Built by stopped agents — needs review ⚠️
+- [x] Migration `0003_organizations` (expand + backfill; `subscriptions.workspace_id` kept and dual-written)
+- [x] Migration `0004_trial_and_workspace_limits`: 15-day trial, 7-day grace, reminders on days 7/12/14 (only where settings were still the old defaults); Pro 3 workspaces on ANNUAL, Enterprise unlimited within fair use (25, 5 creates per day); Super Admin per-organization override
+- [x] Feature flags enforced on the server (`feature-enforcement` suite)
+- [x] Razorpay prepaid payments (Orders + Standard Checkout, webhook) with migration `0005_payments`
 
-- [ ] Tenancy APIs (restaurants, branches, settings, members, invitations, roles) — server + tests present; UI pages rebuilt (see above); not browser-verified. Role create/edit UI not built (roles are listed read-only).
-- [ ] Menu + tables + QR + uploads — APIs/tests present; menu & tables pages present, QR dialog may be incomplete
-- [ ] Customer QR ordering (`/t/[token]`) — APIs/tests present; UI state unverified
-- [ ] Waiter / kitchen consoles, order transitions, SSE — APIs/tests present; UI unverified
-- [ ] Billing + cashier — server done; cashier/bills UI partially written
-- [ ] Platform: plans, settings, Super Admin, support, audit, jobs, test clock — partially written; **seed script (`scripts/seed.ts`) may be missing/incomplete**
-- [ ] Public site + auth pages — mostly done (19 unit tests); verify pages
-- [ ] Analytics APIs + dashboards — partially written
+### Phase 3 — provider portability
 
-## Next steps (in order)
+- [x] S3-compatible storage adapter with a shared contract suite (MinIO in CI)
+- [x] Postgres `LISTEN/NOTIFY` realtime bus
+- [x] `db:dump` / `db:restore` / `db:verify`, restore as a different user, `pnpm smoke`; rehearsal of the local data on Postgres 18 (Task 25)
+- [x] Health and readiness endpoints, `APP_VERSION`, maintenance mode
 
-1. Run the app and click through each area in a browser; fix broken pages (APIs are verified, screens are not):
-   ```bash
-   pnpm install && cp .env.example .env.local && pnpm db:migrate && pnpm db:seed && pnpm dev
-   ```
-2. ~~Rebuild removed tenancy pages~~ — done (members/invitations/roles, workspace settings, branch settings incl. taxes & hours, branch staff, account, invite acceptance). Invite create → accept → re-accept rejected verified over HTTP.
-3. Mount `SyncStatusIndicator`/`OfflineBanner` in waiter, kitchen, cashier layouts; mount the announcement bar in shells.
-4. Playwright E2E workflows A–I (only site specs exist).
-5. Hardening: Postgres RLS, S3 storage adapter, multi-instance realtime (LISTEN/NOTIFY), Sentry adapter.
-6. Write `README.md` refresh, `deployment.md`, `testing.md`.
+### Phase 4 — monorepo and independent deployability
+
+- [x] pnpm workspaces + Turborepo; packages `domain`, `contracts`, `application`, `adapters`, `database`, `api-client`, `ui`, `web-core`, `testing`, `tooling`
+- [x] `apps/api` (:4000), `apps/console` (:3000), `apps/ops` (:3001), `apps/admin` (:3002); runtime `/api/v1` proxy in each frontend; per-app sign-in
+- [x] One Dockerfile for per-app images, compose stack (Postgres 18, MinIO, migrate and roles one-shots, the four apps)
+- [x] CI: affected-only `typecheck lint test build`, Postgres 18 and MinIO jobs, per-app image builds
+
+### Phase 5 — clean-up and documentation
+
+- [x] Comments that restate code removed (comment lines 3,344 → 3,320; contracts, reasons and security rationale kept)
+- [x] Unused files, exports and dependencies removed; duplicated route error, global error, proxy, offline page and Serwist route code shared through `@ros/web-core`; tracked `node_modules` symlinks removed from git
+- [x] Instant-navigation validation error on client-gated layouts resolved (`instant = false` with the reason)
+- [x] Docs for the monorepo, the RLS model, every env var, compose and Cloud Run notes; runbooks in `docs/runbooks/`
+
+## To verify (owner, manually)
+
+1. `pnpm test` across the workspace, `pnpm test:codemod`, `pnpm test:e2e`.
+2. `pnpm dev`: sign in on the console, open a branch; Waiter/Kitchen/Cashier links open `http://localhost:3001/...` and ask for a second sign-in; the Super Admin link opens `http://localhost:3002/admin`. Confirm the "instant navigation" dev error is gone on `/app/w/<id>/analytics`.
+3. `docker build` for the four apps and `docker compose … up -d`; then `pnpm smoke --base-url http://localhost:3000`.
+4. Applying migrations `0002`–`0005` to the real `.data/pglite` (Task 34 Step 3, controller with owner approval), per [local data preservation](runbooks/local-data-preservation.md).
+
+## Not done
+
+- Cloud provisioning scripts (`infra/gcp/`), Cloud SQL, Cloud Run deploys (owner approval gates; nothing paid is active)
+- Web Push adapter (plumbing and service worker handlers exist; `PUSH_PROVIDER=none` only)
+- Error monitoring adapter (Sentry)
+- Browser end-to-end workflows A–I (only three Playwright specs exist)
+- Contract step of the organization migration (`NOT NULL` on `organization_id`, dropping `subscriptions.workspace_id`): approval gate, not scheduled
+- Load test, accessibility audit, legal review of the templates

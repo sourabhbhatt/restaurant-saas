@@ -40,6 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 !.env.example
+!infra/compose/.env.compose.example
 
 # playwright
 /test-results/
