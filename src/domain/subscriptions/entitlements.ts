@@ -8,20 +8,32 @@ import { DomainError } from "../shared/errors";
  * (edited by Super Admin), never constants in UI code.
  */
 
-export const FEATURES = {
-  qr_ordering: "QR table ordering",
-  kitchen_display: "Kitchen display system",
-  multi_branch: "Multiple branches per restaurant",
-  analytics: "Analytics dashboards",
-  advanced_analytics: "Branch comparison and advanced reports",
-  custom_roles: "Custom staff roles",
-  offline_mode: "Offline-first staff devices",
-  push_notifications: "Browser push notifications",
-  email_notifications: "Email notifications",
-  data_export: "Data export",
-} as const;
-export type FeatureKey = keyof typeof FEATURES;
-export const FEATURE_KEYS = Object.keys(FEATURES) as FeatureKey[];
+/**
+ * `advertised` is true only for features the server enforces. The pricing page
+ * and plan editor list advertised features only; a test pins each one to an
+ * enforcement call site.
+ */
+export const FEATURE_META = {
+  qr_ordering: { label: "QR table ordering", advertised: true },
+  kitchen_display: { label: "Kitchen display system", advertised: true },
+  multi_branch: { label: "Multiple branches per restaurant", advertised: true },
+  analytics: { label: "Analytics dashboards", advertised: true },
+  advanced_analytics: { label: "Branch comparison and advanced reports", advertised: true },
+  custom_roles: { label: "Custom staff roles", advertised: true },
+  offline_mode: { label: "Offline-first staff devices", advertised: false },
+  push_notifications: { label: "Browser push notifications", advertised: false },
+  email_notifications: { label: "Email notifications", advertised: false },
+  data_export: { label: "Data export", advertised: false },
+} as const satisfies Record<string, { label: string; advertised: boolean }>;
+export type FeatureKey = keyof typeof FEATURE_META;
+export const FEATURE_KEYS = Object.keys(FEATURE_META) as FeatureKey[];
+export const ADVERTISED_FEATURES: FeatureKey[] = FEATURE_KEYS.filter(
+  (k) => FEATURE_META[k].advertised,
+);
+/** Label map, derived from FEATURE_META. */
+export const FEATURES = Object.fromEntries(
+  FEATURE_KEYS.map((k) => [k, FEATURE_META[k].label]),
+) as Record<FeatureKey, string>;
 
 export const LIMIT_KEYS = [
   "maxRestaurants",

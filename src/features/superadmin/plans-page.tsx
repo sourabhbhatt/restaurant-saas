@@ -3,7 +3,7 @@
 import { ErrorState, PageHeader, PageSkeleton } from "@/components/shared/feedback";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LIMIT_KEYS, limitLabel } from "@/domain/subscriptions/entitlements";
+import { ADVERTISED_FEATURES, LIMIT_KEYS, limitLabel } from "@/domain/subscriptions/entitlements";
 import { formatMoney } from "@/domain/shared/money";
 import { errorMessage } from "@/lib/api-client";
 
@@ -52,7 +52,8 @@ export function AdminPlansPage() {
                 </p>
               ))}
               <p className="text-muted-foreground">
-                {p.features.length} features · {p.activeSubscriptions} workspaces
+                {p.features.filter((f) => ADVERTISED_FEATURES.includes(f)).length} features ·{" "}
+                {p.activeSubscriptions} workspaces
               </p>
             </CardContent>
           </Card>

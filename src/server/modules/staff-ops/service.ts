@@ -18,6 +18,7 @@ import {
   type OrderStatus,
 } from "@/domain/orders/order-status";
 import { DomainError, forbidden, notFound } from "@/domain/shared/errors";
+import { assertFeature } from "@/domain/subscriptions/entitlements";
 import { deriveTableStatus } from "@/domain/tables/table-status";
 import type { TransactionRunner } from "@/infrastructure/database/interfaces/transaction";
 import type { RealtimePublisher } from "@/infrastructure/realtime/interfaces/realtime";
@@ -363,6 +364,7 @@ export function createStaffOpsService(deps: StaffOpsServiceDeps) {
     ): Promise<OrderDto> {
       const scope = await scopeForOrder(actor, orderId);
       scope.require("kitchen.update");
+      assertFeature(scope.entitlements, "kitchen_display");
       const changes = await tx.run(async (r) => {
         const target = targetOf(scope);
         // Row lock serializes concurrent item updates of the same order, so the
@@ -451,6 +453,7 @@ export function createStaffOpsService(deps: StaffOpsServiceDeps) {
     /** GET /branches/:branchId/kitchen */
     async kitchenFeed(scope: BranchScope): Promise<KitchenFeedDto> {
       scope.require("kitchen.view");
+      assertFeature(scope.entitlements, "kitchen_display");
       const target = targetOf(scope);
       const now = clock.now();
       return tx.read(async (r) => {
