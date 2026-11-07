@@ -24,7 +24,8 @@ import {
   tableSessions,
   workspaceEntitlements,
 } from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
+import { resetEnvCache } from "@/server/config/env";
+import { setContainerForTests, type Container } from "@/server/container";
 import { hashQrToken } from "@/server/modules/tables/qr-tokens";
 import {
   addStaffMember,
@@ -176,6 +177,34 @@ describe("tables CRUD", () => {
       cookie: owner.cookie,
     });
     expect(one.status).toBe(402);
+  });
+});
+
+describe("QR base URL", () => {
+  it("QR link uses QR_BASE_URL", async () => {
+    const previous = process.env.QR_BASE_URL;
+    process.env.QR_BASE_URL = "https://qr.example.test/";
+    const local = await createTestContainer();
+    try {
+      expect(local.env.APP_URL).toBe("http://localhost:3000");
+      const u = await signUpUser("QR Base Owner");
+      const w = await createWorkspaceAs(u, "QR Base WS");
+      const r = await insertRestaurantWithBranch(local, w.id);
+      const t = await newTable("QB1", r.branchId, u.cookie);
+      const res = await call<TableQrDto>(generateQr, {
+        method: "POST",
+        params: { tableId: t.id },
+        cookie: u.cookie,
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.data!.url).toMatch(/^https:\/\/qr\.example\.test\/t\/[^/]+$/);
+    } finally {
+      if (previous === undefined) delete process.env.QR_BASE_URL;
+      else process.env.QR_BASE_URL = previous;
+      resetEnvCache();
+      await local.close();
+      setContainerForTests(c);
+    }
   });
 });
 

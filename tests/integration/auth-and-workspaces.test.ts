@@ -103,6 +103,46 @@ describe("authentication", () => {
   });
 });
 
+describe("allowed origins", () => {
+  const ALLOWED = ["https://a.example", "https://b.example", "https://c.example:8443"];
+  let local: Container;
+  let previous: string | undefined;
+  beforeAll(async () => {
+    previous = process.env.ALLOWED_ORIGINS;
+    process.env.ALLOWED_ORIGINS = "https://a.example, https://b.example/app,https://c.example:8443";
+    local = await createTestContainer();
+  });
+  afterAll(async () => {
+    if (previous === undefined) delete process.env.ALLOWED_ORIGINS;
+    else process.env.ALLOWED_ORIGINS = previous;
+    resetEnvCache();
+    await local.close();
+    setContainerForTests(c);
+  });
+
+  // A cookie forces the Origin check; it need not belong to a real session.
+  const cookie = "ros_session=not-a-real-session";
+
+  it("mutation from each allowed origin passes", async () => {
+    expect(local.env.ALLOWED_ORIGINS).toEqual(ALLOWED);
+    for (const origin of ALLOWED) {
+      const res = await call(signOut, { method: "POST", cookie, origin });
+      expect(res.status, origin).toBe(200);
+    }
+  });
+
+  it("mutation from an unlisted origin is 403", async () => {
+    const res = await call(signOut, { method: "POST", cookie, origin: "https://d.example" });
+    expect(res.status).toBe(403);
+  });
+
+  it("request whose Host matches but Origin is unlisted is 403", async () => {
+    // The harness sends requests to http://localhost:3000; that origin is not in the list.
+    const res = await call(signOut, { method: "POST", cookie, origin: "http://localhost:3000" });
+    expect(res.status).toBe(403);
+  });
+});
+
 describe("workspaces", () => {
   it("creates a workspace with an owner membership and the default trial", async () => {
     const owner = await signUpUser("Owner");

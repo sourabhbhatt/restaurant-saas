@@ -24,6 +24,8 @@ export default defineConfig({
     : {
         command: `pnpm build && pnpm start --port ${PORT}`,
         url: baseURL,
+        // APP_URL may name another port; mutations are accepted only from listed origins.
+        env: { ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS ?? new URL(baseURL).origin },
         reuseExistingServer: !process.env.CI,
         timeout: 240_000,
       },

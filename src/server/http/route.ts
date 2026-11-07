@@ -91,7 +91,7 @@ function json(
 }
 
 /** Same-origin check for cookie-authenticated mutations (CSRF defence with SameSite=Lax cookies). */
-function assertSameOrigin(req: Request, appUrl: string): void {
+function assertSameOrigin(req: Request, allowed: string[]): void {
   const site = req.headers.get("sec-fetch-site");
   if (site === "same-origin" || site === "none") return;
   const origin = req.headers.get("origin");
@@ -100,8 +100,8 @@ function assertSameOrigin(req: Request, appUrl: string): void {
     if (!req.headers.get("cookie")) return;
     throw new DomainError("FORBIDDEN", "Cross-site request blocked");
   }
-  const allowed = new Set([new URL(appUrl).origin, new URL(req.url).origin]);
-  if (!allowed.has(origin)) throw new DomainError("FORBIDDEN", "Cross-site request blocked");
+  // Not the request URL's own origin: behind a proxy that is derived from the client-supplied Host.
+  if (!allowed.includes(origin)) throw new DomainError("FORBIDDEN", "Cross-site request blocked");
 }
 
 export async function resolveActor(req: Request, c: Container): Promise<UserActor | null> {
@@ -174,7 +174,8 @@ export function route<
         ip: clientIpFrom(req.headers, c.env.TRUSTED_PROXY_HOPS),
         userAgent: req.headers.get("user-agent"),
       };
-      if (MUTATING.has(req.method) && !config.skipOriginCheck) assertSameOrigin(req, c.env.APP_URL);
+      if (MUTATING.has(req.method) && !config.skipOriginCheck)
+        assertSameOrigin(req, c.env.ALLOWED_ORIGINS);
 
       const actor = config.auth === "public" ? null : await resolveActor(req, c);
       if (actor) bindUser(actor.userId);

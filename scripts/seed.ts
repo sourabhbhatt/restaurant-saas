@@ -41,7 +41,7 @@ import {
 import { ensureSystemData } from "../src/infrastructure/database/providers/postgres/system-data";
 import { newQrToken, qrUrl } from "../src/server/modules/tables/qr-tokens";
 
-const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
+const QR_BASE_URL = process.env.QR_BASE_URL ?? process.env.APP_URL ?? "http://localhost:3000";
 const APP_SECRET = process.env.APP_SECRET ?? "dev-only-insecure-secret-change-me-0123456789";
 
 async function user(db: Executor, email: string, name: string, password: string, admin = false) {
@@ -286,7 +286,7 @@ async function main() {
           tokenHash: q.tokenHash,
           tokenCiphertext: q.tokenCiphertext,
         });
-        if (n <= 2) qrLinks.push(`${branchName} T${n}: ${qrUrl(APP_URL, q.token)}`);
+        if (n <= 2) qrLinks.push(`${branchName} T${n}: ${qrUrl(QR_BASE_URL, q.token)}`);
       }
       if (branchName === "Indiranagar") {
         for (const [email, name, role] of staff) {
