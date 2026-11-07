@@ -46,6 +46,10 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
     "coverage/**",
+    ".worktrees/**",
+    ".claude/**",
+    ".superpowers/**",
+    ".data/**",
   ]),
 ]);
 
