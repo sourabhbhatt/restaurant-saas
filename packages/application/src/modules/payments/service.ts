@@ -262,6 +262,24 @@ export function createPaymentService({
             fieldErrors: { planKey: ["This plan is not sold online. Contact us instead."] },
           });
         }
+        // A new period is appended after the current paid one (no proration), so a
+        // different plan or cycle would silently convert the time already paid for.
+        const ws = await r.payments.findBillingWorkspace(organizationId);
+        const current = ws ? await r.platform.findCurrentSubscription(ws.id) : null;
+        const paidUntil =
+          current && (current.status === "ACTIVE" || current.status === "CANCELLED")
+            ? current.currentPeriodEnd
+            : null;
+        if (
+          paidUntil &&
+          paidUntil.getTime() > clock.now().getTime() &&
+          (current!.planId !== plan.id || current!.billingCycle !== input.billingCycle)
+        ) {
+          throw new DomainError(
+            "CONFLICT",
+            `Your current plan is paid until ${paidUntil.toISOString().slice(0, 10)}. You can renew it now; to change plan or billing cycle before then, contact support.`,
+          );
+        }
         return { org, plan, amountMinor };
       });
 

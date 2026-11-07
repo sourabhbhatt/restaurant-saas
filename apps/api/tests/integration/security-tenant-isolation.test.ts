@@ -19,8 +19,10 @@ import {
   orders,
   bills,
 } from "@ros/database/providers/postgres/schema";
+import { createFakePaymentGateway } from "@ros/adapters/payments/providers/fake";
 import type { ObjectStorage } from "@ros/adapters/storage/interfaces/object-storage";
 import type { Container } from "@/composition/container";
+import { organizationOf } from "@/test/fixtures";
 import { createTenantWorld, type TenantWorld } from "@/test/fixtures-rls";
 import { call, createTestContainer, TEST_ORIGIN, type CallResult } from "@/test/harness";
 import {
@@ -52,6 +54,7 @@ function h(route: string, method: HttpMethod): Handler {
 }
 
 interface Fixture extends TenantWorld {
+  organizationId: string;
   sessionId: string;
   orderId: string;
   orderItemId: string;
@@ -176,6 +179,7 @@ const br = (a: Fixture) => ({ branchId: a.branchId });
 const bill = (a: Fixture) => ({ billId: a.billId });
 const order = (a: Fixture) => ({ orderId: a.orderId });
 const table = (a: Fixture) => ({ tableId: a.table.tableId });
+const org = (a: Fixture) => ({ organizationId: a.organizationId });
 
 function iso(
   route: string,
@@ -305,6 +309,17 @@ export const ISOLATION_CASES: IsolationCase[] = [
     body: { name: "Hijacked", price: 1 },
   }),
   iso("menu/items/[itemId]", "DELETE", "menu", (a) => ({ itemId: a.simpleItemId })),
+  // ---------------------------------------------------------------- organizations (billing)
+  iso("organizations/[organizationId]/checkout", "POST", "usage", org, {
+    body: { planKey: "pro", billingCycle: "MONTHLY" },
+  }),
+  iso("organizations/[organizationId]/checkout/verify", "POST", "usage", org, {
+    body: {
+      razorpayOrderId: "order_crosstenant",
+      razorpayPaymentId: "pay_crosstenant",
+      razorpaySignature: "0".repeat(64),
+    },
+  }),
   // ---------------------------------------------------------------- orders
   iso(
     "orders/[orderId]/items/[itemId]",
@@ -847,6 +862,7 @@ async function complete(c: Container, w: TenantWorld): Promise<Fixture> {
     .returning({ id: roles.id });
   return {
     ...w,
+    organizationId: await organizationOf(c, wsId),
     workspaceCustomRoleId: wsRole!.id,
     sessionId: session.id,
     orderId: o.id,
@@ -862,7 +878,10 @@ async function complete(c: Container, w: TenantWorld): Promise<Fixture> {
 }
 
 beforeAll(async () => {
-  c = await createTestContainer();
+  // A gateway is wired so the checkout routes exist and isolation, not absence, is tested.
+  c = await createTestContainer({
+    payments: createFakePaymentGateway({ keySecret: "k", webhookSecret: "w" }),
+  });
   c.storage = memoryStorage();
   a = await complete(c, await createTenantWorld(c, "Iso A"));
   b = await complete(c, await createTenantWorld(c, "Iso B"));

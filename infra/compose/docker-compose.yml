@@ -1,4 +1,6 @@
-# Local parity stack and VPS exit target: Postgres 18 + MinIO + the four apps.
+# Local parity stack and VPS exit target: Postgres 18 + MinIO + the four apps behind one Caddy edge.
+# Only Caddy publishes ports (3000/3001/3002 → console/ops/admin). It overwrites X-Forwarded-For
+# with the real client address, which is why the API runs with TRUSTED_PROXY_HOPS=1.
 #   cp infra/compose/.env.compose.example infra/compose/.env.compose  (replace the placeholders)
 #   docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env.compose up -d --build
 # Images are built from the repo root with infra/docker/next-app.Dockerfile.
@@ -47,7 +49,8 @@ services:
     ports:
       - "9001:9001"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
+      # The image ships no curl; `mc` is built in.
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -109,7 +112,7 @@ services:
       ALLOWED_ORIGINS: ${CONSOLE_URL:-http://localhost:3000},${OPS_URL:-http://localhost:3001},${ADMIN_URL:-http://localhost:3002}
       APP_SECRET: ${APP_SECRET:?set APP_SECRET}
       APP_VERSION: ${APP_VERSION:-compose}
-      # Requests arrive through one frontend proxy, which sets x-forwarded-for.
+      # Caddy (the only published entry point) sets x-forwarded-for; the frontends relay it unchanged.
       TRUSTED_PROXY_HOPS: 1
       DATABASE_PROVIDER: postgres
       # Connects as the runtime role; tenant transactions switch to ros_tenant (RLS).
@@ -127,8 +130,7 @@ services:
       PAYMENT_PROVIDER: none
       PUSH_PROVIDER: none
       COOKIE_SECURE: "false"
-    ports:
-      - "4000:4000"
+    # Not published: reachable only from the frontends on the compose network.
     depends_on:
       roles:
         condition: service_completed_successfully
@@ -144,8 +146,6 @@ services:
     environment:
       <<: *frontend-env
       PORT: 3000
-    ports:
-      - "3000:3000"
     depends_on:
       api:
         condition: service_healthy
@@ -159,8 +159,6 @@ services:
     environment:
       <<: *frontend-env
       PORT: 3000
-    ports:
-      - "3001:3000"
     depends_on:
       api:
         condition: service_healthy
@@ -174,11 +172,24 @@ services:
     environment:
       <<: *frontend-env
       PORT: 3000
-    ports:
-      - "3002:3000"
     depends_on:
       api:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Edge: the only published ports. Overwrites client-supplied X-Forwarded-* headers.
+  caddy:
+    image: caddy:2
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+      - "3002:3002"
+    depends_on:
+      - console
+      - ops
+      - admin
     restart: unless-stopped
 
 volumes:

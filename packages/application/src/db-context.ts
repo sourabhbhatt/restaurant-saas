@@ -13,7 +13,17 @@ export { TenantContextError, type DbContext };
  * service after it has verified an ACTIVE membership (or by an explicit
  * token lookup on guest paths), never from client input directly.
  */
-const storage = new AsyncLocalStorage<DbContext>();
+const globalForDbContext = globalThis as unknown as {
+  __restaurantosDbContext?: AsyncLocalStorage<DbContext>;
+};
+
+/**
+ * One store per process, held on `globalThis` like the container: Next.js
+ * bundles this module separately for the instrumentation hook (which builds
+ * the container and its services) and for route handlers, and the two copies
+ * must share the same request context.
+ */
+const storage = (globalForDbContext.__restaurantosDbContext ??= new AsyncLocalStorage<DbContext>());
 
 export function runWithDbContext<T>(fn: () => Promise<T>): Promise<T> {
   return storage.run({ workspaceId: null, userId: null }, fn);

@@ -8,7 +8,13 @@ import type {
   UpdateItemData,
 } from "@ros/contracts/menu";
 import type { Permission } from "@ros/domain/access/permissions";
-import { conflict, DomainError, notFound, validationFailed } from "@ros/domain/shared/errors";
+import {
+  DomainError,
+  conflict,
+  isDomainError,
+  notFound,
+  validationFailed,
+} from "@ros/domain/shared/errors";
 import { moveTo } from "@ros/domain/shared/reorder";
 import type { TransactionRunner } from "@ros/database/interfaces/transaction";
 
@@ -67,7 +73,7 @@ export function createMenuService(deps: MenuServiceDeps) {
       if (scope.workspaceId !== tenant.workspaceId) throw notFound(what);
       return scope;
     } catch (error) {
-      if (error instanceof DomainError && error.code === "NOT_FOUND") throw notFound(what);
+      if (isDomainError(error) && error.code === "NOT_FOUND") throw notFound(what);
       throw error;
     }
   }

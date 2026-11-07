@@ -6,12 +6,12 @@ The root `db:*` scripts load `.env.local` with `tsx --env-file=.env.local`, so t
 
 ## What a backup is
 
-| Source         | Command                                                                            | Output                                                                                                                   |
-| -------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Postgres       | `DATABASE_URL=<owner URL> pnpm db:dump --out <file>.dump`                          | `pg_dump --format=custom --no-owner` (grants and RLS policies included) + `<file>.dump.manifest.json`                    |
-| PGlite (local) | `DATABASE_PROVIDER=pglite PGLITE_DATA_DIR=<abs dir> pnpm db:dump --out <file>.sql` | snapshots the directory first, then dumps **the copy** as plain SQL + manifest                                           |
-| PGlite (local) | `pnpm db:snapshot`                                                                 | byte copy in `<data dir parent>/snapshots/pglite-<YYYYMMDD-HHmmss>/` with `manifest.json` (row counts, per-file SHA-256) |
-| Uploads        | bucket versioning (`s3`), or copy `STORAGE_LOCAL_DIR` (`local`)                    | —                                                                                                                        |
+| Source         | Command                                                                              | Output                                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Postgres       | `DATABASE_PROVIDER=postgres DATABASE_URL=<owner URL> pnpm db:dump --out <file>.dump` | `pg_dump --format=custom --no-owner` (grants and RLS policies included) + `<file>.dump.manifest.json`                    |
+| PGlite (local) | `DATABASE_PROVIDER=pglite PGLITE_DATA_DIR=<abs dir> pnpm db:dump --out <file>.sql`   | snapshots the directory first, then dumps **the copy** as plain SQL + manifest                                           |
+| PGlite (local) | `pnpm db:snapshot`                                                                   | byte copy in `<data dir parent>/snapshots/pglite-<YYYYMMDD-HHmmss>/` with `manifest.json` (row counts, per-file SHA-256) |
+| Uploads        | bucket versioning (`s3`), or copy `STORAGE_LOCAL_DIR` (`local`)                      | —                                                                                                                        |
 
 The manifest holds per-table row counts taken just before the dump; `db:verify` compares a restored database with it.
 
@@ -20,9 +20,12 @@ The manifest holds per-table row counts taken just before the dump; `db:verify` 
 ## Nightly backup (Postgres)
 
 ```bash
+DATABASE_PROVIDER=postgres \
 DATABASE_URL="postgres://<owner>:<pw>@<host>:5432/<db>?sslmode=require" \
   pnpm db:dump --out backups/ros-$(date +%F).dump
 ```
+
+`DATABASE_PROVIDER=postgres` is required: a developer's `.env.local` usually says `pglite`, and the script refuses to write a PGlite SQL dump into a `.dump` file. The first log line (`dump_source`) names the provider and source it opened; check it. `db:restore` targets Postgres only; a PGlite "restore" is copying a snapshot directory back into place.
 
 Keep `backups/ros-<date>.dump` **and** its `.manifest.json` together, in a separate account or bucket, for 30 days. On Cloud SQL also keep automated backups and point-in-time recovery on (see [rollback](rollback.md) for using them).
 

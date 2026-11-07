@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import { DomainError } from "@ros/domain/shared/errors";
+import { DomainError, isDomainError } from "@ros/domain/shared/errors";
 import { hashToken } from "@ros/domain/shared/tokens";
 
 import type { RequestMeta, UserActor } from "../context";
@@ -288,7 +288,7 @@ export function route<
     function failure(error: unknown, c: Container | null): Response {
       const { status, body } = toErrorResponse(error, requestId);
       // Expected errors (maintenance) are not incidents.
-      if (status >= 500 && !(error instanceof DomainError)) {
+      if (status >= 500 && !isDomainError(error)) {
         c?.errors.capture(error, {
           requestId,
           path: new URL(req.url).pathname,

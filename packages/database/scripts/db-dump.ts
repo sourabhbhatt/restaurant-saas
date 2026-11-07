@@ -28,6 +28,21 @@ async function main() {
   const out = path.resolve(values.out);
   await mkdir(path.dirname(out), { recursive: true });
   const provider = process.env.DATABASE_PROVIDER === "pglite" ? "pglite" : "postgres";
+  // .env.local usually says pglite; a Postgres backup must say so explicitly.
+  if (provider === "pglite" && !out.endsWith(".sql")) {
+    throw new Error(
+      `DATABASE_PROVIDER is pglite (from the environment or .env.local), which dumps plain SQL into a .sql file. ` +
+        `For a Postgres backup run with DATABASE_PROVIDER=postgres DATABASE_URL=...; for PGlite name the file *.sql.`,
+    );
+  }
+  console.log(
+    JSON.stringify({
+      level: "info",
+      msg: "dump_source",
+      provider,
+      source: provider === "pglite" ? (process.env.PGLITE_DATA_DIR ?? "memory") : "DATABASE_URL",
+    }),
+  );
 
   let counts: Manifest["counts"];
   if (provider === "pglite") {

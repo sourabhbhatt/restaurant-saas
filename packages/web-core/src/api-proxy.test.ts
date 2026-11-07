@@ -137,4 +137,30 @@ describe("createApiProxy", () => {
       200,
     );
   });
+
+  it("answers 404 for /api/v1/test and /api/v1/dev unless test hooks are allowed", async () => {
+    const calls: string[] = [];
+    const fetchSpy = (async (input: string | URL | Request) => {
+      calls.push(String(input instanceof Request ? input.url : input));
+      return Response.json({ data: [] });
+    }) as unknown as typeof fetch;
+    const closed = createApiProxy({ apiInternalUrl: () => "http://api:4000", fetch: fetchSpy });
+    for (const path of ["/api/v1/dev/mailbox", "/api/v1/test/clock", "/api/v1/test"]) {
+      const res = await closed.GET(new Request(`http://console.local${path}`), {
+        params: Promise.resolve({ path: path.split("/").slice(3) }),
+      });
+      expect(res.status, path).toBe(404);
+    }
+    expect(calls).toEqual([]);
+    const open = createApiProxy({
+      apiInternalUrl: () => "http://api:4000",
+      allowTestHooks: () => true,
+      fetch: fetchSpy,
+    });
+    const res = await open.GET(new Request("http://console.local/api/v1/dev/mailbox"), {
+      params: Promise.resolve({ path: ["dev", "mailbox"] }),
+    });
+    expect(res.status).toBe(200);
+    expect(calls).toEqual(["http://api:4000/api/v1/dev/mailbox"]);
+  });
 });

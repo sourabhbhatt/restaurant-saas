@@ -27,7 +27,7 @@ Health endpoints: `/api/v1/health` (liveness, reports `APP_VERSION`), `/api/v1/h
 
 ## Docker compose
 
-`infra/compose/docker-compose.yml` is the local parity stack and the VPS exit target: `postgres:18`, `minio/minio`, a one-shot `minio-init` (creates the bucket), a one-shot `migrate` (as the database owner), a one-shot `roles` (gives `ros_runtime` a login via `init-roles.sql`), then `api` (:4000), `console` (:3000), `ops` (:3001), `admin` (:3002).
+`infra/compose/docker-compose.yml` is the local parity stack and the VPS exit target: `postgres:18`, `minio/minio`, a one-shot `minio-init` (creates the bucket), a one-shot `migrate` (as the database owner), a one-shot `roles` (gives `ros_runtime` a login via `init-roles.sql`), then `api`, `console`, `ops`, `admin` (none published) behind a `caddy` edge that publishes :3000 (console), :3001 (ops) and :3002 (admin) and overwrites `X-Forwarded-For` with the real client address (`infra/compose/Caddyfile`; for a VPS put your hostnames there and Caddy provisions TLS).
 
 ```bash
 cp infra/compose/.env.compose.example infra/compose/.env.compose   # replace every placeholder
@@ -55,7 +55,7 @@ The target in the [platform design](superpowers/specs/2026-11-07-platform-split-
 
 - One Cloud Run service per app from the images above; the `migrate` image as a Cloud Run Job, executed before each API rollout. Set `PORT` from Cloud Run's injected value (the images read it).
 - The API can be internal-only (ingress "internal") when the frontends reach it over the VPC; `API_INTERNAL_URL` is then its internal URL. With `PAYMENT_PROVIDER=razorpay` the webhook needs the API reachable publicly (the frontend proxy does not forward `X-Razorpay-Signature`).
-- `TRUSTED_PROXY_HOPS`: Google's front end appends one `X-Forwarded-For` entry before the frontend, and the frontend forwards the header unchanged, so start from `1` and add one per extra load balancer you put in front. Check an audit entry's IP after the first deploy.
+- `TRUSTED_PROXY_HOPS`: Google's front end appends one `X-Forwarded-For` entry before the frontend, and the frontend forwards the header unchanged (it never adds to it), so start from `1` and add one per extra load balancer you put in front. Keep the API's ingress internal so nothing reaches it without passing that front end. Check an audit entry's IP after the first deploy.
 - Cloud SQL: connect through the Cloud SQL connector or private IP; the owner user runs the Job, `ros_runtime` runs the API. Keep `DATABASE_POOL_MAX` × max instances below the instance's connection limit.
 - SSE (`/api/v1/branches/:id/events`) streams through the ops/console proxy: raise the request timeout of the API and the frontends (for example 3600 s); clients reconnect and poll anyway.
 - Secrets (`APP_SECRET`, `CRON_SECRET`, database passwords, `RAZORPAY_*`, `S3_SECRET_ACCESS_KEY`) come from Secret Manager; no value is baked into an image, and frontends have no `NEXT_PUBLIC_` configuration.

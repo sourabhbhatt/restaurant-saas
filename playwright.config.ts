@@ -2,7 +2,10 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 const API_PORT = Number(process.env.E2E_API_PORT ?? 4100);
+const OPS_PORT = Number(process.env.E2E_OPS_PORT ?? 3101);
 const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
+/** Staff flows (waiter, kitchen, cashier) live in the ops app. */
+export const opsURL = process.env.E2E_OPS_URL ?? `http://localhost:${OPS_PORT}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -20,7 +23,7 @@ export default defineConfig({
     { name: "desktop-chrome", use: { ...devices["Desktop Chrome"] } },
   ],
   // E2E runs against production builds so the service worker is exercised: the
-  // API on its own port and the console proxying /api/v1 to it.
+  // API on its own port, with console and ops each proxying /api/v1 to it.
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : [
@@ -29,7 +32,8 @@ export default defineConfig({
           url: `http://localhost:${API_PORT}/api/v1/health`,
           // APP_URL may name another port; mutations are accepted only from listed origins.
           env: {
-            ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS ?? new URL(baseURL).origin,
+            ALLOWED_ORIGINS:
+              process.env.ALLOWED_ORIGINS ?? `${new URL(baseURL).origin},${new URL(opsURL).origin}`,
             TRUSTED_PROXY_HOPS: "1",
           },
           reuseExistingServer: !process.env.CI,
@@ -38,6 +42,13 @@ export default defineConfig({
         {
           command: `pnpm --filter @ros/console build && pnpm --filter @ros/console exec next start -p ${PORT}`,
           url: baseURL,
+          env: { API_INTERNAL_URL: `http://localhost:${API_PORT}` },
+          reuseExistingServer: !process.env.CI,
+          timeout: 240_000,
+        },
+        {
+          command: `pnpm --filter @ros/ops build && pnpm --filter @ros/ops exec next start -p ${OPS_PORT}`,
+          url: opsURL,
           env: { API_INTERNAL_URL: `http://localhost:${API_PORT}` },
           reuseExistingServer: !process.env.CI,
           timeout: 240_000,

@@ -18,7 +18,13 @@ async function main() {
   if (!values.manifest || !target) {
     throw new Error("Usage: pnpm db:verify --manifest <file> --target-url <url>");
   }
-  const manifest = JSON.parse(await readFile(values.manifest, "utf8")) as Manifest;
+  // Dump manifests carry `counts`; snapshot manifests carry `rowCounts`.
+  const parsed = JSON.parse(await readFile(values.manifest, "utf8")) as Partial<Manifest> & {
+    rowCounts?: Manifest["counts"];
+  };
+  const counts = parsed.counts ?? parsed.rowCounts;
+  if (!counts) throw new Error(`${values.manifest}: no counts or rowCounts in manifest`);
+  const manifest: Manifest = { ...(parsed as Manifest), counts };
   const handle = await connectPostgres(target, 1);
   try {
     const mismatches = diffCounts(manifest.counts, await countRows(handle.db));

@@ -1,7 +1,7 @@
 import { createSystemLookup } from "@ros/database/providers/postgres/client";
 import { billingRepository } from "@ros/database/providers/postgres/repositories/billing";
 import { auditRepository } from "@ros/database/providers/postgres/repositories/core";
-import { DomainError, notFound } from "@ros/domain/shared/errors";
+import { isDomainError, notFound } from "@ros/domain/shared/errors";
 
 import type { BranchScope } from "@ros/application/authz/access-service";
 import type { Container } from "./container";
@@ -45,7 +45,7 @@ async function scopeVia(
     return await c.access.forBranch(actor, branchId);
   } catch (error) {
     // Never reveal that the resource exists in a branch the actor can't see.
-    if (error instanceof DomainError && error.code === "NOT_FOUND") throw notFound(what);
+    if (isDomainError(error) && error.code === "NOT_FOUND") throw notFound(what);
     throw error;
   }
 }

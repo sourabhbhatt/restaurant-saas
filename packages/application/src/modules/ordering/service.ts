@@ -10,7 +10,7 @@ import type { BranchMenu } from "@ros/contracts/menu";
 import type { OrderDto } from "@ros/contracts/orders";
 import type { OrderPriority } from "@ros/domain/orders/order-status";
 import { priceOrderLines, type MenuCatalogEntry } from "@ros/domain/orders/order-lines";
-import { DomainError, notFound } from "@ros/domain/shared/errors";
+import { DomainError, isDomainError, notFound } from "@ros/domain/shared/errors";
 import { formatMoney } from "@ros/domain/shared/money";
 import { generateToken, hashToken, isWellFormedToken } from "@ros/domain/shared/tokens";
 import type { TransactionRunner } from "@ros/database/interfaces/transaction";
@@ -115,7 +115,7 @@ export function createOrderingService(deps: OrderingServiceDeps) {
         ent.features.includes("qr_ordering")
       );
     } catch (error) {
-      if (error instanceof DomainError && error.code === "NOT_FOUND") return false;
+      if (isDomainError(error) && error.code === "NOT_FOUND") return false;
       throw error;
     }
   }

@@ -18,9 +18,10 @@ export function addBillingCycle(from: Date, cycle: BillingCycle): Date {
 }
 
 /**
- * The period a paid order buys. Paid time is never lost: when the current
- * paid period (active or cancelled) still runs, the new one starts where it
- * ends; otherwise (trial, expired, none) it starts now.
+ * The period a paid order buys. When the current paid period (active or
+ * cancelled) still runs, the new one starts where it ends; otherwise (trial,
+ * expired, none) it starts now. The caller refuses a different plan or cycle
+ * while a paid period runs, since the new plan applies immediately.
  */
 export function paidPeriodFor(
   current: CurrentPeriod | null,

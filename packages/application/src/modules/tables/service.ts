@@ -6,7 +6,13 @@ import {
   type TableDto,
   type TableQrDto,
 } from "@ros/contracts/tables";
-import { conflict, DomainError, notFound, validationFailed } from "@ros/domain/shared/errors";
+import {
+  DomainError,
+  conflict,
+  isDomainError,
+  notFound,
+  validationFailed,
+} from "@ros/domain/shared/errors";
 import { moveTo } from "@ros/domain/shared/reorder";
 import { deriveTableStatus } from "@ros/domain/tables/table-status";
 import { UniqueViolationError, type TransactionRunner } from "@ros/database/interfaces/transaction";
@@ -118,7 +124,7 @@ export function createTableService(deps: TableServiceDeps) {
         if (scope.workspaceId !== loc.workspaceId) throw notFound("Table");
         return scope;
       } catch (error) {
-        if (error instanceof DomainError && error.code === "NOT_FOUND") throw notFound("Table");
+        if (isDomainError(error) && error.code === "NOT_FOUND") throw notFound("Table");
         throw error;
       }
     },

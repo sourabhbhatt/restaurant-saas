@@ -6,7 +6,7 @@
 
 - **One process at a time.** PGlite cannot be opened by two processes. Stop `pnpm dev` (the API holds the directory) before any `db:*` script.
 - **Never migrate without a snapshot.** The API refuses to start when a persistent PGlite directory has pending migrations (`Pending migrations for <dir>: … Run pnpm db:snapshot then pnpm db:migrate.`); only `pnpm db:migrate` migrates it, and it snapshots first.
-- **Absolute paths.** Set `PGLITE_DATA_DIR=/absolute/path/to/repo/.data/pglite`. The root scripts run in the repo root while `next dev` for the API runs in `apps/api`; a relative path would point the API at an empty `apps/api/.data/pglite`.
+- **Paths.** The root `db:*` scripts and the API's `next dev` both read the repo-root `.env.local`, and the API resolves a relative `PGLITE_DATA_DIR` / `STORAGE_LOCAL_DIR` against the repo root (see `apps/api/next.config.ts`). An absolute path is still the safest choice, and every `db:*` command here passes the directory explicitly so a wrong `.env.local` cannot redirect it.
 - **Experiments run on copies** under `.data/rehearsal/`, never on `.data/pglite`.
 - **Snapshots are never deleted** by scripts. Remove old ones by hand only when you have a newer verified one.
 
@@ -38,7 +38,7 @@ DATABASE_PROVIDER=pglite PGLITE_DATA_DIR=$PWD/.data/rehearsal/m1 pnpm db:migrate
 
 ## Verify after migrating
 
-Take a fresh snapshot of the migrated directory and compare its row counts with the pre-migration manifest; every pre-existing table must match (new tables appear with their backfilled counts, for example `organizations` = number of workspaces after `0003`):
+Take a fresh snapshot of the migrated directory and compare its row counts with the pre-migration manifest. Every pre-existing table must match except `platform_settings`, which grows when a migration ships new default settings keys (`ensureSystemData`); new tables appear with their backfilled counts, for example `organizations` = number of workspaces after `0003`. A snapshot is a file copy that is then opened once to count rows, so the copy's internal files (control file, WAL) differ from the source; compare row counts, not file hashes, between source and copy.
 
 ```bash
 DATABASE_PROVIDER=pglite PGLITE_DATA_DIR=$PWD/.data/pglite pnpm db:snapshot

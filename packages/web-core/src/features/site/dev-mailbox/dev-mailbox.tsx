@@ -54,7 +54,7 @@ export function DevMailbox() {
       <EmptyState
         icon={<InboxIcon />}
         title="The dev mailbox is disabled"
-        description="It is only available when NODE_ENV=development or ENABLE_TEST_HOOKS=true."
+        description="It is only available to Super Admins when ENABLE_TEST_HOOKS=true on the API and this app."
       />
     ) : (
       <ErrorState message={errorMessage(query.error)} onRetry={() => void query.refetch()} />

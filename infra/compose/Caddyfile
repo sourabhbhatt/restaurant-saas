@@ -1,0 +1,18 @@
+# Compose edge. Caddy replaces X-Forwarded-For/Proto from untrusted clients with the
+# real connection values, so the API can trust exactly one hop (TRUSTED_PROXY_HOPS=1).
+# For a VPS, change the three sites to your hostnames and Caddy provisions TLS.
+{
+	auto_https off
+}
+
+:3000 {
+	reverse_proxy console:3000
+}
+
+:3001 {
+	reverse_proxy ops:3000
+}
+
+:3002 {
+	reverse_proxy admin:3000
+}

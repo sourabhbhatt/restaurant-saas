@@ -19,9 +19,13 @@ async function main() {
       dir,
       process.env.SNAPSHOT_DIR || undefined,
     );
-    console.log(
-      JSON.stringify({ level: "info", msg: "snapshot_written", path: snapshotPath, pending }),
-    );
+    if (snapshotPath) {
+      console.log(
+        JSON.stringify({ level: "info", msg: "snapshot_written", path: snapshotPath, pending }),
+      );
+    } else {
+      console.log(JSON.stringify({ level: "info", msg: "new_database_created", dir }));
+    }
     console.log(JSON.stringify({ level: "info", msg: "migrations_applied", provider }));
     return;
   }

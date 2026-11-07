@@ -26,10 +26,15 @@ export interface TestUser {
   cookie: string;
 }
 
+let ipCounter = 0;
+
+/** Each signed-up user gets its own client IP so suites stay under the per-IP signup limit. */
 export async function signUpUser(name = "Test User", email = uniqueEmail()): Promise<TestUser> {
   const password = "correct-horse-42";
+  ipCounter += 1;
   const res = await call<{ user: { id: string } }>(signUp, {
     body: { name, email, password, acceptTerms: true },
+    headers: { "x-forwarded-for": `10.99.${Math.floor(ipCounter / 250) % 250}.${ipCounter % 250}` },
   });
   if (res.status !== 201)
     throw new Error(`signup failed: ${res.status} ${JSON.stringify(res.body)}`);

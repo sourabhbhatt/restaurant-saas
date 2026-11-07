@@ -33,6 +33,7 @@ export function serverProject({ name, include, setupFiles = [] }: ProjectOptions
       include,
       setupFiles,
       env: SERVER_TEST_ENV,
+      passWithNoTests: true,
       testTimeout: 30_000,
       hookTimeout: 60_000,
       coverage: { provider: "v8" },
@@ -52,6 +53,7 @@ export function uiProject({ name, include, setupFiles = [] }: ProjectOptions): V
       environment: "jsdom",
       include,
       setupFiles: [path.resolve(here, "vitest.setup.ts"), ...setupFiles],
+      passWithNoTests: true,
       coverage: { provider: "v8" },
     },
   });

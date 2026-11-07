@@ -54,10 +54,10 @@ afterAll(async () => {
   await c.close();
 });
 
-async function orgOwner(name: string) {
+async function orgOwner(name: string, container: Container = c) {
   const owner = await signUpUser(`${name} Owner`);
   const ws = await createWorkspaceAs(owner, `${name} Kitchen`);
-  return { owner, ws, organizationId: await organizationOf(c, ws.id) };
+  return { owner, ws, organizationId: await organizationOf(container, ws.id) };
 }
 
 async function createCheckout(
@@ -130,6 +130,14 @@ async function currentSubscription(organizationId: string) {
       and(eq(subscriptions.organizationId, organizationId), eq(subscriptions.isCurrent, true)),
     );
   return row!;
+}
+
+async function orderCount(organizationId: string) {
+  const rows = await c.db
+    .select({ id: paymentOrders.id })
+    .from(paymentOrders)
+    .where(eq(paymentOrders.organizationId, organizationId));
+  return rows.length;
 }
 
 async function orderRow(providerOrderId: string) {
@@ -420,6 +428,26 @@ describe("verify endpoint", () => {
     expect(await auditCount("payment.amount_mismatch", session.paymentOrderId)).toBe(1);
   });
 
+  it("a different plan or cycle is refused while a paid period still runs", async () => {
+    const { owner, ws, organizationId } = await orgOwner("Switch");
+    const periodEnd = new Date(Date.now() + 100 * 86_400_000).toISOString().slice(0, 10);
+    const activated = await call(activate, {
+      params: { workspaceId: ws.id },
+      cookie: admin.cookie,
+      body: { planKey: "pro", billingCycle: "ANNUAL", periodEnd },
+    });
+    expect(activated.status).toBe(200);
+    for (const body of [
+      { planKey: "pro", billingCycle: "MONTHLY" },
+      { planKey: "starter", billingCycle: "MONTHLY" },
+    ]) {
+      const res = await call(checkout, { params: { organizationId }, cookie: owner.cookie, body });
+      expect(res.status, JSON.stringify(res.body)).toBe(409);
+      expect(res.body.error!.message).toContain("paid until");
+    }
+    expect(await orderCount(organizationId)).toBe(0);
+  });
+
   it("renewal extends from current period end", async () => {
     const { owner, ws, organizationId } = await orgOwner("Renew");
     const periodEnd = new Date(Date.now() + 100 * 86_400_000).toISOString().slice(0, 10);
@@ -487,7 +515,7 @@ describe("without a gateway", () => {
   it("the checkout endpoints do not exist and the Pay button is off", async () => {
     const plain = await createTestContainer();
     try {
-      const { owner, ws, organizationId } = await orgOwner("Offline");
+      const { owner, ws, organizationId } = await orgOwner("Offline", plain);
       const res = await call(checkout, {
         params: { organizationId },
         cookie: owner.cookie,

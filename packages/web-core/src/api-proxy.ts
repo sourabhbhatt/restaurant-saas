@@ -34,9 +34,15 @@ const DROPPED_RESPONSE_HEADERS = new Set([
 export interface ApiProxyConfig {
   /** Read at request time, never at build time. */
   apiInternalUrl: () => string;
+  /** Whether /api/v1/test/* and /api/v1/dev/* may pass through (default: never). */
+  allowTestHooks?: () => boolean;
   /** Overridable for tests. */
   fetch?: typeof fetch;
 }
+
+/** Internal hook routes are relayed only when the frontend opts in explicitly. */
+const TEST_HOOK_PATH = /^\/api\/v1\/(test|dev)(\/|$)/;
+const NOT_FOUND = { error: { code: "NOT_FOUND", message: "Not found" } };
 
 type Handler = (req: Request, ctx: { params: Promise<{ path: string[] }> }) => Promise<Response>;
 
@@ -90,6 +96,8 @@ export function createApiProxy(config: ApiProxyConfig): ApiProxy {
   const doFetch = config.fetch ?? fetch;
 
   const handler: Handler = async (req) => {
+    if (TEST_HOOK_PATH.test(new URL(req.url).pathname) && !config.allowTestHooks?.())
+      return Response.json(NOT_FOUND, { status: 404 });
     const base = config.apiInternalUrl();
     const hasBody = req.method !== "GET" && req.method !== "HEAD" && req.body !== null;
     let upstream: Response;
@@ -127,4 +135,5 @@ export const DEFAULT_API_INTERNAL_URL = "http://localhost:4000";
  */
 export const apiProxy = createApiProxy({
   apiInternalUrl: () => process.env.API_INTERNAL_URL || DEFAULT_API_INTERNAL_URL,
+  allowTestHooks: () => /^(1|true|yes)$/i.test(process.env.ENABLE_TEST_HOOKS ?? ""),
 });

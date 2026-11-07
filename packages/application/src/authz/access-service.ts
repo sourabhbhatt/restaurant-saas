@@ -6,7 +6,7 @@ import {
   type AccessGrants,
   type Permission,
 } from "@ros/domain/access/permissions";
-import { DomainError, forbidden, notFound } from "@ros/domain/shared/errors";
+import { forbidden, isDomainError, notFound } from "@ros/domain/shared/errors";
 import { assertOperationAllowed, type Entitlements } from "@ros/domain/subscriptions/entitlements";
 
 import type { UserActor } from "../context";
@@ -168,8 +168,7 @@ export function createAccessService(deps: {
       try {
         ws = await workspaceScope(actor, restaurant.workspaceId);
       } catch (error) {
-        if (error instanceof DomainError && error.code === "NOT_FOUND")
-          throw notFound("Restaurant");
+        if (isDomainError(error) && error.code === "NOT_FOUND") throw notFound("Restaurant");
         throw error;
       }
       const visible = ws.visibleRestaurantIds();
@@ -192,7 +191,7 @@ export function createAccessService(deps: {
       try {
         ws = await workspaceScope(actor, branch.workspaceId);
       } catch (error) {
-        if (error instanceof DomainError && error.code === "NOT_FOUND") throw notFound("Branch");
+        if (isDomainError(error) && error.code === "NOT_FOUND") throw notFound("Branch");
         throw error;
       }
       const target = { restaurantId: branch.restaurantId, branchId: branch.id };

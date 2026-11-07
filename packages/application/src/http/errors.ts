@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { DomainError, type DomainErrorCode, type FieldErrors } from "@ros/domain/shared/errors";
+import { isDomainError, type DomainErrorCode, type FieldErrors } from "@ros/domain/shared/errors";
 import { UniqueViolationError } from "@ros/database/interfaces/transaction";
 
 export const STATUS_BY_CODE: Record<DomainErrorCode, number> = {
@@ -47,7 +47,7 @@ export function toErrorResponse(
   error: unknown,
   requestId: string,
 ): { status: number; body: ApiErrorBody } {
-  if (error instanceof DomainError) {
+  if (isDomainError(error)) {
     return {
       status: STATUS_BY_CODE[error.code],
       body: {

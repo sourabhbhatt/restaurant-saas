@@ -4,7 +4,7 @@ import {
   type OrganizationSummaryDto,
   type WorkspaceDto,
 } from "@ros/contracts/workspaces";
-import { conflict, DomainError, notFound } from "@ros/domain/shared/errors";
+import { DomainError, conflict, isDomainError, notFound } from "@ros/domain/shared/errors";
 import { addDays, assertOperationAllowed } from "@ros/domain/subscriptions/entitlements";
 import { assertCanCreateWorkspace } from "@ros/domain/subscriptions/workspace-limit";
 import type { TransactionRunner } from "@ros/database/interfaces/transaction";
@@ -183,8 +183,8 @@ export function createWorkspaceService({
             createsPerDay: limit.createsPerDay,
           });
         } catch (error) {
-          const reason = error instanceof DomainError ? error.details?.reason : undefined;
-          if (error instanceof DomainError && (reason === "FAIR_USE" || reason === "DAILY_LIMIT")) {
+          const reason = isDomainError(error) ? error.details?.reason : undefined;
+          if (isDomainError(error) && (reason === "FAIR_USE" || reason === "DAILY_LIMIT")) {
             await recordAudit(
               r.audit,
               auditActorFor(actor, meta),

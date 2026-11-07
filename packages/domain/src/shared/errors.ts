@@ -24,6 +24,21 @@ export type DomainErrorCode =
 
 export type FieldErrors = Record<string, string[]>;
 
+/**
+ * `instanceof` is not enough: Next.js bundles the application layer once for
+ * the instrumentation hook (which builds the container) and once for route
+ * handlers, so a DomainError thrown by a service can be a different class
+ * object from the one a handler imports. The name + code brand holds across copies.
+ */
+export function isDomainError(error: unknown): error is DomainError {
+  return (
+    error instanceof DomainError ||
+    (error instanceof Error &&
+      error.name === "DomainError" &&
+      typeof (error as DomainError).code === "string")
+  );
+}
+
 export class DomainError extends Error {
   readonly code: DomainErrorCode;
   readonly fieldErrors?: FieldErrors;
@@ -49,7 +64,3 @@ export const conflict = (message: string, details?: Record<string, unknown>) =>
   new DomainError("CONFLICT", message, { details });
 export const validationFailed = (message: string, fieldErrors?: FieldErrors) =>
   new DomainError("VALIDATION_FAILED", message, { fieldErrors });
-
-export function isDomainError(error: unknown): error is DomainError {
-  return error instanceof DomainError;
-}

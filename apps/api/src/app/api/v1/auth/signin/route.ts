@@ -7,7 +7,8 @@ export const POST = route(
   {
     auth: "public",
     body: signInSchema,
-    rateLimit: { name: "signin", limit: 10, windowMs: 15 * 60_000 },
+    // Per client IP; a restaurant's staff share one, so this is wider than the per-account limit.
+    rateLimit: { name: "signin", limit: 30, windowMs: 15 * 60_000 },
     allowInMaintenance: true,
   },
   async ({ body, meta, c }) => {

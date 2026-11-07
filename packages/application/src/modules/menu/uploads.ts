@@ -7,7 +7,7 @@ import {
 } from "@ros/contracts/menu";
 import type { Permission } from "@ros/domain/access/permissions";
 import { additionalStorageMb, sniffImage } from "@ros/domain/menu/image-sniff";
-import { DomainError, forbidden, validationFailed } from "@ros/domain/shared/errors";
+import { forbidden, isDomainError, validationFailed } from "@ros/domain/shared/errors";
 import type { TransactionRunner } from "@ros/database/interfaces/transaction";
 import type { ObjectStorage } from "@ros/adapters/storage/interfaces/object-storage";
 
@@ -71,7 +71,7 @@ export function createUploadService(deps: UploadServiceDeps) {
       const rs = await access.forRestaurant(actor, restaurantId).catch((error: unknown) => {
         // A restaurant of another workspace the actor also belongs to conflicts with this request's workspace.
         if (
-          (error instanceof DomainError && error.code === "NOT_FOUND") ||
+          (isDomainError(error) && error.code === "NOT_FOUND") ||
           error instanceof TenantContextError
         ) {
           throw validationFailed("Choose a restaurant", { restaurantId: ["Unknown restaurant"] });

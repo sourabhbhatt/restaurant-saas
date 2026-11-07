@@ -4,11 +4,14 @@ import { GET as mailbox } from "@/app/api/v1/dev/mailbox/route";
 import type { DevMailboxEmailDto } from "@ros/contracts/dev-mailbox";
 import type { Container } from "@/composition/container";
 import { call, createTestContainer } from "@/test/harness";
-import { signUpUser } from "@/test/fixtures";
+import { signUpUser, type TestUser } from "@/test/fixtures";
+import { signUpAdmin } from "@/test/fixtures-platform";
 
 let c: Container;
+let admin: TestUser;
 beforeAll(async () => {
   c = await createTestContainer();
+  admin = await signUpAdmin(c);
 });
 afterAll(async () => {
   await c.close();
@@ -26,7 +29,10 @@ describe("GET /api/v1/dev/mailbox", () => {
     setEnv({ ENABLE_TEST_HOOKS: true, NODE_ENV: "test" });
     const user = await signUpUser("Mailbox Tester");
 
-    const res = await call<DevMailboxEmailDto[]>(mailbox, { path: "/api/v1/dev/mailbox" });
+    const res = await call<DevMailboxEmailDto[]>(mailbox, {
+      path: "/api/v1/dev/mailbox",
+      cookie: admin.cookie,
+    });
     expect(res.status).toBe(200);
     const emails = res.body.data!;
     expect(emails.length).toBeGreaterThan(0);
@@ -51,21 +57,34 @@ describe("GET /api/v1/dev/mailbox", () => {
         delivered: false,
       });
     }
-    const res = await call<DevMailboxEmailDto[]>(mailbox, { path: "/api/v1/dev/mailbox" });
+    const res = await call<DevMailboxEmailDto[]>(mailbox, {
+      path: "/api/v1/dev/mailbox",
+      cookie: admin.cookie,
+    });
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(50);
   });
 
-  it("is enabled in development without test hooks", async () => {
+  it("is hidden in development unless test hooks are explicitly enabled", async () => {
     setEnv({ ENABLE_TEST_HOOKS: false, NODE_ENV: "development" });
-    const res = await call(mailbox, { path: "/api/v1/dev/mailbox" });
-    expect(res.status).toBe(200);
+    const res = await call(mailbox, { path: "/api/v1/dev/mailbox", cookie: admin.cookie });
+    expect(res.status).toBe(404);
+    setEnv({ ENABLE_TEST_HOOKS: true, NODE_ENV: "test" });
   });
 
-  it("returns 404 outside development when test hooks are disabled", async () => {
+  it("requires a signed-in Super Admin: anonymous 401, ordinary user 403", async () => {
+    setEnv({ ENABLE_TEST_HOOKS: true, NODE_ENV: "test" });
+    const anon = await call(mailbox, { path: "/api/v1/dev/mailbox" });
+    expect(anon.status).toBe(401);
+    const user = await signUpUser("Mailbox Peeker");
+    const member = await call(mailbox, { path: "/api/v1/dev/mailbox", cookie: user.cookie });
+    expect(member.status).toBe(403);
+  });
+
+  it("returns 404 when test hooks are disabled", async () => {
     for (const NODE_ENV of ["production", "test"] as const) {
       setEnv({ ENABLE_TEST_HOOKS: false, NODE_ENV });
-      const res = await call(mailbox, { path: "/api/v1/dev/mailbox" });
+      const res = await call(mailbox, { path: "/api/v1/dev/mailbox", cookie: admin.cookie });
       expect(res.status).toBe(404);
       expect(res.body.error?.code).toBe("NOT_FOUND");
       expect(res.body.data).toBeUndefined();

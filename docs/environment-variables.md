@@ -41,17 +41,18 @@ Validated once at startup by `packages/application/src/config/env.ts` (Zod). Inv
 | `LOG_LEVEL`                                                          | `info`                                                                 | no                  | `debug`/`info`/`warn`/`error`                                                                                                                                                                                 |
 | `ERROR_REPORTER`                                                     | `log`                                                                  | no                  | `log` or `none`                                                                                                                                                                                               |
 | `CRON_SECRET`                                                        | —                                                                      | for jobs            | Bearer secret for `/api/v1/jobs/*` (≥16 chars)                                                                                                                                                                |
-| `ENABLE_TEST_HOOKS`                                                  | `false`                                                                | **must be false**   | Enables the test clock endpoint and the dev mailbox outside development; startup fails if true in production                                                                                                  |
+| `ENABLE_TEST_HOOKS`                                                  | `false`                                                                | **must be false**   | Enables the test clock endpoint and the dev mailbox (Super Admin only); startup fails if true in production. Set it on a frontend too, or its proxy answers 404 for `/api/v1/test/*` and `/api/v1/dev/*`      |
 | `PORT`                                                               | `4000` (`next dev/start -p 4000`)                                      | set by host         | Listening port of the standalone server in Docker                                                                                                                                                             |
 
 ### `TRUSTED_PROXY_HOPS` in practice
 
-Browser requests reach the API through a frontend's `/api/v1` proxy, which forwards the incoming `X-Forwarded-For` unchanged. Count every proxy you operate that appends to that header:
+Browser requests reach the API through a frontend's `/api/v1` proxy, which forwards the incoming `X-Forwarded-For` unchanged and never adds to it. Next.js only fills the header when the client did not send one, so **the frontends are not a trusted hop**: a client can put anything in the header. Count only the proxies you operate that overwrite or append the client address, and make sure the API and the frontends are reachable through them alone:
 
-- Local `pnpm dev` and the compose stack: `1`.
-- A load balancer or CDN in front of the frontends adds one more hop each (for example `2` with one load balancer).
+- Compose stack: `1` (the Caddy edge in `infra/compose` overwrites the header; the API port is not published).
+- Cloud Run: `1` (Google's front end appends one entry); add one per extra load balancer in front.
+- Local `pnpm dev` with nothing in front: `0`. Every request then shares one anonymous rate-limit bucket, which is fine for one developer.
 
-With `0`, rate limits and audit IPs see no client address at all.
+With a wrong value, every per-IP rate limit (sign-up, guest ordering, uploads, checkout) can be bypassed by rotating the header and audit IPs are whatever the client chose.
 
 ## Frontends (`apps/console`, `apps/ops`, `apps/admin`)
 

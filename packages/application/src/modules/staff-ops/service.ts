@@ -17,7 +17,7 @@ import {
   type OrderPriority,
   type OrderStatus,
 } from "@ros/domain/orders/order-status";
-import { DomainError, forbidden, notFound } from "@ros/domain/shared/errors";
+import { DomainError, forbidden, isDomainError, notFound } from "@ros/domain/shared/errors";
 import { assertFeature } from "@ros/domain/subscriptions/entitlements";
 import { deriveTableStatus } from "@ros/domain/tables/table-status";
 import type { TransactionRunner } from "@ros/database/interfaces/transaction";
@@ -154,7 +154,7 @@ export function createStaffOpsService(deps: StaffOpsServiceDeps) {
     try {
       return await access.forBranch(actor, branchId);
     } catch (error) {
-      if (error instanceof DomainError && error.code === "NOT_FOUND") throw notFound("Order");
+      if (isDomainError(error) && error.code === "NOT_FOUND") throw notFound("Order");
       throw error;
     }
   }

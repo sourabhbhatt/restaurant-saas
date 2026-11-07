@@ -7,6 +7,7 @@ function fakeDeps(pending: string[], calls: string[]): MigratePersistentDeps {
   const handle = (dir: string) =>
     ({ db: {}, close: async () => void calls.push(`close:${dir}`) }) as unknown as DatabaseHandle;
   return {
+    exists: async (dir) => dir !== "/data/new",
     snapshot: (async (dir: string) => {
       calls.push(`snapshot:${dir}`);
       return { dest: "/snap/copy", manifest: {}, totalRows: 0 };
@@ -24,6 +25,13 @@ function fakeDeps(pending: string[], calls: string[]): MigratePersistentDeps {
 }
 
 describe("migratePersistentPglite", () => {
+  it("creates and migrates a directory that does not exist yet, without a snapshot", async () => {
+    const calls: string[] = [];
+    const result = await migratePersistentPglite("/data/new", undefined, fakeDeps([], calls));
+    expect(calls).toEqual(["open:/data/new", "migrate", "close:/data/new"]);
+    expect(result.snapshotPath).toBeNull();
+  });
+
   it("snapshots before opening the original and checks pending on the copy", async () => {
     const calls: string[] = [];
     const result = await migratePersistentPglite(

@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 
 import { addDaysIso } from "@ros/domain/analytics/date-range";
 import type {
@@ -574,7 +574,19 @@ export function analyticsRepository(db: Executor): AnalyticsRepository {
         .from(workspaces)
         .leftJoin(
           subscriptions,
-          and(eq(subscriptions.workspaceId, workspaces.id), eq(subscriptions.isCurrent, true)),
+          and(
+            eq(subscriptions.isCurrent, true),
+            or(
+              and(
+                isNotNull(subscriptions.organizationId),
+                eq(subscriptions.organizationId, workspaces.organizationId),
+              ),
+              and(
+                isNull(subscriptions.organizationId),
+                eq(subscriptions.workspaceId, workspaces.id),
+              ),
+            ),
+          ),
         )
         .leftJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId))
         .where(isNull(workspaces.deletedAt));

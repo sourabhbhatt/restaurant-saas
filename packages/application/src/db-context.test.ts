@@ -10,6 +10,18 @@ const A = "00000000-0000-4000-8000-00000000000a";
 const B = "00000000-0000-4000-8000-00000000000b";
 
 describe("db context", () => {
+  it("a second copy of the module (another bundle layer) shares the same store", async () => {
+    vi.resetModules();
+    const other = await import("./db-context");
+    expect(other.runWithDbContext).not.toBe(runWithDbContext);
+    await runWithDbContext(async () => {
+      bindUser("u1");
+      other.bindWorkspace(A);
+      expect(other.currentDbContext()).toEqual({ workspaceId: A, userId: "u1" });
+      expect(currentDbContext()).toEqual({ workspaceId: A, userId: "u1" });
+    });
+  });
+
   it("binds and reads within a run", async () => {
     const seen = await runWithDbContext(async () => {
       expect(currentDbContext()).toEqual({ workspaceId: null, userId: null });

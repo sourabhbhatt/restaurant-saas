@@ -8,6 +8,8 @@ import {
   type Page,
 } from "@playwright/test";
 
+import { opsURL } from "../../playwright.config";
+
 /**
  * Offline-first staff flows against a production build (service worker on).
  * Needs the demo data from `pnpm db:seed` in the server's database; use a
@@ -42,13 +44,13 @@ async function data<T>(res: Awaited<ReturnType<APIRequestContext["get"]>>): Prom
   return ((await res.json()) as { data: T }).data;
 }
 
-/** A browser context signed in as `email` (cookies come from the API sign-in). */
+/** A browser context on the ops app signed in as `email` (cookies come from the API sign-in). */
 async function staffPage(
   browser: Browser,
   email: string,
   path: string,
 ): Promise<{ context: BrowserContext; page: Page }> {
-  const context = await browser.newContext({ baseURL: ctx.baseURL });
+  const context = await browser.newContext({ baseURL: opsURL });
   await signIn(context.request, email, STAFF_PASSWORD);
   const page = await context.newPage();
   await page.goto(path);

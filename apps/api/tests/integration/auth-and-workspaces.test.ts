@@ -196,11 +196,14 @@ describe("trusted proxy client IP", () => {
     resetEnvCache();
     const local = await createTestContainer();
     try {
+      // 30 per IP per 15 minutes: one rotating client, 31 attempts, distinct accounts.
       let last = 0;
-      for (let i = 0; i < 11; i++) {
+      for (let i = 0; i < 31; i++) {
         const res = await call(signIn, {
           body: { email: uniqueEmail(), password: "wrong-password-1" },
-          headers: { "x-forwarded-for": `10.0.0.${i + 1}, 203.0.113.9` },
+          headers: {
+            "x-forwarded-for": `10.0.${Math.floor(i / 250)}.${(i % 250) + 1}, 203.0.113.9`,
+          },
         });
         last = res.status;
       }

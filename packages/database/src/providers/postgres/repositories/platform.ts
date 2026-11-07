@@ -7,6 +7,7 @@ import {
   gte,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   lt,
   lte,
@@ -213,7 +214,10 @@ export function platformRepository(db: Executor): PlatformRepository {
       : eq(subscriptions.workspaceId, workspaceId);
   }
 
-  /** Dual-write target for `subscriptions.workspace_id`: the organization's first workspace. */
+  /**
+   * Dual-write target for `subscriptions.workspace_id`: the organization's
+   * first live workspace (same choice as the payment repository's billing workspace).
+   */
   async function billingOwner(
     workspaceId: string,
   ): Promise<{ organizationId: string | null; workspaceId: string }> {
@@ -226,7 +230,7 @@ export function platformRepository(db: Executor): PlatformRepository {
     const [first] = await db
       .select({ id: workspaces.id })
       .from(workspaces)
-      .where(eq(workspaces.organizationId, ws.organizationId))
+      .where(and(eq(workspaces.organizationId, ws.organizationId), isNull(workspaces.deletedAt)))
       .orderBy(asc(workspaces.createdAt), asc(workspaces.id))
       .limit(1);
     return { organizationId: ws.organizationId, workspaceId: first?.id ?? workspaceId };
@@ -525,16 +529,30 @@ export function platformRepository(db: Executor): PlatformRepository {
       }));
     },
     async listSweepCandidates() {
+      // The organization's first live workspace receives the lifecycle notices;
+      // legacy rows without an organization fall back to their own workspace.
+      const liveWorkspace = sql`(
+        select w.id from ${workspaces} w
+        where w.organization_id = ${subscriptions.organizationId}
+          and w.status = 'ACTIVE' and w.deleted_at is null
+        order by w.created_at, w.id limit 1)`;
       const rows = await db
         .select({
           sub: subscriptions,
           key: subscriptionPlans.key,
           name: subscriptionPlans.name,
+          workspaceId: workspaces.id,
           workspaceName: workspaces.name,
         })
         .from(subscriptions)
         .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId))
-        .innerJoin(workspaces, eq(workspaces.id, subscriptions.workspaceId))
+        .innerJoin(
+          workspaces,
+          or(
+            and(isNotNull(subscriptions.organizationId), eq(workspaces.id, liveWorkspace)),
+            and(isNull(subscriptions.organizationId), eq(workspaces.id, subscriptions.workspaceId)),
+          ),
+        )
         .where(
           and(
             eq(subscriptions.isCurrent, true),
@@ -544,7 +562,7 @@ export function platformRepository(db: Executor): PlatformRepository {
           ),
         );
       return rows.map((r) => ({
-        subscription: toSubscriptionRow(r.sub, r),
+        subscription: { ...toSubscriptionRow(r.sub, r), workspaceId: r.workspaceId },
         workspaceName: r.workspaceName,
       }));
     },

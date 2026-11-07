@@ -4,6 +4,20 @@ import type { NextConfig } from "next";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 
+// Local development reads the repo-root .env.local (the db:* scripts use the
+// same file) and anchors relative data directories there, not under apps/api.
+// Containers set their environment directly, so a missing file is fine.
+try {
+  process.loadEnvFile(path.join(repoRoot, ".env.local"));
+} catch {
+  // no .env.local
+}
+for (const key of ["PGLITE_DATA_DIR", "STORAGE_LOCAL_DIR"] as const) {
+  const value = process.env[key];
+  if (value && !value.startsWith("memory:") && !path.isAbsolute(value))
+    process.env[key] = path.resolve(repoRoot, value);
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
