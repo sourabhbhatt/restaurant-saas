@@ -83,10 +83,16 @@ export function mapSpecifier(spec, only = null) {
       if (ADAPTER_DIRS.includes(area)) return `@ros/adapters/${area}/${inner.join("/")}`;
       return spec;
     }
-    case "components":
+    case "components": {
+      // Pieces that import features or client plumbing live in web-core, so the
+      // design system package never depends on it.
+      if (sub === "shared/app-providers") return "@ros/web-core/app-providers";
+      if (tail[0] === "layouts") return `@ros/web-core/${sub}`;
       return `@ros/ui/${sub}`;
+    }
     case "lib": {
       if (sub === "api-client") return "@ros/api-client";
+      if (sub === "utils") return "@ros/ui/utils";
       return `@ros/web-core/${sub}`;
     }
     case "features": {
@@ -144,7 +150,9 @@ const SOURCE_RE = /\.(m?[tj]sx?)$/;
 function* walk(target) {
   const stat = statSync(target);
   if (stat.isFile()) {
-    if (SOURCE_RE.test(target)) yield target;
+    // Never rewrite the codemod or its test: their strings are inputs, not imports.
+    if (SOURCE_RE.test(target) && !path.basename(target).startsWith("codemod-imports"))
+      yield target;
     return;
   }
   for (const entry of readdirSync(target, { withFileTypes: true })) {

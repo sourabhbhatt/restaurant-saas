@@ -1,22 +1,8 @@
 {
   "extends": "./packages/tooling/tsconfig.base.json",
   "compilerOptions": {
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "types": ["node"]
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
-  ],
+  "include": ["tests/e2e/**/*.ts", "*.ts", "*.mts"],
   "exclude": ["node_modules", "apps", "packages", ".worktrees"]
 }

@@ -1,9 +1,23 @@
 {
   "extends": "../../packages/tooling/tsconfig.base.json",
   "compilerOptions": {
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@ros/domain/*": ["../../packages/domain/src/*"],
+      "@ros/contracts/*": ["../../packages/contracts/src/*"],
+      "@ros/application/*": ["../../packages/application/src/*"],
+      "@ros/adapters/*": ["../../packages/adapters/src/*"],
+      "@ros/database/*": ["../../packages/database/src/*"],
+      "@ros/testing/*": ["../../packages/testing/src/*"],
+      "@ros/ui/*": ["../../packages/ui/src/*"],
+      "@ros/web-core/*": ["../../packages/web-core/src/*"],
+      "@ros/api-client": ["../../packages/api-client/src/index.ts"],
+      "@ros/api-client/*": ["../../packages/api-client/src/*"]
     }
   },
   "include": [

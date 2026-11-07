@@ -10,107 +10,10 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      '@aws-sdk/client-s3':
-        specifier: ^3.1164.0
-        version: 3.1164.0
-      '@hookform/resolvers':
-        specifier: ^7.0.2
-        version: 7.0.2(@standard-schema/spec@1.1.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(zod@4.6.7)
-      '@ros/adapters':
-        specifier: workspace:*
-        version: link:packages/adapters
-      '@ros/application':
-        specifier: workspace:*
-        version: link:packages/application
-      '@ros/contracts':
-        specifier: workspace:*
-        version: link:packages/contracts
-      '@ros/database':
-        specifier: workspace:*
-        version: link:packages/database
-      '@ros/domain':
-        specifier: workspace:*
-        version: link:packages/domain
-      '@tanstack/react-query':
-        specifier: ^5.105.3
-        version: 5.105.3(@types/react@19.3.0)(react@19.3.0)
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      dexie:
-        specifier: ^4.4.7
-        version: 4.4.7
-      drizzle-orm:
-        specifier: 0.45.4
-        version: 0.45.4(@electric-sql/pglite@0.5.15)(@types/pg@8.23.1)(pg@8.23.1)
-      geist:
-        specifier: ^1.9.0
-        version: 1.9.0(next@16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
-      lucide-react:
-        specifier: ^1.68.0
-        version: 1.68.0(@types/react@19.3.0)(react@19.3.0)
-      next:
-        specifier: 16.4.5
-        version: 16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      pg:
-        specifier: 8.23.1
-        version: 8.23.1
-      qrcode:
-        specifier: 1.5.4
-        version: 1.5.4
-      radix-ui:
-        specifier: ^1.8.1
-        version: 1.8.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      react:
-        specifier: 19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: 19.3.0
-        version: 19.3.0(react@19.3.0)
-      react-hook-form:
-        specifier: ^7.91.0
-        version: 7.91.0(@types/react@19.3.0)(react@19.3.0)
-      recharts:
-        specifier: 3.10.1
-        version: 3.10.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-is@17.0.2)(react@19.3.0)(redux@5.0.1)
-      server-only:
-        specifier: 0.0.1
-        version: 0.0.1
-      sonner:
-        specifier: 2.0.8
-        version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      tailwind-merge:
-        specifier: ^3.7.0
-        version: 3.7.0
-      zod:
-        specifier: ^4.6.7
-        version: 4.6.7
-      zustand:
-        specifier: ^5.0.16
-        version: 5.0.16(@types/react@19.3.0)(immer@11.2.9)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
     devDependencies:
-      '@electric-sql/pglite':
-        specifier: 0.5.15
-        version: 0.5.15
-      '@electric-sql/pglite-tools':
-        specifier: 0.4.15
-        version: 0.4.15(@electric-sql/pglite@0.5.15)
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
-      '@ros/testing':
-        specifier: workspace:*
-        version: link:packages/testing
-      '@serwist/turbopack':
-        specifier: ^9.5.13
-        version: 9.5.13(@swc/helpers@0.5.23)(esbuild@0.28.2)(next@16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(typescript@5.9.3)
-      '@tailwindcss/turbopack':
-        specifier: ^4
-        version: 4.3.4
       '@tanstack/eslint-plugin-query':
         specifier: ^5.105.3
         version: 5.105.3(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
@@ -129,12 +32,6 @@ importers:
       '@types/node':
         specifier: ^22.20.5
         version: 22.20.5
-      '@types/pg':
-        specifier: 8.23.1
-        version: 8.23.1
-      '@types/qrcode':
-        specifier: 1.5.6
-        version: 1.5.6
       '@types/react':
         specifier: ^19
         version: 19.3.0
@@ -147,12 +44,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^5.1.0
         version: 5.1.0(vitest@5.1.0)
-      drizzle-kit:
-        specifier: 0.31.11
-        version: 0.31.11
-      esbuild:
-        specifier: ^0.28.2
-        version: 0.28.2
       eslint:
         specifier: ^9
         version: 9.39.5(jiti@2.7.0)
@@ -174,27 +65,73 @@ importers:
       prettier-plugin-tailwindcss:
         specifier: ^0.8.1
         version: 0.8.1(prettier@3.9.10)
-      serwist:
-        specifier: ^9.5.13
-        version: 9.5.13(browserslist@4.29.5)(typescript@5.9.3)
-      tailwindcss:
-        specifier: ^4
-        version: 4.3.4
       tsx:
         specifier: 4.23.15
         version: 4.23.15
       turbo:
         specifier: 2.11.10
         version: 2.11.10
-      tw-animate-css:
-        specifier: ^1.4.0
-        version: 1.4.0
       typescript:
         specifier: ^5
         version: 5.9.3
       vitest:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
+  apps/admin:
+    dependencies:
+      '@ros/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@ros/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@ros/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@ros/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@ros/web-core':
+        specifier: workspace:*
+        version: link:../../packages/web-core
+      '@tanstack/react-query':
+        specifier: ^5.105.3
+        version: 5.105.3(@types/react@19.3.0)(react@19.3.0)
+      geist:
+        specifier: ^1.9.0
+        version: 1.9.0(next@16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
+      lucide-react:
+        specifier: ^1.68.0
+        version: 1.68.0(@types/react@19.3.0)(react@19.3.0)
+      next:
+        specifier: 16.4.5
+        version: 16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+    devDependencies:
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../../packages/tooling
+      '@tailwindcss/turbopack':
+        specifier: ^4
+        version: 4.3.4
+      '@types/react':
+        specifier: ^19
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.3.0(@types/react@19.3.0)
+      tailwindcss:
+        specifier: ^4
+        version: 4.3.4
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
 
   apps/api:
     dependencies:
@@ -245,6 +182,164 @@ importers:
         specifier: 4.23.15
         version: 4.23.15
 
+  apps/console:
+    dependencies:
+      '@hookform/resolvers':
+        specifier: ^7.0.2
+        version: 7.0.2(@standard-schema/spec@1.1.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(zod@4.6.7)
+      '@ros/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@ros/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@ros/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@ros/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@ros/web-core':
+        specifier: workspace:*
+        version: link:../../packages/web-core
+      '@serwist/turbopack':
+        specifier: ^9.5.13
+        version: 9.5.13(@swc/helpers@0.5.23)(esbuild@0.28.2)(next@16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(typescript@5.9.3)
+      '@tanstack/react-query':
+        specifier: ^5.105.3
+        version: 5.105.3(@types/react@19.3.0)(react@19.3.0)
+      dexie:
+        specifier: ^4.4.7
+        version: 4.4.7
+      geist:
+        specifier: ^1.9.0
+        version: 1.9.0(next@16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
+      lucide-react:
+        specifier: ^1.68.0
+        version: 1.68.0(@types/react@19.3.0)(react@19.3.0)
+      next:
+        specifier: 16.4.5
+        version: 16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      react-hook-form:
+        specifier: ^7.91.0
+        version: 7.91.0(@types/react@19.3.0)(react@19.3.0)
+      serwist:
+        specifier: ^9.5.13
+        version: 9.5.13(browserslist@4.29.5)(typescript@5.9.3)
+      sonner:
+        specifier: 2.0.8
+        version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+      zustand:
+        specifier: ^5.0.16
+        version: 5.0.16(@types/react@19.3.0)(immer@11.2.9)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+    devDependencies:
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../../packages/tooling
+      '@tailwindcss/turbopack':
+        specifier: ^4
+        version: 4.3.4
+      '@types/react':
+        specifier: ^19
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.3.0(@types/react@19.3.0)
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+      tailwindcss:
+        specifier: ^4
+        version: 4.3.4
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
+
+  apps/ops:
+    dependencies:
+      '@hookform/resolvers':
+        specifier: ^7.0.2
+        version: 7.0.2(@standard-schema/spec@1.1.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(zod@4.6.7)
+      '@ros/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@ros/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@ros/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@ros/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@ros/web-core':
+        specifier: workspace:*
+        version: link:../../packages/web-core
+      '@serwist/turbopack':
+        specifier: ^9.5.13
+        version: 9.5.13(@swc/helpers@0.5.23)(esbuild@0.28.2)(next@16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(typescript@5.9.3)
+      '@tanstack/react-query':
+        specifier: ^5.105.3
+        version: 5.105.3(@types/react@19.3.0)(react@19.3.0)
+      geist:
+        specifier: ^1.9.0
+        version: 1.9.0(next@16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
+      lucide-react:
+        specifier: ^1.68.0
+        version: 1.68.0(@types/react@19.3.0)(react@19.3.0)
+      next:
+        specifier: 16.4.5
+        version: 16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      react-hook-form:
+        specifier: ^7.91.0
+        version: 7.91.0(@types/react@19.3.0)(react@19.3.0)
+      serwist:
+        specifier: ^9.5.13
+        version: 9.5.13(browserslist@4.29.5)(typescript@5.9.3)
+      sonner:
+        specifier: 2.0.8
+        version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../../packages/tooling
+      '@tailwindcss/turbopack':
+        specifier: ^4
+        version: 4.3.4
+      '@types/react':
+        specifier: ^19
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.3.0(@types/react@19.3.0)
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+      tailwindcss:
+        specifier: ^4
+        version: 4.3.4
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
+
   packages/adapters:
     dependencies:
       '@aws-sdk/client-s3':
@@ -275,6 +370,12 @@ importers:
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1
+
+  packages/api-client:
+    devDependencies:
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../tooling
 
   packages/application:
     dependencies:
@@ -384,6 +485,113 @@ importers:
         version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(jsdom@30.1.3)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
   packages/tooling: {}
+
+  packages/ui:
+    dependencies:
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^1.68.0
+        version: 1.68.0(@types/react@19.3.0)(react@19.3.0)
+      radix-ui:
+        specifier: ^1.8.1
+        version: 1.8.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      sonner:
+        specifier: 2.0.8
+        version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      tailwind-merge:
+        specifier: ^3.7.0
+        version: 3.7.0
+    devDependencies:
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../tooling
+      '@types/react':
+        specifier: ^19
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.3.0(@types/react@19.3.0)
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+
+  packages/web-core:
+    dependencies:
+      '@hookform/resolvers':
+        specifier: ^7.0.2
+        version: 7.0.2(@standard-schema/spec@1.1.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(zod@4.6.7)
+      '@ros/api-client':
+        specifier: workspace:*
+        version: link:../api-client
+      '@ros/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@ros/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@ros/ui':
+        specifier: workspace:*
+        version: link:../ui
+      '@serwist/turbopack':
+        specifier: ^9.5.13
+        version: 9.5.13(@swc/helpers@0.5.23)(esbuild@0.28.2)(next@16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(typescript@5.9.3)
+      '@tanstack/react-query':
+        specifier: ^5.105.3
+        version: 5.105.3(@types/react@19.3.0)(react@19.3.0)
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      dexie:
+        specifier: ^4.4.7
+        version: 4.4.7
+      lucide-react:
+        specifier: ^1.68.0
+        version: 1.68.0(@types/react@19.3.0)(react@19.3.0)
+      next:
+        specifier: 16.4.5
+        version: 16.4.5(@babel/core@7.29.7)(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      react-hook-form:
+        specifier: ^7.91.0
+        version: 7.91.0(@types/react@19.3.0)(react@19.3.0)
+      recharts:
+        specifier: 3.10.1
+        version: 3.10.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-is@17.0.2)(react@19.3.0)(redux@5.0.1)
+      sonner:
+        specifier: 2.0.8
+        version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      tailwind-merge:
+        specifier: ^3.7.0
+        version: 3.7.0
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+      zustand:
+        specifier: ^5.0.16
+        version: 5.0.16(@types/react@19.3.0)(immer@11.2.9)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
+    devDependencies:
+      '@ros/tooling':
+        specifier: workspace:*
+        version: link:../tooling
+      '@types/react':
+        specifier: ^19
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.3.0(@types/react@19.3.0)
 
 packages:
 
