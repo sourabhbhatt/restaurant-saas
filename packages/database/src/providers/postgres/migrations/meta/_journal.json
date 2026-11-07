@@ -43,6 +43,13 @@
       "when": 1794066256012,
       "tag": "0005_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794072762300,
+      "tag": "0006_workspace_and_user_rls",
+      "breakpoints": true
     }
   ]
 }
