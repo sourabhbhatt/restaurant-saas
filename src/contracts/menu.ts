@@ -40,7 +40,8 @@ const optionalText = (max: number) =>
     .nullable()
     .optional();
 
-const OBJECT_KEY = /^ws\/[0-9a-f-]{36}\/[a-z_]+\/[0-9a-f-]{36}\.(png|jpg|webp)$/;
+/** A stored upload key: `ws/<workspace>/<purpose>/<uuid>.<ext>`, no other path segments. */
+export const OBJECT_KEY = /^ws\/[0-9a-f-]{36}\/[a-z_]+\/[0-9a-f-]{36}\.(png|jpg|webp)$/;
 export const imageKeySchema = z.string().regex(OBJECT_KEY, "Upload the image again").nullable();
 
 // ------------------------------------------------------------------ Categories

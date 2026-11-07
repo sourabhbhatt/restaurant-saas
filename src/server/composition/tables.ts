@@ -22,7 +22,7 @@ export function tableService(c: Container) {
     clock: c.clock,
     entitlements: c.entitlements,
     access: c.access,
-    appUrl: c.env.APP_URL,
+    appUrl: c.env.QR_BASE_URL,
     appSecret: c.env.APP_SECRET,
   });
 }

@@ -9,10 +9,42 @@ import { z } from "zod";
  */
 const booleanish = z.enum(["true", "false", "1", "0"]).transform((v) => v === "true" || v === "1");
 
-const schema = z.object({
+/** Comma-separated origins, normalised with `new URL(x).origin`; blank means "use the default". */
+const originList = z
+  .string()
+  .optional()
+  .transform((raw, ctx) => {
+    const parts = (raw ?? "")
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (!parts.length) return undefined;
+    const origins: string[] = [];
+    for (const part of parts) {
+      const url = URL.canParse(part) ? new URL(part) : null;
+      // Wildcards are not patterns here; WHATWG URL would accept "*" as a literal host character.
+      if (!url || !["http:", "https:"].includes(url.protocol) || url.host.includes("*")) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Invalid origin "${part}" (http(s), no wildcards)`,
+        });
+        return z.NEVER;
+      }
+      origins.push(url.origin);
+    }
+    return [...new Set(origins)];
+  });
+
+const fields = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   APP_URL: z.url().default("http://localhost:3000"),
+  /** Origins allowed to send cookie-authenticated mutations. Default: APP_URL's origin. */
+  ALLOWED_ORIGINS: originList,
+  /** Base of the links printed on table QR codes. Default: APP_URL. */
+  QR_BASE_URL: z.url().optional(),
   APP_NAME: z.string().min(1).default("RestaurantOS"),
+  /** Build or release identifier reported by /api/v1/health. */
+  APP_VERSION: z.string().min(1).optional(),
 
   DATABASE_PROVIDER: z.enum(["postgres", "pglite"]).default("postgres"),
   DATABASE_URL: z
@@ -66,7 +98,13 @@ const schema = z.object({
   ENABLE_TEST_HOOKS: booleanish.default(false),
 });
 
-export type ServerEnv = z.infer<typeof schema>;
+const schema = fields.transform((env) => ({
+  ...env,
+  ALLOWED_ORIGINS: env.ALLOWED_ORIGINS ?? [new URL(env.APP_URL).origin],
+  QR_BASE_URL: env.QR_BASE_URL ?? env.APP_URL,
+}));
+
+export type ServerEnv = z.output<typeof schema>;
 
 let cached: ServerEnv | null = null;
 
@@ -97,6 +135,11 @@ export function resetEnvCache(): void {
 
 export function cookieSecure(env: ServerEnv = getEnv()): boolean {
   return env.COOKIE_SECURE ?? env.APP_URL.startsWith("https://");
+}
+
+/** False when ALLOWED_ORIGINS was set without APP_URL's own origin (logged once at startup). */
+export function appOriginAllowed(env: ServerEnv): boolean {
+  return env.ALLOWED_ORIGINS.includes(new URL(env.APP_URL).origin);
 }
 
 /** The tenant runner's role, or null when disabled with `DATABASE_TENANT_ROLE=none`. */

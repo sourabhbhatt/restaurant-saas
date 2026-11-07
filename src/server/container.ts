@@ -1,5 +1,7 @@
 import "server-only";
 
+import { sql } from "drizzle-orm";
+
 import type { IdentityProvider } from "@/infrastructure/auth/interfaces/identity-provider";
 import { createLocalIdentityProvider } from "@/infrastructure/auth/providers/local-identity";
 import {
@@ -42,7 +44,7 @@ import { createLocalStorage } from "@/infrastructure/storage/providers/local-sto
 import { createS3Storage } from "@/infrastructure/storage/providers/s3-storage";
 
 import { createAccessService, type AccessService } from "./authz/access-service";
-import { getEnv, tenantRole, type ServerEnv } from "./config/env";
+import { appOriginAllowed, getEnv, tenantRole, type ServerEnv } from "./config/env";
 import type { Clock, ErrorReporter, Logger } from "./ports/observability";
 import {
   createEntitlementService,
@@ -67,6 +69,8 @@ export interface Container {
   push: PushSender;
   access: AccessService;
   entitlements: EntitlementService;
+  /** Readiness probe: the database answers and no migration is pending. Throws when unreachable. */
+  isReady(): Promise<boolean>;
   repos: {
     identity: ReturnType<typeof identityRepository>;
     access: ReturnType<typeof accessRepository>;
@@ -174,6 +178,11 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
     }
     const db = handle.db;
     if (tenantRole(env) === null) logger.warn("tenant_role_disabled");
+    if (!appOriginAllowed(env))
+      logger.warn("allowed_origins_excludes_app_url", {
+        appUrl: env.APP_URL,
+        allowedOrigins: env.ALLOWED_ORIGINS,
+      });
     if (options.syncSystemData !== false) await ensureSystemData(db);
 
     // System (owner, bypasses row-level security): authentication, the authorization lookup itself,
@@ -200,6 +209,10 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
       push: createNoopPushSender(),
       access,
       entitlements,
+      isReady: async () => {
+        await db.execute(sql`select 1`);
+        return (await pendingMigrations(handle)).length === 0;
+      },
       repos: {
         identity: identityRepository(db),
         access: accessRepository(db),

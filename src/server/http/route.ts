@@ -49,6 +49,8 @@ export interface RouteConfig<
   idempotency?: (input: { params: z.infer<P> }) => string;
   /** Allow cross-origin POST (e.g. cron with bearer secret). Default false. */
   skipOriginCheck?: boolean;
+  /** Accept mutations in maintenance mode (sign-in/out). Platform and job routes always do. */
+  allowInMaintenance?: boolean;
 }
 
 export interface HandlerInput<
@@ -73,7 +75,7 @@ type RouteContext = { params?: Promise<Record<string, string | string[] | undefi
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-function json(
+export function json(
   status: number,
   body: unknown,
   requestId: string,
@@ -90,8 +92,12 @@ function json(
   });
 }
 
+export function requestIdFrom(req: Request): string {
+  return req.headers.get("x-request-id")?.slice(0, 64) || crypto.randomUUID();
+}
+
 /** Same-origin check for cookie-authenticated mutations (CSRF defence with SameSite=Lax cookies). */
-function assertSameOrigin(req: Request, appUrl: string): void {
+function assertSameOrigin(req: Request, allowed: string[]): void {
   const site = req.headers.get("sec-fetch-site");
   if (site === "same-origin" || site === "none") return;
   const origin = req.headers.get("origin");
@@ -100,8 +106,26 @@ function assertSameOrigin(req: Request, appUrl: string): void {
     if (!req.headers.get("cookie")) return;
     throw new DomainError("FORBIDDEN", "Cross-site request blocked");
   }
-  const allowed = new Set([new URL(appUrl).origin, new URL(req.url).origin]);
-  if (!allowed.has(origin)) throw new DomainError("FORBIDDEN", "Cross-site request blocked");
+  // Not the request URL's own origin: behind a proxy that is derived from the client-supplied Host.
+  if (!allowed.includes(origin)) throw new DomainError("FORBIDDEN", "Cross-site request blocked");
+}
+
+const MAINTENANCE_CACHE_MS = 10_000;
+const maintenanceCache = new WeakMap<Container, { at: number; on: boolean }>();
+
+/** Read at most every 10 s per process; other instances pick up a change within that window. */
+async function inMaintenance(c: Container): Promise<boolean> {
+  const now = c.clock.now().getTime();
+  const hit = maintenanceCache.get(c);
+  if (hit && now >= hit.at && now - hit.at < MAINTENANCE_CACHE_MS) return hit.on;
+  const on = (await c.entitlements.getPlatformSettings()).maintenanceMode;
+  maintenanceCache.set(c, { at: now, on });
+  return on;
+}
+
+/** Drop the cached flag after this process changes platform settings, so the change applies at once. */
+export function forgetMaintenanceFlag(c: Container): void {
+  maintenanceCache.delete(c);
 }
 
 export async function resolveActor(req: Request, c: Container): Promise<UserActor | null> {
@@ -158,7 +182,7 @@ export function route<
   handler: (input: HandlerInput<P, Q, B, A>) => Promise<HandlerResult>,
 ): (req: Request, ctx: RouteContext) => Promise<Response> {
   return async (req, ctx) => {
-    const requestId = req.headers.get("x-request-id")?.slice(0, 64) || crypto.randomUUID();
+    const requestId = requestIdFrom(req);
     let c: Container | null = null;
     try {
       c = await getContainer();
@@ -174,7 +198,20 @@ export function route<
         ip: clientIpFrom(req.headers, c.env.TRUSTED_PROXY_HOPS),
         userAgent: req.headers.get("user-agent"),
       };
-      if (MUTATING.has(req.method) && !config.skipOriginCheck) assertSameOrigin(req, c.env.APP_URL);
+      if (MUTATING.has(req.method) && !config.skipOriginCheck)
+        assertSameOrigin(req, c.env.ALLOWED_ORIGINS);
+      if (
+        MUTATING.has(req.method) &&
+        config.auth !== "platform" &&
+        !config.skipOriginCheck &&
+        !config.allowInMaintenance &&
+        (await inMaintenance(c))
+      ) {
+        throw new DomainError(
+          "MAINTENANCE",
+          "We're down for scheduled maintenance. Please try again shortly.",
+        );
+      }
 
       const actor = config.auth === "public" ? null : await resolveActor(req, c);
       if (actor) bindUser(actor.userId);
@@ -250,7 +287,8 @@ export function route<
 
     function failure(error: unknown, c: Container | null): Response {
       const { status, body } = toErrorResponse(error, requestId);
-      if (status >= 500) {
+      // Expected errors (maintenance) are not incidents.
+      if (status >= 500 && !(error instanceof DomainError)) {
         c?.errors.capture(error, {
           requestId,
           path: new URL(req.url).pathname,
