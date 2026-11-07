@@ -1,5 +1,5 @@
 import {
-  createSystemRunner,
+  createSystemLookup,
   type Executor,
 } from "@/infrastructure/database/providers/postgres/client";
 import { auditRepository } from "@/infrastructure/database/providers/postgres/repositories/core";
@@ -18,7 +18,7 @@ export function staffOpsService(c: Container) {
   return createStaffOpsService({
     tx: tenantRunner(c, build),
     // System: finds the branch owning an order id; the access service then authorizes and binds.
-    lookup: createSystemRunner(c.db, build),
+    lookup: createSystemLookup(c.db, staffOpsRepository, ["findOrderBranchId"]),
     access: c.access,
     clock: c.clock,
     realtime: c.realtime,

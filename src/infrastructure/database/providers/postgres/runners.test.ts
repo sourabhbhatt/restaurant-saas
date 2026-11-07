@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   connectPglite,
+  createSystemLookup,
   createSystemRunner,
   createTenantRunner,
   runMigrations,
@@ -115,5 +116,26 @@ describe("tenant runner", () => {
     expect(() =>
       createTenantRunner(handle.db, asRows, { role: "x; drop table users", context: () => null }),
     ).toThrow(/role/);
+  });
+});
+
+describe("system lookup", () => {
+  it("exposes only the named methods and runs them as the owner", async () => {
+    const lookup = createSystemLookup(
+      handle.db,
+      (e: Executor) => ({
+        count: async (workspaceId: string) =>
+          (
+            await asRows(e).rows<{ n: number }>(
+              sql`select count(*)::int as n from runner_probe where workspace_id = ${workspaceId}`,
+            )
+          )[0]!.n,
+        wipe: async () => e.execute(sql`delete from runner_probe`),
+      }),
+      ["count"],
+    );
+    expect(Object.keys(lookup)).toEqual(["count"]);
+    expect(await lookup.count(B)).toBe(1);
+    expect("wipe" in lookup).toBe(false);
   });
 });

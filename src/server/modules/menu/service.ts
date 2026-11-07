@@ -16,12 +16,12 @@ import type { AccessService, BranchScope, RestaurantScope } from "../../authz/ac
 import { auditActorFor, type RequestMeta, type UserActor } from "../../context";
 import type { Clock } from "../../ports/observability";
 import type { EntitlementService } from "../../subscriptions/entitlement-service";
-import type { ItemPatch, MenuItemRecord, MenuRepos, Tenant } from "./ports";
+import type { ItemPatch, MenuItemRecord, MenuRepos, MenuRepository, Tenant } from "./ports";
 
 export interface MenuServiceDeps {
   tx: TransactionRunner<MenuRepos>;
   /** Owner-level runner, used only to find which branch/restaurant owns an id before authorization. */
-  lookup: TransactionRunner<MenuRepos>;
+  lookup: Pick<MenuRepository, "locateCategory" | "locateItem">;
   clock: Clock;
   entitlements: EntitlementService;
   access: AccessService;
@@ -86,14 +86,10 @@ export function createMenuService(deps: MenuServiceDeps) {
 
   return {
     async scopeForCategory(actor: UserActor, categoryId: string) {
-      return scopeFor(
-        actor,
-        await lookup.read((r) => r.menu.locateCategory(categoryId)),
-        "Category",
-      );
+      return scopeFor(actor, await lookup.locateCategory(categoryId), "Category");
     },
     async scopeForItem(actor: UserActor, itemId: string) {
-      return scopeFor(actor, await lookup.read((r) => r.menu.locateItem(itemId)), "Menu item");
+      return scopeFor(actor, await lookup.locateItem(itemId), "Menu item");
     },
 
     /**

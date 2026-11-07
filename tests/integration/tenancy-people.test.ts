@@ -49,7 +49,15 @@ import {
   subscriptions,
   rateLimitBuckets,
 } from "@/infrastructure/database/providers/postgres/schema";
+import type { Executor } from "@/infrastructure/database/providers/postgres/client";
+import { createSystemLookup } from "@/infrastructure/database/providers/postgres/client";
+import { auditRepository } from "@/infrastructure/database/providers/postgres/repositories/core";
+import { tenancyRepository } from "@/infrastructure/database/providers/postgres/repositories/tenancy";
+import { silentLogger } from "@/infrastructure/logging/console-logger";
+import { tenantRunner } from "@/server/composition/runners";
 import type { Container } from "@/server/container";
+import { runWithDbContext } from "@/server/db-context";
+import { createTenancyService } from "@/server/modules/tenancy/service";
 import {
   addStaffMember,
   createWorkspaceAs,
@@ -712,5 +720,54 @@ describe("account profile", () => {
       (await call(patchProfile, { method: "PATCH", body: { name: "X" }, cookie: user.cookie }))
         .status,
     ).toBe(422);
+  });
+});
+
+describe("invitation delivery", () => {
+  it("still sends the invitation email when the in-app invitee notice fails", async () => {
+    const owner = await signUpUser("Notice Owner");
+    const existing = await signUpUser("Notice Invitee");
+    const ws = await createWorkspaceAs(owner);
+    const build = (e: Executor) => ({ tenancy: tenancyRepository(e), audit: auditRepository(e) });
+    const sent: string[] = [];
+    const warnings: string[] = [];
+    const failing = async () => {
+      throw new Error("notice store unavailable");
+    };
+    const service = createTenancyService({
+      tx: tenantRunner(c, build),
+      lookup: createSystemLookup(c.db, tenancyRepository, ["findInvitationByTokenHash"]),
+      account: { run: failing, read: failing },
+      clock: c.clock,
+      entitlements: c.entitlements,
+      sendEmail: async (message) => {
+        sent.push(message.to);
+      },
+      invitationEmail: () => ({ subject: "Invite", template: "invitation", text: "Join" }),
+      appUrl: "http://localhost:3000",
+      logger: { ...silentLogger, warn: (message: string) => warnings.push(message) },
+    });
+    const user = (await c.repos.identity.findUserById(owner.userId))!;
+    const actor = {
+      type: "user" as const,
+      userId: user.id,
+      sessionId: "test",
+      email: user.email,
+      name: user.name,
+      isPlatformAdmin: false,
+      emailVerified: true,
+      activeWorkspaceId: ws.id,
+    };
+    const created = await runWithDbContext(async () => {
+      const scope = await c.access.forWorkspace(actor, ws.id);
+      return service.createInvitation(
+        scope,
+        { email: existing.email, workspaceRoleId: await systemRoleId("workspace_member") },
+        { requestId: "t", ip: null, userAgent: null },
+      );
+    });
+    expect(created.inviteUrl).toContain("/invite/");
+    expect(sent).toEqual([existing.email]);
+    expect(warnings).toContain("invitee_notice_failed");
   });
 });

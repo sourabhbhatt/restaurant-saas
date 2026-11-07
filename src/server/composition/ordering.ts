@@ -1,5 +1,5 @@
 import {
-  createSystemRunner,
+  createSystemLookup,
   type Executor,
 } from "@/infrastructure/database/providers/postgres/client";
 import { auditRepository } from "@/infrastructure/database/providers/postgres/repositories/core";
@@ -19,7 +19,10 @@ export function orderingService(c: Container) {
   return createOrderingService({
     tx: tenantRunner(c, build),
     // System: a QR or guest token is how a guest request learns its workspace.
-    lookup: createSystemRunner(c.db, build),
+    lookup: createSystemLookup(c.db, (e) => orderingRepository(e, { imageUrl }), [
+      "findTableByQrHash",
+      "findGuestByTokenHash",
+    ]),
     clock: c.clock,
     entitlements: c.entitlements,
     realtime: c.realtime,

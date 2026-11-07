@@ -25,7 +25,18 @@ export function slugify(name: string): string {
 export interface WorkspaceServiceDeps {
   tx: TransactionRunner<WorkspaceRepos>;
   /** Owner-level runner for `create` only: the new workspace has no tenant context yet. */
-  bootstrap: TransactionRunner<WorkspaceRepos>;
+  bootstrap: TransactionRunner<{
+    workspaces: Pick<
+      WorkspaceRepos["workspaces"],
+      | "slugExists"
+      | "insert"
+      | "findSystemRoleId"
+      | "insertMembership"
+      | "findPlanByKey"
+      | "insertSubscription"
+    >;
+    audit: WorkspaceRepos["audit"];
+  }>;
   clock: Clock;
   entitlements: EntitlementService;
 }

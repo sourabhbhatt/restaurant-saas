@@ -97,6 +97,27 @@ export function createSystemRunner<R>(
   };
 }
 
+/**
+ * System access narrowed to the named repository methods, each run as its own
+ * owner-level read. Lookups that resolve a workspace from a token or id use
+ * this so the compiler, not review, keeps them lookup-only.
+ */
+export function createSystemLookup<Repo extends object, K extends keyof Repo>(
+  db: Executor,
+  build: (executor: Executor) => Repo,
+  methods: readonly K[],
+): Pick<Repo, K> {
+  const runner = createSystemRunner(db, build);
+  const out = {} as Record<K, unknown>;
+  for (const name of methods) {
+    out[name] = (...args: unknown[]) =>
+      runner.read(async (repo) =>
+        (repo[name] as (...a: unknown[]) => Promise<unknown>).apply(repo, args),
+      );
+  }
+  return out as Pick<Repo, K>;
+}
+
 export interface TenantRunnerOptions {
   /** Role to switch into for each transaction; null disables the switch (emergency rollback). */
   role: string | null;

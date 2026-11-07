@@ -75,8 +75,8 @@ class IdempotencyRace extends Error {
 
 export interface OrderingServiceDeps {
   tx: TransactionRunner<OrderingRepos>;
-  /** Owner-level runner, used only to resolve QR and guest tokens to their workspace. */
-  lookup: TransactionRunner<OrderingRepos>;
+  /** Owner-level lookups that resolve QR and guest tokens to their workspace. */
+  lookup: Pick<OrderingRepository, "findTableByQrHash" | "findGuestByTokenHash">;
   clock: Clock;
   entitlements: EntitlementService;
   realtime: RealtimePublisher;
@@ -123,9 +123,7 @@ export function createOrderingService(deps: OrderingServiceDeps) {
   /** Resolve a QR token to an operational table, or throw one indistinguishable QR_INVALID. */
   async function resolveTable(token: string): Promise<TableContext> {
     if (!isWellFormedToken(token)) throw qrInvalid();
-    const table = await lookup.read(async (r) =>
-      r.ordering.findTableByQrHash(await hashToken(token)),
-    );
+    const table = await lookup.findTableByQrHash(await hashToken(token));
     if (!table || !table.operational || !table.acceptingOrders) throw qrInvalid();
     bindWorkspace(table.workspaceId);
     if (!(await guestOrderingAllowed(table.workspaceId))) throw qrInvalid();
@@ -134,9 +132,7 @@ export function createOrderingService(deps: OrderingServiceDeps) {
 
   async function resolveGuest(guestToken: string | null): Promise<GuestRecord> {
     if (!guestToken || !isWellFormedToken(guestToken)) throw guestRequired();
-    const guest = await lookup.read(async (r) =>
-      r.ordering.findGuestByTokenHash(await hashToken(guestToken)),
-    );
+    const guest = await lookup.findGuestByTokenHash(await hashToken(guestToken));
     if (!guest) throw guestRequired();
     bindWorkspace(guest.table.workspaceId);
     return guest;

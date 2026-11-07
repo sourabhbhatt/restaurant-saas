@@ -38,6 +38,25 @@ const SYSTEM_ALLOW_LIST: Record<string, string> = {
     "the actor's own notification writes span workspaces and workspace-less rows; filtered by user",
 };
 
+/**
+ * Route handlers that call the container's owner-level core repositories
+ * directly. Each is filtered by the actor or follows an authorization check.
+ */
+const ROUTE_CORE_REPO_USES: Record<string, string[]> = {
+  // Super Admin (auth "platform"); the restaurant must belong to the workspace in the URL.
+  "src/app/api/v1/admin/workspaces/[workspaceId]/restaurants/[restaurantId]/menu/route.ts": [
+    "access.findBranchRef",
+    "access.findRestaurantRef",
+    "access.findWorkspaceName",
+    "access.listStructure",
+  ],
+  // The caller's own workspaces (filtered by actor.userId in SQL).
+  "src/app/api/v1/auth/me/route.ts": ["access.listUserWorkspaces"],
+  "src/app/api/v1/workspaces/route.ts": ["access.listUserWorkspaces"],
+  // After access.forWorkspace, with the scope's workspace id.
+  "src/app/api/v1/workspaces/[workspaceId]/structure/route.ts": ["access.listStructure"],
+};
+
 const ROOT = process.cwd();
 
 async function sourceFiles(dir: string): Promise<string[]> {
@@ -54,7 +73,7 @@ async function sourceFiles(dir: string): Promise<string[]> {
 function usesSystemAccess(source: string): boolean {
   const withoutRunnerArgs = source.replace(/create(Tenant|System)Runner\(\s*c\.db\b/g, "");
   return (
-    /createSystemRunner\(/.test(source) ||
+    /createSystem(Runner|Lookup)\(/.test(source) ||
     /\bc\.db\b/.test(withoutRunnerArgs) ||
     /Repository\(\s*db\s*[,)]/.test(source)
   );
@@ -68,6 +87,18 @@ describe("system runner allow-list", () => {
       if (usesSystemAccess(await readFile(path.join(ROOT, file), "utf8"))) system.push(file);
     }
     expect(system.sort()).toEqual(Object.keys(SYSTEM_ALLOW_LIST).sort());
+  });
+
+  it("route handlers use core repositories only where listed", async () => {
+    const uses: Record<string, string[]> = {};
+    for (const file of await sourceFiles("src/app/api")) {
+      const source = await readFile(path.join(ROOT, file), "utf8");
+      const found = [...source.matchAll(/\bc\.repos\.(\w+)\.(\w+)/g)].map((m) => `${m[1]}.${m[2]}`);
+      const bare = /\bc\.repos\b(?!\.\w+\.\w+)/.test(source.replace(/\bc\.repos\.\w+\.\w+/g, ""));
+      if (bare) found.push("<unlisted c.repos access>");
+      if (found.length) uses[file] = [...new Set(found)].sort();
+    }
+    expect(uses).toEqual(ROUTE_CORE_REPO_USES);
   });
 
   it("createTransactionRunner no longer exists", () => {

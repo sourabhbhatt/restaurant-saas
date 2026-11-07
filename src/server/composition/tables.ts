@@ -1,5 +1,5 @@
 import {
-  createSystemRunner,
+  createSystemLookup,
   type Executor,
 } from "@/infrastructure/database/providers/postgres/client";
 import { auditRepository } from "@/infrastructure/database/providers/postgres/repositories/core";
@@ -18,7 +18,7 @@ export function tableService(c: Container) {
   return createTableService({
     tx: tenantRunner(c, build),
     // System: finds the branch owning a table id; the access service then authorizes and binds.
-    lookup: createSystemRunner(c.db, build),
+    lookup: createSystemLookup(c.db, tableRepository, ["locateTable"]),
     clock: c.clock,
     entitlements: c.entitlements,
     access: c.access,

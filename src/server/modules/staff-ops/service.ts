@@ -26,12 +26,18 @@ import { recordAudit } from "../../audit/audit-service";
 import type { AccessService, BranchScope } from "../../authz/access-service";
 import { auditActorFor, type RequestMeta, type UserActor } from "../../context";
 import type { Clock, Logger } from "../../ports/observability";
-import type { BranchTarget, OrderRecord, OrderTransitionPatch, StaffOpsRepos } from "./ports";
+import type {
+  BranchTarget,
+  OrderRecord,
+  OrderTransitionPatch,
+  StaffOpsRepos,
+  StaffOpsRepository,
+} from "./ports";
 
 export interface StaffOpsServiceDeps {
   tx: TransactionRunner<StaffOpsRepos>;
   /** Owner-level runner, used only to find which branch/restaurant owns an id before authorization. */
-  lookup: TransactionRunner<StaffOpsRepos>;
+  lookup: Pick<StaffOpsRepository, "findOrderBranchId">;
   access: AccessService;
   clock: Clock;
   realtime: RealtimePublisher;
@@ -142,7 +148,7 @@ export function createStaffOpsService(deps: StaffOpsServiceDeps) {
    * actor cannot see is reported as not found (no cross-tenant probing).
    */
   async function scopeForOrder(actor: UserActor, orderId: string): Promise<BranchScope> {
-    const branchId = await lookup.read((r) => r.staffOps.findOrderBranchId(orderId));
+    const branchId = await lookup.findOrderBranchId(orderId);
     if (!branchId) throw notFound("Order");
     try {
       return await access.forBranch(actor, branchId);

@@ -18,13 +18,19 @@ import type { AccessService, BranchScope } from "../../authz/access-service";
 import { auditActorFor, type RequestMeta, type UserActor } from "../../context";
 import type { Clock } from "../../ports/observability";
 import type { EntitlementService } from "../../subscriptions/entitlement-service";
-import type { BranchTenant, QrTokenRecord, TableRecord, TableRepos } from "./ports";
+import type {
+  BranchTenant,
+  QrTokenRecord,
+  TableRecord,
+  TableRepos,
+  TableRepository,
+} from "./ports";
 import { decryptQrToken, newQrToken, qrUrl } from "./qr-tokens";
 
 export interface TableServiceDeps {
   tx: TransactionRunner<TableRepos>;
   /** Owner-level runner, used only to find which branch/restaurant owns an id before authorization. */
-  lookup: TransactionRunner<TableRepos>;
+  lookup: Pick<TableRepository, "locateTable">;
   clock: Clock;
   entitlements: EntitlementService;
   access: AccessService;
@@ -113,7 +119,7 @@ export function createTableService(deps: TableServiceDeps) {
   return {
     /** Resolve the branch scope of a table; other tenants' tables read as NOT_FOUND. */
     async scopeForTable(actor: UserActor, tableId: string): Promise<BranchScope> {
-      const loc = await lookup.read((r) => r.tables.locateTable(tableId));
+      const loc = await lookup.locateTable(tableId);
       if (!loc) throw notFound("Table");
       try {
         const scope = await access.forBranch(actor, loc.branchId);

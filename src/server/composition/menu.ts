@@ -1,5 +1,5 @@
 import {
-  createSystemRunner,
+  createSystemLookup,
   type Executor,
 } from "@/infrastructure/database/providers/postgres/client";
 import { auditRepository } from "@/infrastructure/database/providers/postgres/repositories/core";
@@ -20,7 +20,7 @@ export function menuService(c: Container) {
   return createMenuService({
     tx: tenantRunner(c, build),
     // System: finds the restaurant owning a category/item id; the access service then authorizes and binds.
-    lookup: createSystemRunner(c.db, build),
+    lookup: createSystemLookup(c.db, menuRepository, ["locateCategory", "locateItem"]),
     clock: c.clock,
     entitlements: c.entitlements,
     access: c.access,

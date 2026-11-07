@@ -1,4 +1,4 @@
-import { createSystemRunner } from "@/infrastructure/database/providers/postgres/client";
+import { createSystemLookup } from "@/infrastructure/database/providers/postgres/client";
 import { billingRepository } from "@/infrastructure/database/providers/postgres/repositories/billing";
 import { auditRepository } from "@/infrastructure/database/providers/postgres/repositories/core";
 import { DomainError, notFound } from "@/domain/shared/errors";
@@ -25,11 +25,13 @@ export function billingService(c: Container) {
 /** Resolve the branch that owns a bill or payment (for scope resolution only). */
 export function billingLookup(c: Container) {
   // System: finds the branch owning a bill/payment id; the access service then authorizes and binds.
-  const lookup = createSystemRunner(c.db, (e) => billingRepository(e));
+  const lookup = createSystemLookup(c.db, billingRepository, [
+    "findBillBranchId",
+    "findPaymentBranchId",
+  ]);
   return {
-    billBranchId: (billId: string) => lookup.read((repo) => repo.findBillBranchId(billId)),
-    paymentBranchId: (paymentId: string) =>
-      lookup.read((repo) => repo.findPaymentBranchId(paymentId)),
+    billBranchId: (billId: string) => lookup.findBillBranchId(billId),
+    paymentBranchId: (paymentId: string) => lookup.findPaymentBranchId(paymentId),
   };
 }
 

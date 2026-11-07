@@ -76,6 +76,7 @@ export function createPeopleService({
   sendEmail,
   invitationEmail,
   appUrl,
+  logger,
 }: TenancyServiceDeps) {
   const inviteUrl = (token: string) => `${appUrl.replace(/\/$/, "")}/invite/${token}`;
 
@@ -500,14 +501,22 @@ export function createPeopleService({
         }
         throw error;
       }
-      await account.run((r) =>
-        r.tenancy.notifyInvitee({
-          email: input.email,
-          workspaceName: created.workspaceName,
-          inviterName,
+      try {
+        await account.run((r) =>
+          r.tenancy.notifyInvitee({
+            email: input.email,
+            workspaceName: created.workspaceName,
+            inviterName,
+            invitationId: created.invitation.id,
+          }),
+        );
+      } catch (error) {
+        // Best effort, like the email: the invitation is committed and the email must still go out.
+        logger.warn("invitee_notice_failed", {
           invitationId: created.invitation.id,
-        }),
-      );
+          error: String(error),
+        });
+      }
       await issueInvitationEmail(created.workspaceName, inviterName, input.email, token);
       return { invitation: created.invitation, inviteUrl: inviteUrl(token) };
     },
@@ -571,9 +580,7 @@ export function createPeopleService({
     /** Public preview: only what the invitee needs to decide. */
     async previewInvitation(token: string): Promise<InvitationPreviewDto> {
       if (!isWellFormedToken(token)) throw notFound("Invitation");
-      const inv = await lookup.read(async (r) =>
-        r.tenancy.findInvitationByTokenHash(await hashToken(token)),
-      );
+      const inv = await lookup.findInvitationByTokenHash(await hashToken(token));
       if (!inv) throw notFound("Invitation");
       bindWorkspace(inv.workspaceId);
       const expired =
@@ -602,17 +609,15 @@ export function createPeopleService({
       const tokenHash = await hashToken(token);
       const now = clock.now();
       // Seat check first (the entitlement service reads outside this module's transaction).
-      const pre = await lookup.read(async (r) => {
-        const found = await r.tenancy.findInvitationByTokenHash(tokenHash);
-        return found
-          ? {
-              inv: found,
-              existing: await r.tenancy.findMembershipByUser(found.workspaceId, actor.userId),
-            }
-          : null;
-      });
-      if (!pre) throw notFound("Invitation");
-      bindWorkspace(pre.inv.workspaceId);
+      const found = await lookup.findInvitationByTokenHash(tokenHash);
+      if (!found) throw notFound("Invitation");
+      bindWorkspace(found.workspaceId);
+      const pre = {
+        inv: found,
+        existing: await tx.read((r) =>
+          r.tenancy.findMembershipByUser(found.workspaceId, actor.userId),
+        ),
+      };
       if (
         pre.inv.status === "PENDING" &&
         pre.inv.email.toLowerCase() === actor.email.trim().toLowerCase() &&

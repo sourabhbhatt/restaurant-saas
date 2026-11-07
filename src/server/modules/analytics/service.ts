@@ -54,7 +54,19 @@ export interface AnalyticsRepos {
 export interface AnalyticsServiceDeps {
   tx: TransactionRunner<AnalyticsRepos>;
   /** Owner-level runner for the Super Admin platform aggregates only (they span workspaces). */
-  platform: TransactionRunner<AnalyticsRepos>;
+  platform: TransactionRunner<{
+    analytics: Pick<
+      AnalyticsRepository,
+      | "platformCounts"
+      | "workspaceSubscriptions"
+      | "recentWorkspaces"
+      | "workspacesCreatedSince"
+      | "workspacesCreatedBefore"
+      | "trialConversion"
+      | "ordersPerDay"
+      | "activeSince"
+    >;
+  }>;
   clock: Clock;
   entitlements: EntitlementService;
 }

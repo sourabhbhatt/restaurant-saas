@@ -1,4 +1,5 @@
 import {
+  createSystemLookup,
   createSystemRunner,
   type Executor,
 } from "@/infrastructure/database/providers/postgres/client";
@@ -19,7 +20,7 @@ export function tenancyService(c: Container) {
   return createTenancyService({
     tx: tenantRunner(c, build),
     // System: an invitation token is how the invitee's request learns the workspace.
-    lookup: createSystemRunner(c.db, build),
+    lookup: createSystemLookup(c.db, tenancyRepository, ["findInvitationByTokenHash"]),
     // System: writes with no workspace (own profile + audit; the invitee's in-app notice).
     account: createSystemRunner(c.db, build),
     clock: c.clock,
@@ -28,5 +29,6 @@ export function tenancyService(c: Container) {
     invitationEmail: (workspaceName, inviterName, url) =>
       emailTemplates.invitation(c.env.APP_NAME, workspaceName, inviterName, url),
     appUrl: c.env.APP_URL,
+    logger: c.logger,
   });
 }

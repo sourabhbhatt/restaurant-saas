@@ -50,7 +50,13 @@ export interface NotificationServiceDeps {
    * Owner-level runner for the actor's own account writes, which span workspaces or have no
    * workspace (row-level security checks writes against the bound workspace only).
    */
-  account: TransactionRunner<NotificationRepos>;
+  account: TransactionRunner<{
+    notifications: Pick<
+      NotificationRepos["notifications"],
+      "markRead" | "unreadCount" | "upsertPreferences"
+    >;
+    audit: NotificationRepos["audit"];
+  }>;
   clock: Clock;
   push: { enabled: boolean; publicKey: string | null };
 }
