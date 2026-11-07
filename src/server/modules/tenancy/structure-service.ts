@@ -15,7 +15,7 @@ import type {
 import { defaultBusinessHours } from "@/contracts/tenancy";
 import { effectivePermissions } from "@/domain/access/permissions";
 import { validateTaxConfig } from "@/domain/billing/bill-calculator";
-import { conflict, DomainError, notFound } from "@/domain/shared/errors";
+import { conflict, DomainError, notFound, validationFailed } from "@/domain/shared/errors";
 import { UniqueViolationError } from "@/infrastructure/database/interfaces/transaction";
 
 import { recordAudit } from "../../audit/audit-service";
@@ -42,6 +42,16 @@ const codeTaken = () =>
   new DomainError("CONFLICT", "Another branch of this restaurant already uses this code", {
     fieldErrors: { code: ["This code is already used by another branch"] },
   });
+
+/** Logo and cover keys must be this workspace's uploads, not another tenant's. */
+function assertOwnImageKeys(workspaceId: string, input: Partial<CreateRestaurant>): void {
+  for (const field of ["logoKey", "coverKey"] as const) {
+    const key = input[field];
+    if (key && !key.startsWith(`ws/${workspaceId}/`)) {
+      throw validationFailed("Upload the image again", { [field]: ["Upload the image again"] });
+    }
+  }
+}
 
 function restaurantPatch(input: Partial<CreateRestaurant>): RestaurantPatch {
   const patch: RestaurantPatch = {};
@@ -148,6 +158,7 @@ export function createStructureService({ tx, clock, entitlements }: TenancyServi
       meta: RequestMeta,
     ): Promise<RestaurantDto> {
       scope.require("restaurant.create");
+      assertOwnImageKeys(scope.workspaceId, input);
       await entitlements.assertCanAdd(scope.workspaceId, "maxRestaurants");
       return tx.run(async (r) => {
         const slug = await uniqueRestaurantSlug(r, scope.workspaceId, input.name);
@@ -180,6 +191,7 @@ export function createStructureService({ tx, clock, entitlements }: TenancyServi
       meta: RequestMeta,
     ): Promise<RestaurantDetailDto> {
       scope.require("restaurant.update");
+      assertOwnImageKeys(scope.workspaceId, input);
       const patch = restaurantPatch(input);
       await tx.run(async (r) => {
         const updated = await r.tenancy.updateRestaurant(
