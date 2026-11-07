@@ -10,6 +10,7 @@ import { getContainer, type Container } from "../container";
 import { clientIpFrom } from "./client-ip";
 import { toErrorResponse } from "./errors";
 import { readCookie, SESSION_COOKIE } from "./cookies";
+import { bindUser, runWithDbContext } from "../db-context";
 
 /**
  * Route handler wrapper used by every API endpoint. Responsibilities, in order:
@@ -161,6 +162,13 @@ export function route<
     let c: Container | null = null;
     try {
       c = await getContainer();
+      const container = c;
+      return await runWithDbContext(() => serve(container));
+    } catch (error) {
+      return failure(error, c);
+    }
+
+    async function serve(c: Container): Promise<Response> {
       const meta: RequestMeta = {
         requestId,
         ip: clientIpFrom(req.headers, c.env.TRUSTED_PROXY_HOPS),
@@ -169,6 +177,7 @@ export function route<
       if (MUTATING.has(req.method) && !config.skipOriginCheck) assertSameOrigin(req, c.env.APP_URL);
 
       const actor = config.auth === "public" ? null : await resolveActor(req, c);
+      if (actor) bindUser(actor.userId);
       if ((config.auth === "user" || config.auth === "platform") && !actor) {
         throw new DomainError("UNAUTHENTICATED", "Please sign in to continue");
       }
@@ -237,7 +246,9 @@ export function route<
       if (idem && status < 500)
         await c.repos.idempotency.save(idem.scope, idem.key, idem.hash, status, payload);
       return json(status, payload, requestId, result.headers);
-    } catch (error) {
+    }
+
+    function failure(error: unknown, c: Container | null): Response {
       const { status, body } = toErrorResponse(error, requestId);
       if (status >= 500) {
         c?.errors.capture(error, {

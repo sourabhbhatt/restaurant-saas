@@ -10,6 +10,7 @@ import { DomainError, forbidden, notFound } from "@/domain/shared/errors";
 import { assertOperationAllowed, type Entitlements } from "@/domain/subscriptions/entitlements";
 
 import type { UserActor } from "../context";
+import { bindWorkspace } from "../db-context";
 import type {
   AccessRepository,
   BranchRef,
@@ -102,6 +103,7 @@ export function createAccessService(deps: {
     if (!UUID.test(workspaceId)) throw notFound("Workspace");
     const membership = await repo.loadMembershipGrants(actor.userId, workspaceId);
     if (!membership || membership.status !== "ACTIVE") throw notFound("Workspace");
+    bindWorkspace(membership.workspaceId);
     const grants = toGrants(membership);
     const ent = await entitlements.getWorkspaceEntitlements(workspaceId);
 

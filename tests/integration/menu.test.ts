@@ -712,6 +712,13 @@ describe("uploads", () => {
     expect((await uploadFile(owner.cookie, w.id, small)).status).toBe(201);
   });
 
+  it("rejects a restaurant from another workspace the uploader also belongs to", async () => {
+    const other = await createWorkspaceAs(owner, "Other Upload WS");
+    const foreign = await insertRestaurantWithBranch(c, other.id, { name: "Foreign Upload" });
+    const res = await uploadFile(owner.cookie, ws.id, PNG, { restaurantId: foreign.restaurantId });
+    expect(res.status).toBe(422);
+  });
+
   it("hides other workspaces (404) on upload", async () => {
     const stranger = await signUpUser("Uploader");
     const res = await uploadFile(stranger.cookie, ws.id, PNG);

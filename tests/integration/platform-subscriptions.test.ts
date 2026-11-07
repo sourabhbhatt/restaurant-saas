@@ -28,6 +28,7 @@ import {
   subscriptions,
 } from "@/infrastructure/database/providers/postgres/schema";
 import type { Container } from "@/server/container";
+import { runWithDbContext } from "@/server/db-context";
 import {
   addStaffMember,
   createWorkspaceAs,
@@ -384,18 +385,21 @@ describe("trial expiry with the test clock", () => {
     // Daily operations continue; growth is blocked.
     expect((await patch(cookie31, "Clockwork Curry Grace")).status).toBe(200);
     const actor = (await c.repos.identity.findUserById(owner.userId))!;
-    const scope = await c.access.forWorkspace(
-      {
-        type: "user",
-        userId: actor.id,
-        sessionId: "test",
-        email: actor.email,
-        name: actor.name,
-        isPlatformAdmin: false,
-        emailVerified: false,
-        activeWorkspaceId: ws.id,
-      },
-      ws.id,
+    // Outside a route, the access service needs a request context to bind the workspace.
+    const scope = await runWithDbContext(() =>
+      c.access.forWorkspace(
+        {
+          type: "user",
+          userId: actor.id,
+          sessionId: "test",
+          email: actor.email,
+          name: actor.name,
+          isPlatformAdmin: false,
+          emailVerified: false,
+          activeWorkspaceId: ws.id,
+        },
+        ws.id,
+      ),
     );
     expect(() => scope.require("restaurant.create")).toThrow(/Upgrade/);
 

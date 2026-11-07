@@ -13,6 +13,7 @@ import type { ObjectStorage } from "@/infrastructure/storage/interfaces/object-s
 import { recordAudit } from "../../audit/audit-service";
 import type { AccessService, WorkspaceScope } from "../../authz/access-service";
 import { auditActorFor, type RequestMeta, type UserActor } from "../../context";
+import { TenantContextError } from "../../db-context";
 import type { EntitlementService } from "../../subscriptions/entitlement-service";
 import type { UploadRepos } from "./ports";
 
@@ -67,7 +68,11 @@ export function createUploadService(deps: UploadServiceDeps) {
     const perms = REQUIRED[purpose];
     if (restaurantId) {
       const rs = await access.forRestaurant(actor, restaurantId).catch((error: unknown) => {
-        if (error instanceof DomainError && error.code === "NOT_FOUND") {
+        // A restaurant of another workspace the actor also belongs to conflicts with this request's workspace.
+        if (
+          (error instanceof DomainError && error.code === "NOT_FOUND") ||
+          error instanceof TenantContextError
+        ) {
           throw validationFailed("Choose a restaurant", { restaurantId: ["Unknown restaurant"] });
         }
         throw error;
