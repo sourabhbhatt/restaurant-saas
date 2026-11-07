@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { silentLogger } from "@/infrastructure/logging/console-logger";
 
@@ -31,5 +31,27 @@ describe("selectRealtime", () => {
   it("rejects the postgres bus on pglite", () => {
     const env = parseEnv({ REALTIME_PROVIDER: "postgres", DATABASE_PROVIDER: "pglite" });
     expect(() => selectRealtime(env, silentLogger)).toThrow("requires DATABASE_PROVIDER=postgres");
+  });
+});
+
+describe("buildContainer config validation", () => {
+  it("creates no realtime bus when storage config is invalid", async () => {
+    const { buildContainer } = await import("./container");
+    const postgresBus = await import("@/infrastructure/realtime/providers/postgres-bus");
+    const spy = vi.spyOn(postgresBus, "createPostgresBus");
+    const close = vi.fn(async () => {});
+    try {
+      await expect(
+        buildContainer({
+          env: parseEnv({ REALTIME_PROVIDER: "postgres", STORAGE_PROVIDER: "s3" }),
+          database: { db: {} as never, close },
+          syncSystemData: false,
+          quiet: true,
+        }),
+      ).rejects.toThrow("S3 storage selected");
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

@@ -19,8 +19,11 @@ const waitFor = async (fn: () => boolean, ms = 2000) => {
 
 describe.skipIf(!url)("postgres realtime bus (set PG_TEST_URL to run)", () => {
   const buses: Array<{ close(): Promise<void> }> = [];
-  const make = async (logger: Logger = silentLogger) => {
-    const bus = createPostgresBus({ connectionString: url!, logger });
+  const make = async (logger: Logger = silentLogger, applicationName?: string) => {
+    const connectionString = applicationName
+      ? `${url!}${url!.includes("?") ? "&" : "?"}application_name=${applicationName}`
+      : url!;
+    const bus = createPostgresBus({ connectionString, logger });
     buses.push(bus);
     await bus.ready;
     return bus;
@@ -53,12 +56,14 @@ describe.skipIf(!url)("postgres realtime bus (set PG_TEST_URL to run)", () => {
 
   it("reconnects after the LISTEN backend is terminated", async () => {
     const info = vi.fn();
-    const a = await make({ ...silentLogger, info, warn: vi.fn() });
+    const appName = `ros_realtime_test_${crypto.randomUUID().slice(0, 8)}`;
+    const a = await make({ ...silentLogger, info, warn: vi.fn() }, appName);
     const admin = new pg.Client({ connectionString: url });
     await admin.connect();
     try {
       await admin.query(
-        "select pg_terminate_backend(pid) from pg_stat_activity where query ilike 'LISTEN%' and pid <> pg_backend_pid()",
+        "select pg_terminate_backend(pid) from pg_stat_activity where query ilike 'LISTEN%' and application_name = $1",
+        [appName],
       );
     } finally {
       await admin.end();

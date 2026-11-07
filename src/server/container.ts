@@ -148,6 +148,10 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
     ? silentLogger
     : createConsoleLogger(env.LOG_LEVEL, { app: env.APP_NAME });
   const clock = createAdjustableClock();
+  // Providers that validate config run first so a bad config opens nothing.
+  const email = selectEmail(env, logger);
+  const storage = selectStorage(env, logger);
+  const ownsHandle = !options.database;
   const handle =
     options.database ??
     (env.DATABASE_PROVIDER === "pglite"
@@ -167,43 +171,56 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
       );
     }
   }
-  const db = handle.db;
-  if (options.syncSystemData !== false) await ensureSystemData(db);
+  let realtime: RealtimeBus | undefined;
+  try {
+    const db = handle.db;
+    if (options.syncSystemData !== false) await ensureSystemData(db);
 
-  const realtime = selectRealtime(env, logger);
-  const entitlements = createEntitlementService({ repo: entitlementRepository(db), clock });
-  const access = createAccessService({ repo: accessRepository(db), entitlements });
+    const entitlements = createEntitlementService({ repo: entitlementRepository(db), clock });
+    const access = createAccessService({ repo: accessRepository(db), entitlements });
+    realtime = selectRealtime(env, logger);
 
-  return {
-    env,
-    logger,
-    errors: env.ERROR_REPORTER === "log" ? createLogErrorReporter(logger) : { capture: () => {} },
-    clock,
-    db,
-    identity: createLocalIdentityProvider(db, {
-      ttlDays: env.SESSION_TTL_DAYS,
-      now: clock.now,
-      fastHashing: env.NODE_ENV === "test",
-    }),
-    email: selectEmail(env, logger),
-    storage: selectStorage(env, logger),
-    realtime,
-    push: createNoopPushSender(),
-    access,
-    entitlements,
-    repos: {
-      identity: identityRepository(db),
-      access: accessRepository(db),
-      audit: auditRepository(db),
-      idempotency: idempotencyRepository(db),
-      rateLimit: rateLimitRepository(db),
-      emailOutbox: emailOutboxRepository(db),
-    },
-    close: async () => {
-      await realtime.close?.();
-      await handle.close();
-    },
-  };
+    return {
+      env,
+      logger,
+      errors: env.ERROR_REPORTER === "log" ? createLogErrorReporter(logger) : { capture: () => {} },
+      clock,
+      db,
+      identity: createLocalIdentityProvider(db, {
+        ttlDays: env.SESSION_TTL_DAYS,
+        now: clock.now,
+        fastHashing: env.NODE_ENV === "test",
+      }),
+      email,
+      storage,
+      realtime,
+      push: createNoopPushSender(),
+      access,
+      entitlements,
+      repos: {
+        identity: identityRepository(db),
+        access: accessRepository(db),
+        audit: auditRepository(db),
+        idempotency: idempotencyRepository(db),
+        rateLimit: rateLimitRepository(db),
+        emailOutbox: emailOutboxRepository(db),
+      },
+      close: async () => {
+        try {
+          await realtime?.close?.();
+        } finally {
+          await handle.close();
+        }
+      },
+    };
+  } catch (error) {
+    try {
+      await realtime?.close?.();
+    } finally {
+      if (ownsHandle) await handle.close();
+    }
+    throw error;
+  }
 }
 
 const globalForContainer = globalThis as unknown as {
