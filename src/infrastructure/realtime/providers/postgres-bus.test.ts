@@ -1,10 +1,11 @@
+import pg from "pg";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { silentLogger } from "@/infrastructure/logging/console-logger";
 import type { Logger } from "@/server/ports/observability";
 
 import type { RealtimeEvent } from "../interfaces/realtime";
-import { createPostgresBus } from "./postgres-bus";
+import { createPostgresBus, nextBackoffMs } from "./postgres-bus";
 
 const url = process.env.PG_TEST_URL;
 
@@ -50,6 +51,25 @@ describe.skipIf(!url)("postgres realtime bus (set PG_TEST_URL to run)", () => {
     expect(got).toHaveLength(1);
   });
 
+  it("reconnects after the LISTEN backend is terminated", async () => {
+    const info = vi.fn();
+    const a = await make({ ...silentLogger, info, warn: vi.fn() });
+    const admin = new pg.Client({ connectionString: url });
+    await admin.connect();
+    try {
+      await admin.query(
+        "select pg_terminate_backend(pid) from pg_stat_activity where query ilike 'LISTEN%' and pid <> pg_backend_pid()",
+      );
+    } finally {
+      await admin.end();
+    }
+    await waitFor(() => info.mock.calls.some((c) => c[0] === "realtime_reconnected"), 5000);
+    const got: RealtimeEvent[] = [];
+    a.subscribe("branch:4", (e) => got.push(e));
+    await a.publish("branch:4", { type: "again", data: {} });
+    await waitFor(() => got.length === 1);
+  });
+
   it("oversized payload is dropped and logged", async () => {
     const warn = vi.fn();
     const a = await make({ ...silentLogger, warn });
@@ -64,4 +84,12 @@ describe.skipIf(!url)("postgres realtime bus (set PG_TEST_URL to run)", () => {
 
 describe.skipIf(url)("postgres realtime bus", () => {
   it.skip("skipped: set PG_TEST_URL to run against Postgres", () => {});
+});
+
+describe("nextBackoffMs", () => {
+  it("doubles from 1 s and caps at 30 s", () => {
+    const seq = [1000];
+    for (let i = 0; i < 7; i++) seq.push(nextBackoffMs(seq.at(-1)!));
+    expect(seq).toEqual([1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000]);
+  });
 });

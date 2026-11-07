@@ -10,9 +10,12 @@ const MAX_PAYLOAD_BYTES = 7900;
 const MIN_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30_000;
 
+export const nextBackoffMs = (current: number) => Math.min(current * 2, MAX_BACKOFF_MS);
+
 /**
  * Multi-instance realtime over Postgres LISTEN/NOTIFY. Every delivery,
- * including to the publishing instance, goes through NOTIFY so each event
+ * including to the publishing instance, goes through NOTIFY (one path, no
+ * double delivery; clients also poll) so each event
  * arrives exactly once per subscriber. Events are only "refetch" hints, so a
  * dropped or missed notification is covered by client polling.
  */
@@ -57,7 +60,7 @@ export function createPostgresBus(cfg: {
       void connect();
     }, backoff);
     retry.unref?.();
-    backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
+    backoff = nextBackoffMs(backoff);
   };
 
   const connect = async () => {

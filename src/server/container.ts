@@ -170,6 +170,7 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
   const db = handle.db;
   if (options.syncSystemData !== false) await ensureSystemData(db);
 
+  const realtime = selectRealtime(env, logger);
   const entitlements = createEntitlementService({ repo: entitlementRepository(db), clock });
   const access = createAccessService({ repo: accessRepository(db), entitlements });
 
@@ -186,7 +187,7 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
     }),
     email: selectEmail(env, logger),
     storage: selectStorage(env, logger),
-    realtime: selectRealtime(env, logger),
+    realtime,
     push: createNoopPushSender(),
     access,
     entitlements,
@@ -198,7 +199,10 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
       rateLimit: rateLimitRepository(db),
       emailOutbox: emailOutboxRepository(db),
     },
-    close: () => handle.close(),
+    close: async () => {
+      await realtime.close?.();
+      await handle.close();
+    },
   };
 }
 
