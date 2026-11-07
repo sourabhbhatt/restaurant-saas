@@ -29,6 +29,7 @@ import {
   billItems,
   bills,
   branchSettings,
+  idempotencyRecords,
   menuItems,
   orderItems,
   orders,
@@ -83,6 +84,19 @@ function pay(user: TestUser, billId: string, body: Record<string, unknown>) {
     params: { billId },
     body: { idempotencyKey: key(), ...body },
     cookie: user.cookie,
+  });
+}
+function payWithHeader(
+  user: TestUser,
+  billId: string,
+  body: Record<string, unknown>,
+  headerKey: string,
+) {
+  return call<PaymentResultDto>(recordPaymentRoute, {
+    params: { billId },
+    body,
+    cookie: user.cookie,
+    headers: { "idempotency-key": headerKey },
   });
 }
 function refund(user: TestUser, billId: string, body: Record<string, unknown>) {
@@ -427,6 +441,51 @@ describe("payments", () => {
     const final = await getBill(cashier, bill.id);
     expect(final.body.data!.payments).toHaveLength(1);
     expect(final.body.data!.balanceDue).toBe(30_000);
+  });
+
+  it("same user replay of an Idempotency-Key header still works", async () => {
+    const { bill } = await billFor(50_000);
+    const body = { method: "CASH", amount: 20_000, idempotencyKey: key() };
+    const headerKey = key();
+    const first = await payWithHeader(cashier, bill.id, body, headerKey);
+    const second = await payWithHeader(cashier, bill.id, body, headerKey);
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(second.headers.get("idempotent-replay")).toBe("true");
+    expect(second.body.data!.payment.id).toBe(first.body.data!.payment.id);
+  });
+
+  it("another tenant's user cannot replay a payment response", async () => {
+    const { bill } = await billFor(50_000);
+    const body = { method: "CASH", amount: 20_000, idempotencyKey: key() };
+    const headerKey = key();
+    const first = await payWithHeader(cashier, bill.id, body, headerKey);
+    expect(first.status).toBe(201);
+    const other = await setupBillingBranch(c, { taxes: [] });
+    const probe = await payWithHeader(other.owner, bill.id, body, headerKey);
+    expect(probe.status).toBe(404);
+    expect(probe.headers.get("idempotent-replay")).toBeNull();
+  });
+
+  it("payment retry with pre-change key does not double-charge", async () => {
+    const { bill } = await billFor(50_000);
+    const body = { method: "CASH", amount: 20_000, idempotencyKey: key() };
+    const first = await pay(cashier, bill.id, body);
+    expect(first.status).toBe(201);
+    const headerKey = key();
+    // A record written before the scope carried the caller (old scope format).
+    await c.db.insert(idempotencyRecords).values({
+      scope: `payment:${bill.id}`,
+      key: headerKey,
+      requestHash: "stale-hash",
+      statusCode: 201,
+      response: { data: first.body.data },
+    });
+    const retry = await payWithHeader(cashier, bill.id, body, headerKey);
+    expect([200, 201]).toContain(retry.status);
+    const final = await getBill(cashier, bill.id);
+    expect(final.body.data!.payments).toHaveLength(1);
+    expect(final.body.data!.amountPaid).toBe(20_000);
   });
 
   it("serializes concurrent payments: the one exceeding the balance is rejected", async () => {

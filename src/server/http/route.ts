@@ -203,7 +203,8 @@ export function route<
         if (key) {
           if (!/^[A-Za-z0-9_-]{8,100}$/.test(key))
             throw new DomainError("BAD_REQUEST", "Invalid Idempotency-Key");
-          const scope = config.idempotency({ params });
+          // Bound to the caller so one user's key can't replay another tenant's stored response.
+          const scope = `${config.idempotency({ params })}:${actor ? `u:${actor.userId}` : "anon"}`;
           const hash = await hashToken(JSON.stringify(rawBody));
           const existing = await c.repos.idempotency.find(scope, key);
           if (existing) {
