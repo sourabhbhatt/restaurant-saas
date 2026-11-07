@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
 import {
+  FEATURE_META,
   FEATURES,
   LIMIT_KEYS,
   type FeatureKey,
@@ -61,7 +62,8 @@ export interface PublicPlans {
   trialDays: number | null;
 }
 
-const isFeatureKey = (k: string): k is FeatureKey => k in FEATURES;
+const isFeatureKey = (k: string): k is FeatureKey =>
+  k in FEATURES && FEATURE_META[k as FeatureKey].advertised;
 
 export function parsePublicPlans(raw: unknown): PublicPlans {
   const parsed = responseSchema.safeParse(raw);

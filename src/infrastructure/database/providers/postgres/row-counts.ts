@@ -5,21 +5,27 @@ import { sql } from "drizzle-orm";
 
 import { MIGRATIONS_DIR, type DatabaseHandle, type Executor } from "./client";
 
-function rowsOf<T>(result: unknown): T[] {
+export function rowsOf<T>(result: unknown): T[] {
   return (Array.isArray(result) ? result : ((result as { rows?: T[] }).rows ?? [])) as T[];
+}
+
+/**
+ * Names of the tables in `public`, sorted. Reads pg_catalog (not
+ * information_schema, which hides tables the role has no privilege on).
+ */
+export async function listPublicTables(db: Executor): Promise<string[]> {
+  return rowsOf<{ tablename: string }>(
+    await db.execute(
+      sql`select tablename from pg_catalog.pg_tables where schemaname = 'public' order by tablename`,
+    ),
+  )
+    .map((r) => r.tablename)
+    .sort();
 }
 
 /** Exact row count of every table in `public`, keyed and sorted by table name. */
 export async function countRows(db: Executor): Promise<Record<string, number>> {
-  const tables = rowsOf<{ table_name: string }>(
-    await db.execute(
-      sql`select table_name from information_schema.tables
-          where table_schema = 'public' and table_type = 'BASE TABLE'
-          order by table_name`,
-    ),
-  )
-    .map((r) => r.table_name)
-    .sort();
+  const tables = await listPublicTables(db);
   const counts: Record<string, number> = {};
   for (const name of tables) {
     const rows = rowsOf<{ n: string | number }>(

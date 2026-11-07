@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/table";
 import type { PublicPlanDto, SubscriptionOverviewDto } from "@/contracts/platform";
 import {
-  FEATURE_KEYS,
+  ADVERTISED_FEATURES,
   FEATURES,
   LIMIT_KEYS,
   type LimitKey,
@@ -343,7 +343,7 @@ function PlanComparison({
                 ))}
               </TableRow>
             ))}
-            {FEATURE_KEYS.map((f) => (
+            {ADVERTISED_FEATURES.map((f) => (
               <TableRow key={f}>
                 <TableCell className="font-medium">{FEATURES[f]}</TableCell>
                 {plans.map((p) => {

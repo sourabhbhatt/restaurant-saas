@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSerwist } from "@serwist/turbopack";
+import { SECURITY_HEADERS } from "./src/server/http/security-headers";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -27,11 +28,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/:path*",
-        headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "X-Frame-Options", value: "DENY" },
-        ],
+        headers: SECURITY_HEADERS,
       },
     ];
   },

@@ -14,21 +14,27 @@ export const platformSettingsSchema = z.object({
   productName: z.string().min(1).max(60),
   supportEmail: z.email(),
   signupsEnabled: z.boolean(),
+  fairUseMaxWorkspaces: z.number().int().min(1).max(1000),
+  workspaceCreatesPerDay: z.number().int().min(1).max(100),
+  maintenanceMode: z.boolean(),
 });
 
 export type PlatformSettings = z.infer<typeof platformSettingsSchema>;
 export type PlatformSettingKey = keyof PlatformSettings;
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
-  trialDays: 30,
+  trialDays: 15,
   graceDays: 7,
   trialPlanKey: "pro",
-  trialReminderDays: [7, 15, 25],
+  trialReminderDays: [7, 12, 14],
   restrictedMode: "READ_ONLY",
   defaultCurrency: "INR",
   productName: "RestaurantOS",
   supportEmail: "support@restaurantos.local",
   signupsEnabled: true,
+  fairUseMaxWorkspaces: 25,
+  workspaceCreatesPerDay: 5,
+  maintenanceMode: false,
 };
 
 /** Merge stored rows over defaults, ignoring invalid stored values. */

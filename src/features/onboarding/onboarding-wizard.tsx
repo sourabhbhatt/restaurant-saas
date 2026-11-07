@@ -224,7 +224,7 @@ function WorkspaceStep({ onDone }: { onDone: (ws: WorkspaceDto) => void | Promis
   return (
     <StepForm
       title="Name your business"
-      description="This is your workspace. You can run several restaurants and branches inside it. Your 30-day free trial starts now."
+      description="This is your workspace. You can run several restaurants and branches inside it. Your free trial starts now."
       pending={pending}
       submitLabel="Create workspace"
       onSubmit={async () => {

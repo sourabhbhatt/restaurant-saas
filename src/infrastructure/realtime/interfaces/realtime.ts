@@ -22,4 +22,9 @@ export interface RealtimeSubscriber {
   subscribe(channel: RealtimeChannel, listener: (event: RealtimeEvent) => void): () => void;
 }
 
-export type RealtimeBus = RealtimePublisher & RealtimeSubscriber & { readonly name: string };
+export type RealtimeBus = RealtimePublisher &
+  RealtimeSubscriber & {
+    readonly name: string;
+    /** Adapters holding connections release them here. */
+    close?(): Promise<void>;
+  };

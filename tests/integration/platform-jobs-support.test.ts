@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { GET as adminSupportList } from "@/app/api/v1/admin/support/route";
@@ -90,18 +91,18 @@ describe("subscription sweep job", () => {
     expect((await job(`Bearer ${SECRET}`)).status).toBe(200);
     expect(await notificationTypes(owner.userId)).toEqual([]);
 
-    setClockDays(c, 7.5);
+    setClockDays(c, DEFAULT_PLATFORM_SETTINGS.trialReminderDays[0]! + 0.5);
     await job(`Bearer ${SECRET}`);
     await job(`Bearer ${SECRET}`);
     expect(await notificationTypes(owner.userId)).toEqual(["trial.reminder"]);
 
-    setClockDays(c, 26);
+    setClockDays(c, DEFAULT_PLATFORM_SETTINGS.trialReminderDays.at(-1)! + 0.5);
     await job(`Bearer ${SECRET}`);
     await job(`Bearer ${SECRET}`);
-    // Day 15 and 25 were both due: only the latest is sent.
+    // The last two reminder days were both due: only the latest is sent.
     expect(await notificationTypes(owner.userId)).toEqual(["trial.reminder", "trial.reminder"]);
 
-    setClockDays(c, 31);
+    setClockDays(c, DEFAULT_PLATFORM_SETTINGS.trialDays + 1);
     await job(`Bearer ${SECRET}`);
     await job(`Bearer ${SECRET}`);
     expect(await notificationTypes(owner.userId)).toEqual([
@@ -110,7 +111,7 @@ describe("subscription sweep job", () => {
       "trial.reminder",
     ]);
 
-    setClockDays(c, 38);
+    setClockDays(c, DEFAULT_PLATFORM_SETTINGS.trialDays + DEFAULT_PLATFORM_SETTINGS.graceDays + 1);
     const res = await job(`Bearer ${SECRET}`);
     expect(res.body.data!.graceEnded).toBeGreaterThanOrEqual(1);
     await job(`Bearer ${SECRET}`);
@@ -123,7 +124,9 @@ describe("subscription sweep job", () => {
       .where(and(eq(subscriptions.workspaceId, ws.id), eq(subscriptions.isCurrent, true)));
     // Status is computed from dates; the job never changes it or deletes data.
     expect(sub!.status).toBe("TRIALING");
-    expect(sub!.remindersSent).toEqual(expect.arrayContaining([7, 15, 25, -1, -3]));
+    expect(sub!.remindersSent).toEqual(
+      expect.arrayContaining([...DEFAULT_PLATFORM_SETTINGS.trialReminderDays, -1, -3]),
+    );
 
     const mails = await c.db
       .select({ template: emailOutbox.template })

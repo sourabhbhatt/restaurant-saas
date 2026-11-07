@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
+import type { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
@@ -18,6 +19,8 @@ export type Executor = PgDatabase<PgQueryResultHKT, Schema>;
 
 export interface DatabaseHandle {
   db: Executor;
+  /** The embedded client, present only for PGlite handles (db:dump needs it). */
+  pglite?: PGlite;
   close(): Promise<void>;
 }
 
@@ -44,7 +47,7 @@ export async function connectPglite(dataDir?: string): Promise<DatabaseHandle> {
     mkdirSync(path.dirname(path.resolve(dataDir)), { recursive: true });
   const client = dataDir ? new PGlite(dataDir) : new PGlite();
   const db = drizzle(client, { schema }) as unknown as Executor;
-  return { db, close: () => client.close() };
+  return { db, pglite: client, close: () => client.close() };
 }
 
 export async function runMigrations(

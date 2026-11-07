@@ -43,6 +43,7 @@ import {
 import { mergePlatformSettings, type PlatformSettings } from "@/domain/platform/settings";
 import { conflict, DomainError, forbidden, notFound } from "@/domain/shared/errors";
 import {
+  FEATURE_META,
   FEATURES,
   resolveEntitlements,
   type WorkspaceStatus,
@@ -115,7 +116,9 @@ export function toPublicPlan(p: AdminPlanDto): PublicPlanDto {
     annualPrice: p.annualPrice,
     isTrialEligible: p.isTrialEligible,
     limits: p.limits,
-    features: p.features.filter((f) => f in FEATURES).map((f) => ({ key: f, label: FEATURES[f] })),
+    features: p.features
+      .filter((f) => f in FEATURE_META && FEATURE_META[f].advertised)
+      .map((f) => ({ key: f, label: FEATURES[f] })),
   };
 }
 

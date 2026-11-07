@@ -107,7 +107,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
         id: "trial",
         question: "How does the free trial work?",
         answer: [
-          "Every new workspace starts with a free trial — 30 days by default. No card is needed to start. When you're ready to continue, choose a plan and we activate your subscription.",
+          "Every new workspace starts with a free trial — 15 days by default. No card is needed to start. When you're ready to continue, choose a plan and we activate your subscription.",
         ],
       },
       {

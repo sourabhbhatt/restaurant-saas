@@ -8,7 +8,7 @@ import { EmptyState, ErrorState } from "@/components/shared/feedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FEATURES, FEATURE_KEYS, LIMIT_KEYS } from "@/domain/subscriptions/entitlements";
+import { ADVERTISED_FEATURES, FEATURES, LIMIT_KEYS } from "@/domain/subscriptions/entitlements";
 import { cn } from "@/lib/utils";
 
 import { BillingToggle } from "./billing-toggle";
@@ -247,7 +247,7 @@ function ComparisonTable({ plans }: { plans: PublicPlan[] }) {
               </tr>
             ))}
             <GroupRow label="Features" span={plans.length + 1} />
-            {FEATURE_KEYS.map((f) => (
+            {ADVERTISED_FEATURES.map((f) => (
               <tr key={f} className="border-b last:border-0">
                 <th scope="row" className="px-4 py-3 text-left font-normal text-muted-foreground">
                   {FEATURES[f]}

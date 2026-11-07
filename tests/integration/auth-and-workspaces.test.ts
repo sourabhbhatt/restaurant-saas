@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
 import { GET as me } from "@/app/api/v1/auth/me/route";
 import { POST as forgot } from "@/app/api/v1/auth/forgot-password/route";
 import { POST as reset } from "@/app/api/v1/auth/reset-password/route";
@@ -103,7 +104,7 @@ describe("authentication", () => {
 });
 
 describe("workspaces", () => {
-  it("creates a workspace with an owner membership and a 30-day trial", async () => {
+  it("creates a workspace with an owner membership and the default trial", async () => {
     const owner = await signUpUser("Owner");
     const ws = await createWorkspaceAs(owner, "Spice Route Group");
     const ent = await call<{
@@ -111,7 +112,9 @@ describe("workspaces", () => {
     }>(getEntitlements, { params: { workspaceId: ws.id }, cookie: owner.cookie });
     expect(ent.status).toBe(200);
     expect(ent.body.data!.entitlements.phase).toBe("TRIAL");
-    expect(ent.body.data!.entitlements.trialDaysRemaining).toBe(30);
+    expect(ent.body.data!.entitlements.trialDaysRemaining).toBe(
+      DEFAULT_PLATFORM_SETTINGS.trialDays,
+    );
     expect(ent.body.data!.entitlements.planKey).toBe("pro");
   });
 
