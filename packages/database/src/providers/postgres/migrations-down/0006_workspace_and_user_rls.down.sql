@@ -1,0 +1,30 @@
+-- Reverts 0006_workspace_and_user_rls (policies only; no table or data change).
+DROP POLICY IF EXISTS tenant_isolation ON "workspaces";
+DROP POLICY IF EXISTS tenant_own_rows ON "workspaces";
+DROP POLICY IF EXISTS runtime_access ON "workspaces";
+ALTER TABLE "workspaces" DISABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON "branch_counters";
+DROP POLICY IF EXISTS runtime_access ON "branch_counters";
+ALTER TABLE "branch_counters" DISABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON "role_permissions";
+DROP POLICY IF EXISTS tenant_system_roles ON "role_permissions";
+DROP POLICY IF EXISTS runtime_access ON "role_permissions";
+ALTER TABLE "role_permissions" DISABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON "support_request_notes";
+DROP POLICY IF EXISTS runtime_access ON "support_request_notes";
+ALTER TABLE "support_request_notes" DISABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON "upgrade_request_events";
+DROP POLICY IF EXISTS runtime_access ON "upgrade_request_events";
+ALTER TABLE "upgrade_request_events" DISABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON "user_profiles";
+DROP POLICY IF EXISTS runtime_access ON "user_profiles";
+ALTER TABLE "user_profiles" DISABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON "push_subscriptions";
+DROP POLICY IF EXISTS runtime_access ON "push_subscriptions";
+ALTER TABLE "push_subscriptions" DISABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON "notification_preferences";
+DROP POLICY IF EXISTS tenant_workspace_members ON "notification_preferences";
+DROP POLICY IF EXISTS runtime_access ON "notification_preferences";
+ALTER TABLE "notification_preferences" DISABLE ROW LEVEL SECURITY;
+-- Restore the table-level grant that 0006 narrowed.
+GRANT INSERT, DELETE ON workspaces TO ros_tenant;

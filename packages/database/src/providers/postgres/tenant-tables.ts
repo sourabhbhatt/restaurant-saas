@@ -63,3 +63,35 @@ export type OrganizationTable = (typeof ORGANIZATION_TABLES)[number];
 export const PAYMENT_TABLES = ["payment_orders", "payment_events"] as const;
 
 export type PaymentTable = (typeof PAYMENT_TABLES)[number];
+
+/**
+ * The tenant root and the child tables without a `workspace_id` of their own
+ * (migration 0006_workspace_and_user_rls). `workspaces` is scoped by its id
+ * (readable for every workspace the bound user is an active member of,
+ * writable for the bound one only; tenant INSERT/DELETE is revoked). The
+ * others are scoped through their parent row: branches, roles,
+ * support_requests and upgrade_requests.
+ */
+export const WORKSPACE_SCOPED_TABLES = [
+  "workspaces",
+  "branch_counters",
+  "role_permissions",
+  "support_request_notes",
+  "upgrade_request_events",
+] as const;
+
+export type WorkspaceScopedTable = (typeof WORKSPACE_SCOPED_TABLES)[number];
+
+/**
+ * Per-user tables (migration 0006_workspace_and_user_rls): a tenant
+ * transaction reads and writes only the bound user's own rows.
+ * `notification_preferences` is also readable for members of the bound
+ * workspace, so the in-app fan-out can honour their opt-outs.
+ */
+export const USER_TABLES = [
+  "user_profiles",
+  "notification_preferences",
+  "push_subscriptions",
+] as const;
+
+export type UserTable = (typeof USER_TABLES)[number];
