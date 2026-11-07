@@ -587,7 +587,16 @@ export function createOrderingService(deps: OrderingServiceDeps) {
     /** POST /branches/:branchId/orders — staff order placement (created ACCEPTED). */
     async placeStaffOrder(
       scope: BranchScope,
-      input: PlaceOrderInput & { tableId: string; priority?: OrderPriority },
+      input: PlaceOrderInput & {
+        tableId: string;
+        priority?: OrderPriority;
+        /**
+         * The open session the order was composed against (null: the table was
+         * free). When given, a different current session refuses the order
+         * (409 CONFLICT, reason SESSION_CHANGED) instead of joining or opening one.
+         */
+        expectedSessionId?: string | null;
+      },
       meta: RequestMeta,
     ): Promise<{ order: OrderDto; replay: boolean }> {
       scope.require("orders.create");
@@ -628,6 +637,18 @@ export function createOrderingService(deps: OrderingServiceDeps) {
       try {
         out = await tx.run(async (r) => {
           const { session, created: sessionCreated } = await findOrOpenSession(r, table, actorId);
+          if (input.expectedSessionId !== undefined) {
+            // A newly opened session means no session was open (the expected one closed).
+            const currentSessionId = sessionCreated ? null : session.id;
+            if (currentSessionId !== input.expectedSessionId) {
+              // Thrown inside the transaction: a session opened just now is rolled back.
+              throw new DomainError(
+                "CONFLICT",
+                "The table's session changed since this order was composed. Review it and send again.",
+                { details: { reason: "SESSION_CHANGED", currentSessionId } },
+              );
+            }
+          }
           const locked = (await r.ordering.lockSession(table.workspaceId, session.id)) ?? session;
           assertSessionAcceptsOrders(locked);
           if (sessionCreated) {

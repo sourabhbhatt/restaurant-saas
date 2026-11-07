@@ -32,6 +32,7 @@ import { applyFieldErrors, errorMessage, newIdempotencyKey } from "@ros/api-clie
 
 import { useBillPreview, useGenerateBill, type DiscountInput } from "./queries";
 import { NeedsConnectionNote, useIsOffline } from "@ros/web-core/features/offline";
+import { appHref, useAppLinks } from "@ros/web-core/app-links";
 
 /** Discount entered in display units: percent (e.g. 10) or amount in major units (e.g. 50). */
 const discountFormSchema = z
@@ -93,6 +94,7 @@ export function GenerateBillDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const links = useAppLinks();
   const [applied, setApplied] = useState<DiscountInput | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey);
   const [issued, setIssued] = useState<BillDto | null>(null);
@@ -264,7 +266,7 @@ export function GenerateBillDialog({
           {issued ? (
             <>
               <Button variant="outline" asChild>
-                <Link href={`/app/b/${branchId}/bills`}>Open bills</Link>
+                <Link href={appHref(links.console, `/app/b/${branchId}/bills`)}>Open bills</Link>
               </Button>
               <Button onClick={() => close(false)}>Done</Button>
             </>

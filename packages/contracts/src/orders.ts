@@ -45,6 +45,12 @@ export type PlaceOrderInput = z.input<typeof placeOrderSchema>;
 export const staffPlaceOrderSchema = placeOrderSchema.extend({
   tableId: z.uuid(),
   priority: z.enum(ORDER_PRIORITIES).default("NORMAL"),
+  /**
+   * The open session the waiter saw when composing the order; null means the
+   * table was free. If the table's session changed since, the server refuses
+   * the order (409 CONFLICT, details.reason SESSION_CHANGED). Omit to skip the check.
+   */
+  expectedSessionId: z.uuid().nullable().optional(),
 });
 
 export const orderTransitionSchema = z.object({

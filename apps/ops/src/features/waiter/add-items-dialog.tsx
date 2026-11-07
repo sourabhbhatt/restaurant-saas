@@ -28,7 +28,7 @@ import type { BranchMenuItem } from "@ros/contracts/menu";
 import { staffPlaceOrderSchema } from "@ros/contracts/orders";
 import { ORDER_PRIORITIES } from "@ros/domain/orders/order-status";
 import { effectiveItemPrice, priceSelection } from "@ros/domain/menu/pricing";
-import { DomainError } from "@ros/domain/shared/errors";
+import { isDomainError } from "@ros/domain/shared/errors";
 import { formatMoney } from "@ros/domain/shared/money";
 import { ApiError, applyFieldErrors, errorMessage, newIdempotencyKey } from "@ros/api-client";
 import { cn } from "@ros/ui/utils";
@@ -38,6 +38,7 @@ import {
   staffOrderMutation,
   tableScope,
   useSyncStore,
+  type StaffOrderDraft,
 } from "@ros/web-core/features/offline";
 
 import { useBranchMenu, useStaffOrder } from "./queries";
@@ -64,10 +65,9 @@ function linePrice(line: CartLine): { unit: number; label: string | null; error:
     const extras = [priced.variantName, ...priced.addons.map((a) => a.name)].filter(Boolean);
     return { unit: priced.unitPrice, label: extras.join(", ") || null, error: null };
   } catch (error) {
-    const msg =
-      error instanceof DomainError
-        ? (Object.values(error.fieldErrors ?? {})[0]?.[0] ?? error.message)
-        : "Invalid selection";
+    const msg = isDomainError(error)
+      ? (Object.values(error.fieldErrors ?? {})[0]?.[0] ?? error.message)
+      : "Invalid selection";
     return { unit: 0, label: null, error: msg };
   }
 }
@@ -234,6 +234,7 @@ function QuantityStepper({
 export function AddItemsDialog({
   branchId,
   tableId,
+  sessionId,
   tableName,
   currency,
   open,
@@ -241,6 +242,8 @@ export function AddItemsDialog({
 }: {
   branchId: string;
   tableId: string;
+  /** The table's open session as shown to the waiter (null: the table is free). */
+  sessionId: string | null;
   tableName: string;
   currency: string;
   open: boolean;
@@ -332,7 +335,7 @@ export function AddItemsDialog({
   const menuMissing = menu.error instanceof ApiError && [403, 404].includes(menu.error.status);
 
   /** Save the draft (same idempotency key) to the outbox; never shown as sent. */
-  const queueDraft = async (body: FormOut) => {
+  const queueDraft = async (body: StaffOrderDraft) => {
     setQueueing(true);
     try {
       await enqueueMutation(
@@ -356,7 +359,13 @@ export function AddItemsDialog({
   };
 
   const submit = form.handleSubmit(async (values) => {
-    const body = { ...values, specialInstructions: values.specialInstructions || undefined };
+    const body = {
+      ...values,
+      specialInstructions: values.specialInstructions || undefined,
+      // Bind the order to the session the waiter is looking at: if the table is
+      // closed or reopened before it reaches the server, it is refused (409).
+      expectedSessionId: sessionId,
+    };
     // Earlier unsent orders of this table go first, so this one queues behind them.
     if (!online || scopeHasUnsynced(outbox, tableScope(tableId))) {
       await queueDraft(body);

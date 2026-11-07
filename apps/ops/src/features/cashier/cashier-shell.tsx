@@ -13,10 +13,12 @@ import { OfflineBanner, SyncStatusIndicator } from "@ros/web-core/features/offli
 import { ProfileMenu } from "@ros/web-core/features/navigation/profile-menu";
 import { AuthGate } from "@ros/web-core/features/session/auth-gate";
 import { permissionChecker, useBranchContext } from "@ros/web-core/features/session/queries";
+import { appHref, useAppLinks } from "@ros/web-core/app-links";
 
 function Inner({ children }: { children: ReactNode }) {
   const { branchId } = useParams<{ branchId: string }>();
   const ctx = useBranchContext(branchId);
+  const links = useAppLinks();
   if (ctx.isPending) return <PageSkeleton variant="detail" />;
   if (ctx.isError) {
     return (
@@ -37,7 +39,7 @@ function Inner({ children }: { children: ReactNode }) {
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <Link
-              href={`/app/b/${branchId}`}
+              href={appHref(links.console, `/app/b/${branchId}`)}
               className="inline-flex size-9 items-center justify-center rounded-md hover:bg-accent"
               aria-label="Back to branch"
             >

@@ -1,7 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { GET as listOrders } from "@/app/api/v1/branches/[branchId]/orders/route";
+import {
+  GET as listOrders,
+  POST as staffOrder,
+} from "@/app/api/v1/branches/[branchId]/orders/route";
 import { GET as branchEvents } from "@/app/api/v1/branches/[branchId]/events/route";
 import { GET as kitchenFeed } from "@/app/api/v1/branches/[branchId]/kitchen/route";
 import { GET as getSession } from "@/app/api/v1/branches/[branchId]/sessions/[sessionId]/route";
@@ -18,6 +21,7 @@ import {
   orderItems,
   orderStatusHistory,
   orders,
+  tableSessions,
 } from "@ros/database/providers/postgres/schema";
 import type { Container } from "@/composition/container";
 import type { TestUser } from "@/test/fixtures";
@@ -718,5 +722,94 @@ describe("server-sent events", () => {
       cookie: member.cookie,
     });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("staff orders bound to the session the waiter saw (expectedSessionId)", () => {
+  let b: TestBranch;
+  let w: TestUser;
+  let itemId: string;
+  beforeAll(async () => {
+    b = await setupBranch(c, { workspaceName: "Session Binding WS" });
+    w = await addStaff(c, b, "waiter", "Binding Waiter");
+    itemId = await insertMenuItem(c, b, "Tea");
+  });
+
+  const place = (tableId: string, expectedSessionId: string | null | undefined, key: string) =>
+    call<OrderDto>(staffOrder, {
+      method: "POST",
+      params: { branchId: b.branchId },
+      body: {
+        tableId,
+        idempotencyKey: key,
+        lines: [{ menuItemId: itemId, quantity: 1 }],
+        ...(expectedSessionId !== undefined ? { expectedSessionId } : {}),
+      },
+      cookie: w.cookie,
+    });
+  const newKey = () => `k${crypto.randomUUID().replace(/-/g, "")}`;
+  const sessionsOf = (tableId: string) =>
+    c.db.select().from(tableSessions).where(eq(tableSessions.tableId, tableId));
+
+  it("refuses an order composed on a free table once a session is open", async () => {
+    const t = await insertTable(c, b, "B1");
+    const open = await openSession(c, b, t);
+    const res = await place(t, null, newKey());
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatchObject({
+      code: "CONFLICT",
+      details: { reason: "SESSION_CHANGED", currentSessionId: open },
+    });
+    const rows = await c.db.select().from(orders).where(eq(orders.tableId, t));
+    expect(rows).toHaveLength(0);
+  });
+
+  it("refuses an order for a session that closed meanwhile and opens no new session", async () => {
+    const t = await insertTable(c, b, "B2");
+    const old = await openSession(c, b, t);
+    await c.db
+      .update(tableSessions)
+      .set({ status: "CLOSED", closedAt: new Date() })
+      .where(eq(tableSessions.id, old));
+    const res = await place(t, old, newKey());
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatchObject({
+      code: "CONFLICT",
+      details: { reason: "SESSION_CHANGED", currentSessionId: null },
+    });
+    const rows = await sessionsOf(t);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.status).toBe("CLOSED");
+  });
+
+  it("accepts a matching session (and null on a free table) and replays the original result", async () => {
+    const t = await insertTable(c, b, "B3");
+    const open = await openSession(c, b, t);
+    const key = newKey();
+    const first = await place(t, open, key);
+    expect(first.status).toBe(201);
+    expect(first.body.data!.sessionId).toBe(open);
+
+    // Replay with the same key returns the original order, even with a now-mismatching session.
+    await c.db
+      .update(tableSessions)
+      .set({ status: "CLOSED", closedAt: new Date() })
+      .where(eq(tableSessions.id, open));
+    const replay = await place(t, open, key);
+    expect(replay.status).toBe(200);
+    expect(replay.body.data!.id).toBe(first.body.data!.id);
+
+    const free = await insertTable(c, b, "B4");
+    const opened = await place(free, null, newKey());
+    expect(opened.status).toBe(201);
+    expect((await sessionsOf(free)).map((s) => s.id)).toEqual([opened.body.data!.sessionId]);
+  });
+
+  it("skips the check when expectedSessionId is omitted", async () => {
+    const t = await insertTable(c, b, "B5");
+    const open = await openSession(c, b, t);
+    const res = await place(t, undefined, newKey());
+    expect(res.status).toBe(201);
+    expect(res.body.data!.sessionId).toBe(open);
   });
 });

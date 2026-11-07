@@ -74,6 +74,12 @@ export interface StaffOrderDraft {
   specialInstructions?: string;
   /** Generated once per draft; the server creates at most one order per key. */
   idempotencyKey: string;
+  /**
+   * The table's open session when the order was composed (null: the table was
+   * free). The server refuses the order with 409 SESSION_CHANGED when the
+   * table's session differs by the time the order arrives.
+   */
+  expectedSessionId: string | null;
   lines: {
     menuItemId: string;
     variantId?: string | null;
@@ -145,6 +151,42 @@ export function queuedKitchenState(
     needsAttention: mine.some((i) => i.status === "failed" || i.status === "conflict"),
   };
 }
+
+/** A queued staff order older than this is not sent without the user's confirmation. */
+export const STAFF_ORDER_MAX_AGE_MS = 10 * 60_000;
+/** `lastErrorCode` of an item held until the user confirms sending it. */
+export const NEEDS_CONFIRMATION = "NEEDS_CONFIRMATION";
+
+export type HoldReason = "too-old" | "signed-out";
+
+/**
+ * Whether a pending staff order must wait for an explicit "Send now?" instead
+ * of being sent automatically: it was composed more than 10 minutes ago, or
+ * someone signed out on this device after it was queued (the table has likely
+ * moved on). Items the user already confirmed are never held again.
+ */
+export function staffOrderHoldReason(
+  item: OutboxItem,
+  context: { now: number; signedOutAt: number | null },
+): HoldReason | null {
+  if (item.kind !== STAFF_ORDER || item.status !== "pending" || item.confirmedAt) return null;
+  if (context.signedOutAt !== null && item.createdAt < context.signedOutAt) return "signed-out";
+  if (context.now - item.createdAt > STAFF_ORDER_MAX_AGE_MS) return "too-old";
+  return null;
+}
+
+/** The question shown for a held staff order. */
+export function sendConfirmationPrompt(item: OutboxItem, now: number): string {
+  const minutes = Math.max(1, Math.round((now - item.createdAt) / 60_000));
+  const ago = `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  return item.meta?.holdReason === "signed-out"
+    ? `This order was composed ${ago}, before a sign-out on this device. Send it now?`
+    : `This order was composed ${ago}. Send it now?`;
+}
+
+/** True while an item waits for the user to confirm (Send now) or discard it. */
+export const needsSendConfirmation = (item: OutboxItem) =>
+  item.status === "conflict" && item.lastErrorCode === NEEDS_CONFIRMATION;
 
 /** Staff orders for a table that have not been confirmed by the server yet. */
 export function queuedStaffOrders(items: readonly OutboxItem[], tableId: string): OutboxItem[] {
