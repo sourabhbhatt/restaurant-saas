@@ -9,6 +9,7 @@ import type {
 } from "@ros/contracts/menu";
 import type { Permission } from "@ros/domain/access/permissions";
 import { conflict, DomainError, notFound, validationFailed } from "@ros/domain/shared/errors";
+import { moveTo } from "@ros/domain/shared/reorder";
 import type { TransactionRunner } from "@ros/database/interfaces/transaction";
 
 import { recordAudit } from "../../audit/audit-service";
@@ -39,13 +40,6 @@ const tenantOf = (scope: RestaurantScope | BranchScope): Tenant => ({
   workspaceId: scope.workspaceId,
   restaurantId: scope.restaurantId,
 });
-
-/** Move `id` to position `index` within `ids` (clamped). */
-function moveTo(ids: string[], id: string, index: number): string[] {
-  const rest = ids.filter((x) => x !== id);
-  const at = Math.max(0, Math.min(index, rest.length));
-  return [...rest.slice(0, at), id, ...rest.slice(at)];
-}
 
 function assertImageKey(workspaceId: string, key: string | null | undefined) {
   if (key && !key.startsWith(`ws/${workspaceId}/`)) {

@@ -30,8 +30,7 @@
     "@ros/contracts": "workspace:*",
     "@ros/domain": "workspace:*",
     "drizzle-orm": "0.45.4",
-    "pg": "8.23.1",
-    "server-only": "0.0.1"
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@electric-sql/pglite-tools": "0.4.15",

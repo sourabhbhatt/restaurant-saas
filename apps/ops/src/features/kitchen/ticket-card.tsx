@@ -28,7 +28,7 @@ import { useItemStatus, useOrderAction } from "@ros/web-core/features/orders/que
 import { formatClock, formatElapsed } from "@ros/web-core/features/orders/use-now";
 
 /** Late if over the dish's prep time or the branch delay limit, whichever comes first. */
-export function delayThreshold(order: KitchenOrderDto, kitchenDelayMinutes: number): number {
+function delayThreshold(order: KitchenOrderDto, kitchenDelayMinutes: number): number {
   return Math.min(order.expectedPrepMinutes, kitchenDelayMinutes);
 }
 

@@ -22,7 +22,7 @@ export function billingService(c: Container) {
 }
 
 /** Resolve the branch that owns a bill or payment (for scope resolution only). */
-export function billingLookup(c: Container) {
+function billingLookup(c: Container) {
   // System: finds the branch owning a bill/payment id; the access service then authorizes and binds.
   const lookup = createSystemLookup(c.db, billingRepository, [
     "findBillBranchId",

@@ -48,7 +48,7 @@ import { QrDialog } from "./qr-dialog";
 import { useDeleteTable, useTables } from "./queries";
 import { BulkTablesDialog, TableDialog } from "./table-dialogs";
 
-export const TABLE_STATUS_META: Record<TableStatus, { label: string; tone: StatusTone }> = {
+const TABLE_STATUS_META: Record<TableStatus, { label: string; tone: StatusTone }> = {
   AVAILABLE: { label: "Available", tone: "success" },
   OCCUPIED: { label: "Occupied", tone: "info" },
   BILL_REQUESTED: { label: "Bill requested", tone: "warning" },

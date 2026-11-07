@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { OfflinePageContent } from "./offline-content";
+import { OfflinePageContent } from "@ros/web-core/features/offline/components/offline-page-content";
 
 export const metadata: Metadata = {
   title: "Offline",
@@ -11,5 +11,5 @@ export const metadata: Metadata = {
  * without a connection. It is precached at build time.
  */
 export default function OfflinePage() {
-  return <OfflinePageContent />;
+  return <OfflinePageContent home={{ href: "/app", label: "Go to dashboard" }} />;
 }

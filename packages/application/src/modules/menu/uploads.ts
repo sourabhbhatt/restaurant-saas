@@ -1,5 +1,6 @@
 import {
   MAX_UPLOAD_BYTES,
+  OBJECT_KEY,
   UPLOAD_PURPOSES,
   type UploadPurpose,
   type UploadResultDto,
@@ -171,7 +172,7 @@ export function createUploadService(deps: UploadServiceDeps) {
 
     /** Public read by key (unguessable). Returns null when missing. */
     async read(key: string) {
-      if (!/^ws\/[0-9a-f-]{36}\/[a-z_]+\/[0-9a-f-]{36}\.(png|jpg|webp)$/.test(key)) return null;
+      if (!OBJECT_KEY.test(key)) return null;
       return storage.get(key);
     },
   };

@@ -7,6 +7,7 @@ import {
   type TableQrDto,
 } from "@ros/contracts/tables";
 import { conflict, DomainError, notFound, validationFailed } from "@ros/domain/shared/errors";
+import { moveTo } from "@ros/domain/shared/reorder";
 import { deriveTableStatus } from "@ros/domain/tables/table-status";
 import { UniqueViolationError, type TransactionRunner } from "@ros/database/interfaces/transaction";
 
@@ -70,12 +71,6 @@ export function toTableDto(r: TableRecord): TableDto {
     qr: { active: r.qr.active, createdAt: r.qr.createdAt?.toISOString() ?? null },
     createdAt: r.createdAt.toISOString(),
   };
-}
-
-function moveTo(ids: string[], id: string, index: number): string[] {
-  const rest = ids.filter((x) => x !== id);
-  const at = Math.max(0, Math.min(index, rest.length));
-  return [...rest.slice(0, at), id, ...rest.slice(at)];
 }
 
 export function createTableService(deps: TableServiceDeps) {

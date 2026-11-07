@@ -18,7 +18,7 @@ import type {
 } from "@ros/contracts/menu";
 import { API_BASE, ApiError, api } from "@ros/api-client";
 
-export const menuKeys = {
+const menuKeys = {
   all: ["menu"] as const,
   tree: (restaurantId: string) => ["menu", "tree", restaurantId] as const,
   branch: (branchId: string) => ["menu", "branch", branchId] as const,

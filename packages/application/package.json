@@ -21,7 +21,6 @@
     "@ros/contracts": "workspace:*",
     "@ros/database": "workspace:*",
     "@ros/domain": "workspace:*",
-    "drizzle-orm": "0.45.4",
     "qrcode": "1.5.4",
     "server-only": "0.0.1",
     "zod": "^4.6.7"

@@ -15,7 +15,7 @@ import { api, ApiError } from "@ros/api-client";
 
 import { customerDb } from "./local-db";
 
-export const customerKeys = {
+const customerKeys = {
   qr: (token: string) => ["customer", "qr", token] as const,
   session: (token: string) => ["customer", "session", token] as const,
 };

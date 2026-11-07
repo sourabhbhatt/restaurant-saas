@@ -38,13 +38,13 @@ export interface CartRecord {
   updatedAt: number;
 }
 
-export interface MenuRecord {
+interface MenuRecord {
   token: string;
   data: PublicQrDto;
   savedAt: number;
 }
 
-export interface JoinedRecord {
+interface JoinedRecord {
   token: string;
   sessionId: string;
   joinedAt: number;

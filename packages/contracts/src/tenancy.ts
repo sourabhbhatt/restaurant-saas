@@ -78,7 +78,7 @@ export function isValidTimeZone(tz: string): boolean {
 
 // ------------------------------------------------------------------ restaurants
 
-export const restaurantFieldsSchema = z.object({
+const restaurantFieldsSchema = z.object({
   name: z.string().trim().min(2, "Enter a restaurant name").max(80, "Name is too long"),
   description: optionalText(500),
   cuisineTypes: z
@@ -175,7 +175,7 @@ export const branchCodeSchema = z
   .toUpperCase()
   .regex(/^[A-Z0-9][A-Z0-9-]{1,19}$/, "Use 2–20 letters, digits or dashes");
 
-export const branchFieldsSchema = z.object({
+const branchFieldsSchema = z.object({
   name: z.string().trim().min(2, "Enter a branch name").max(80, "Name is too long"),
   code: z.union([z.literal("").transform(() => undefined), branchCodeSchema]).optional(),
   addressLine1: optionalText(120),

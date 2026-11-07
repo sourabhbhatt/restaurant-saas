@@ -356,8 +356,6 @@ export const ALLERGEN_LABELS: Record<Allergen, string> = {
   SULPHITES: "Sulphites",
 };
 
-export const UPLOAD_PURPOSE_LIST = UPLOAD_PURPOSES;
-
 /** Read-only menu of one restaurant for Super Admin inspection. */
 export interface AdminRestaurantMenuDto {
   workspace: { id: string; name: string };

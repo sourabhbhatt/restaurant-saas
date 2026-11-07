@@ -12,7 +12,7 @@ import type {
 } from "@ros/contracts/tables";
 import { ApiError, api } from "@ros/api-client";
 
-export const tableKeys = {
+const tableKeys = {
   all: ["tables"] as const,
   list: (branchId: string) => ["tables", "list", branchId] as const,
   qr: (tableId: string) => ["tables", "qr", tableId] as const,

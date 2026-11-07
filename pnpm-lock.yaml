@@ -345,9 +345,6 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1164.0
         version: 3.1164.0
-      '@ros/contracts':
-        specifier: workspace:*
-        version: link:../contracts
       '@ros/database':
         specifier: workspace:*
         version: link:../database
@@ -360,9 +357,6 @@ importers:
       pg:
         specifier: 8.23.1
         version: 8.23.1
-      server-only:
-        specifier: 0.0.1
-        version: 0.0.1
     devDependencies:
       '@ros/tooling':
         specifier: workspace:*
@@ -391,9 +385,6 @@ importers:
       '@ros/domain':
         specifier: workspace:*
         version: link:../domain
-      drizzle-orm:
-        specifier: 0.45.4
-        version: 0.45.4(@electric-sql/pglite@0.5.15)(@types/pg@8.23.1)(pg@8.23.1)
       qrcode:
         specifier: 1.5.4
         version: 1.5.4
@@ -441,9 +432,6 @@ importers:
       pg:
         specifier: 8.23.1
         version: 8.23.1
-      server-only:
-        specifier: 0.0.1
-        version: 0.0.1
     devDependencies:
       '@electric-sql/pglite-tools':
         specifier: 0.4.15
@@ -546,9 +534,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.105.3
         version: 5.105.3(@types/react@19.3.0)(react@19.3.0)
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
       dexie:
         specifier: ^4.4.7
         version: 4.4.7
@@ -573,9 +558,6 @@ importers:
       sonner:
         specifier: 2.0.8
         version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      tailwind-merge:
-        specifier: ^3.7.0
-        version: 3.7.0
       zod:
         specifier: ^4.6.7
         version: 4.6.7
