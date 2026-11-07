@@ -11,6 +11,7 @@ import type {
   UpdateTableInput,
 } from "@ros/contracts/tables";
 import { ApiError, api } from "@ros/api-client";
+import { invalidateEntitlements } from "@ros/web-core/features/subscriptions/queries";
 
 const tableKeys = {
   all: ["tables"] as const,
@@ -58,9 +59,11 @@ export function useQrSheet(branchId: string, tableIds: string[]) {
   });
 }
 
+/** Tables count against the plan's table limit, so usage is refreshed too. */
 function useInvalidate() {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: tableKeys.all });
+  return () =>
+    Promise.all([qc.invalidateQueries({ queryKey: tableKeys.all }), invalidateEntitlements(qc)]);
 }
 
 export function useCreateTable(branchId: string) {

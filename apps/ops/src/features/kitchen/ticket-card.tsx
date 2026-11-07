@@ -279,7 +279,7 @@ export function TicketCard({
               ) : (
                 <ChefHat aria-hidden />
               )}
-              Start
+              Start preparing
             </Button>
           )}
           <Button

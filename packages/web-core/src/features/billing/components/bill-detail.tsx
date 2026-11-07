@@ -149,7 +149,7 @@ export function BillDetail({
                 disabled={offline}
                 onClick={() => setRefundOpen(true)}
               >
-                <Undo2 aria-hidden /> Refund
+                <Undo2 aria-hidden /> Record refund
               </Button>
             )}
             {canVoidBill && (

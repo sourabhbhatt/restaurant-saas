@@ -3,9 +3,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { toast } from "sonner";
 import type { z } from "zod";
 
+import { FormError } from "@ros/ui/shared/feedback";
 import { Button } from "@ros/ui/ui/button";
 import { FormField } from "@ros/ui/ui/form-field";
 import { Input } from "@ros/ui/ui/input";
@@ -68,6 +68,8 @@ export interface RestaurantFormProps {
   extraActions?: React.ReactNode;
   /** Disable submit until something changed (edit forms). */
   requireDirty?: boolean;
+  /** Shown right above the buttons, e.g. a plan limit message. */
+  notice?: React.ReactNode;
 }
 
 /** Restaurant details form, shared by the create dialog, detail page and onboarding. */
@@ -80,6 +82,7 @@ export function RestaurantForm({
   compact = false,
   extraActions,
   requireDirty = false,
+  notice,
 }: RestaurantFormProps) {
   const form = useForm<CreateRestaurantInput, unknown, Output>({
     resolver: zodResolver(createRestaurantSchema),
@@ -109,16 +112,27 @@ export function RestaurantForm({
       await onSubmit(values);
       form.reset(form.getValues());
     } catch (error) {
-      if (!applyFieldErrors(error, setError, FIELDS)) toast.error(errorMessage(error));
+      if (!applyFieldErrors(error, setError, FIELDS)) {
+        setError("root.server", { type: "server", message: errorMessage(error) });
+      }
     }
   });
 
   return (
     <form onSubmit={submit} noValidate className="grid gap-5">
-      <FormField label="Restaurant name" error={errors.name?.message} required>
+      <FormField
+        label="Restaurant name"
+        description="The brand guests see on the QR menu, e.g. Saffron Kitchen."
+        error={errors.name?.message}
+        required
+      >
         <Input autoComplete="organization" {...register("name")} />
       </FormField>
-      <FormField label="Description" error={errors.description?.message}>
+      <FormField
+        label="Description"
+        description="Optional. A line or two about the restaurant."
+        error={errors.description?.message}
+      >
         <Textarea rows={3} {...register("description")} />
       </FormField>
       <Controller
@@ -127,7 +141,7 @@ export function RestaurantForm({
         render={({ field, fieldState }) => (
           <FormField
             label="Cuisines"
-            description="Separate with commas."
+            description="Optional. Separate with commas; shown as tags on the restaurant card."
             error={fieldState.error?.message ?? errors.cuisineTypes?.root?.message}
           >
             <CuisineInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
@@ -171,7 +185,11 @@ export function RestaurantForm({
             <FormField label="Contact phone" error={errors.contactPhone?.message}>
               <Input type="tel" autoComplete="tel" {...register("contactPhone")} />
             </FormField>
-            <FormField label="Website" error={errors.website?.message}>
+            <FormField
+              label="Website"
+              description="Optional, e.g. example.com"
+              error={errors.website?.message}
+            >
               <Input inputMode="url" placeholder="example.com" {...register("website")} />
             </FormField>
             <Controller
@@ -180,7 +198,7 @@ export function RestaurantForm({
               render={({ field, fieldState }) => (
                 <FormField
                   label="Brand colour"
-                  description="Used on the customer menu."
+                  description="Accent colour of the customer QR menu (buttons, headings). Hex code, e.g. #E4572E. Leave empty for the default."
                   error={fieldState.error?.message}
                 >
                   {(controlProps) => (
@@ -209,6 +227,8 @@ export function RestaurantForm({
           </div>
         </>
       )}
+      {notice}
+      <FormError>{errors.root?.server?.message}</FormError>
       <div className="flex flex-wrap items-center justify-end gap-2">
         {extraActions}
         {onCancel ? (

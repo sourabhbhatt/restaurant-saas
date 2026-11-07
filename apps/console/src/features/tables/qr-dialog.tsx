@@ -160,10 +160,10 @@ function QrBody({ table }: { table: TableDto }) {
             className="text-destructive hover:text-destructive"
             onClick={() => setConfirm("revoke")}
           >
-            <Ban aria-hidden /> Revoke
+            <Ban aria-hidden /> Revoke QR code
           </Button>
           <Button variant="outline" onClick={() => setConfirm("regenerate")}>
-            <RefreshCw aria-hidden /> Regenerate
+            <RefreshCw aria-hidden /> Regenerate QR code
           </Button>
         </DialogFooter>
       )}
@@ -172,7 +172,7 @@ function QrBody({ table }: { table: TableDto }) {
         onOpenChange={(o) => !o && setConfirm(null)}
         title={`Regenerate the QR code for ${table.name}?`}
         description="The printed code on this table stops working immediately. Print and place the new code before guests arrive."
-        confirmLabel="Regenerate"
+        confirmLabel="Regenerate QR code"
         destructive
         getErrorMessage={errorMessage}
         onConfirm={async () => {
@@ -185,7 +185,7 @@ function QrBody({ table }: { table: TableDto }) {
         onOpenChange={(o) => !o && setConfirm(null)}
         title={`Revoke the QR code for ${table.name}?`}
         description="Guests can no longer open this table by scanning. You can generate a new code at any time."
-        confirmLabel="Revoke code"
+        confirmLabel="Revoke QR code"
         destructive
         getErrorMessage={errorMessage}
         onConfirm={async () => {

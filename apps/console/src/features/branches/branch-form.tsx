@@ -3,9 +3,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { toast } from "sonner";
 import type { z } from "zod";
 
+import { FormError } from "@ros/ui/shared/feedback";
 import { Button } from "@ros/ui/ui/button";
 import { FormField } from "@ros/ui/ui/form-field";
 import { Input } from "@ros/ui/ui/input";
@@ -64,6 +64,8 @@ export interface BranchFormProps {
   showDetails?: boolean;
   requireDirty?: boolean;
   disabled?: boolean;
+  /** Shown right above the buttons, e.g. a plan limit message. */
+  notice?: React.ReactNode;
 }
 
 /** Branch details form, shared by the create dialog, branch settings and onboarding. */
@@ -76,6 +78,7 @@ export function BranchForm({
   showDetails = true,
   requireDirty = false,
   disabled = false,
+  notice,
 }: BranchFormProps) {
   const zones = useMemo(() => timeZones(), []);
   const form = useForm<CreateBranchInput, unknown, Output>({
@@ -110,7 +113,9 @@ export function BranchForm({
       await onSubmit(values);
       form.reset(form.getValues());
     } catch (error) {
-      if (!applyFieldErrors(error, setError, FIELDS)) toast.error(errorMessage(error));
+      if (!applyFieldErrors(error, setError, FIELDS)) {
+        setError("root.server", { type: "server", message: errorMessage(error) });
+      }
     }
   });
 
@@ -125,12 +130,17 @@ export function BranchForm({
     <form onSubmit={submit} noValidate className="grid gap-5">
       <fieldset disabled={disabled} className="grid gap-5">
         <div className="grid gap-5 sm:grid-cols-[1fr_10rem]">
-          <FormField label="Branch name" error={errors.name?.message} required>
+          <FormField
+            label="Branch name"
+            description="Usually the area or street, so staff can tell locations apart."
+            error={errors.name?.message}
+            required
+          >
             <Input placeholder="e.g. Indiranagar" {...register("name")} />
           </FormField>
           <FormField
             label="Code"
-            description="Auto-generated if empty."
+            description="Short ID printed on bills and reports. Auto-generated if empty."
             error={errors.code?.message}
           >
             <Input className="uppercase" maxLength={20} {...register("code")} />
@@ -171,7 +181,12 @@ export function BranchForm({
           </>
         )}
         <div className="grid gap-5 sm:grid-cols-2">
-          <FormField label="Time zone" error={errors.timezone?.message} required>
+          <FormField
+            label="Time zone"
+            description="Used for business hours, reports and receipt times."
+            error={errors.timezone?.message}
+            required
+          >
             {(controlProps) => (
               <>
                 <Input {...controlProps} list="branch-timezones" {...register("timezone")} />
@@ -187,7 +202,12 @@ export function BranchForm({
             control={control}
             name="currency"
             render={({ field, fieldState }) => (
-              <FormField label="Currency" error={fieldState.error?.message} required>
+              <FormField
+                label="Currency"
+                description="Prices and bills at this branch use this currency."
+                error={fieldState.error?.message}
+                required
+              >
                 {(controlProps) => (
                   <Select value={field.value} onValueChange={field.onChange} disabled={disabled}>
                     <SelectTrigger {...controlProps} className="w-full">
@@ -221,6 +241,8 @@ export function BranchForm({
           />
         )}
       </fieldset>
+      {notice}
+      <FormError>{errors.root?.server?.message}</FormError>
       {!disabled && (
         <div className="flex flex-wrap items-center justify-end gap-2">
           {onCancel ? (

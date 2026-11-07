@@ -23,6 +23,7 @@ import {
   EmptyState,
   ErrorState,
   FilterBar,
+  GatedAction,
   PageHeader,
   PageSkeleton,
 } from "@ros/ui/shared/feedback";
@@ -53,6 +54,7 @@ import { formatMoney } from "@ros/domain/shared/money";
 import { errorMessage } from "@ros/api-client";
 import { cn } from "@ros/ui/utils";
 import { permissionChecker, useBranchContext } from "@ros/web-core/features/session/queries";
+import { LimitNoticeView, useLimit } from "@ros/web-core/features/subscriptions/limit-notice";
 
 import { CategoryDialog } from "./category-dialog";
 import { ItemEditorSheet } from "./item-editor-sheet";
@@ -183,6 +185,7 @@ export function MenuEditorPage() {
   const tree = useMenuTree(ctx.data?.restaurantId, ready && canView);
   const branchMenu = useBranchMenu(branchId, ready && !canView);
   const overrides = useBranchOverrides(branchId, ready && (canView || canBranch));
+  const limit = useLimit(canEdit ? ctx.data?.workspaceId : undefined, "maxMenuItems");
 
   const [categoryId, setCategoryId] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -234,6 +237,19 @@ export function MenuEditorPage() {
     (overrides.data ?? []).find((o) => o.itemId === itemId) ?? null;
   const filtersActive =
     search !== "" || dietary !== "all" || availability !== "all" || categoryId !== "all";
+  const addItemReason =
+    view.categories.length === 0
+      ? "Add a category first. Every item belongs to a category, such as Starters."
+      : limit.reason;
+  const addItemButton = (align: "start" | "end") => (
+    <GatedAction reason={addItemReason} align={align}>
+      {(gate) => (
+        <Button onClick={() => setEditing({ item: null })} {...gate}>
+          <Plus aria-hidden /> Add menu item
+        </Button>
+      )}
+    </GatedAction>
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -249,14 +265,9 @@ export function MenuEditorPage() {
           canEdit ? (
             <>
               <Button variant="outline" onClick={() => setCategoryDialog({ category: null })}>
-                <FolderPlus aria-hidden /> New category
+                <FolderPlus aria-hidden /> Add category
               </Button>
-              <Button
-                onClick={() => setEditing({ item: null })}
-                disabled={view.categories.length === 0}
-              >
-                <Plus aria-hidden /> New item
-              </Button>
+              {view.categories.length > 0 ? addItemButton("end") : null}
             </>
           ) : undefined
         }
@@ -272,6 +283,16 @@ export function MenuEditorPage() {
         </Alert>
       )}
 
+      {canEdit && limit.data ? (
+        <LimitNoticeView
+          workspaceId={b.workspaceId}
+          limitKey="maxMenuItems"
+          entitlements={limit.data.entitlements}
+          usage={limit.data.usage}
+          scopeNote="Menu items count across all restaurants in this workspace."
+        />
+      ) : null}
+
       {view.categories.length === 0 ? (
         <EmptyState
           icon={<UtensilsCrossed />}
@@ -284,7 +305,7 @@ export function MenuEditorPage() {
           action={
             canEdit ? (
               <Button onClick={() => setCategoryDialog({ category: null })}>
-                <FolderPlus aria-hidden /> Add a category
+                <FolderPlus aria-hidden /> Add category
               </Button>
             ) : undefined
           }
@@ -363,9 +384,7 @@ export function MenuEditorPage() {
                       Clear filters
                     </Button>
                   ) : canEdit ? (
-                    <Button onClick={() => setEditing({ item: null })}>
-                      <Plus aria-hidden /> New item
-                    </Button>
+                    addItemButton("start")
                   ) : undefined
                 }
               />
@@ -529,7 +548,7 @@ function CategoryPanel({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={() => onEdit(c)}>
-                      <Pencil aria-hidden /> Edit
+                      <Pencil aria-hidden /> Edit category
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() =>
@@ -556,7 +575,7 @@ function CategoryPanel({
                       <ArrowDown aria-hidden /> Move down
                     </DropdownMenuItem>
                     <DropdownMenuItem variant="destructive" onSelect={() => onDelete(c)}>
-                      <Trash2 aria-hidden /> Delete
+                      <Trash2 aria-hidden /> Delete category
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

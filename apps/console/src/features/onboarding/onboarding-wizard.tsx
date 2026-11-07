@@ -5,9 +5,8 @@ import { Check } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { toast } from "sonner";
 
-import { PageSkeleton } from "@ros/ui/shared/feedback";
+import { AboutPanel, FormError, PageSkeleton } from "@ros/ui/shared/feedback";
 import { Button } from "@ros/ui/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ros/ui/ui/card";
 import { FormField } from "@ros/ui/ui/form-field";
@@ -18,6 +17,16 @@ import type { OrganizationSummaryDto, WorkspaceDto } from "@ros/contracts/worksp
 import { toMinor } from "@ros/domain/shared/money";
 import { sessionKeys, useMe } from "@ros/web-core/features/session/queries";
 import { UpgradeButton } from "@ros/web-core/features/subscriptions/upgrade-modal";
+import { isPlanError } from "@ros/web-core/features/subscriptions/limits";
+import {
+  PlanErrorNotice,
+  PlanLimitsLine,
+  useLimit,
+} from "@ros/web-core/features/subscriptions/limit-notice";
+import {
+  invalidateEntitlements,
+  useEntitlements,
+} from "@ros/web-core/features/subscriptions/queries";
 import { api, ApiError } from "@ros/api-client";
 import { useAction } from "@ros/web-core/use-action";
 
@@ -44,6 +53,10 @@ function StepForm(props: {
   submitLabel: string;
   children: ReactNode;
   onSkip?: () => void;
+  /** Shown right above the buttons (form-level and plan errors). */
+  notice?: ReactNode;
+  /** Why the submit button is disabled, shown under it. */
+  blockedReason?: string | null;
 }) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -58,16 +71,26 @@ function StepForm(props: {
       <CardContent>
         <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
           {props.children}
-          <div className="flex gap-2 pt-2">
-            <Button type="submit" disabled={props.pending}>
+          {props.notice}
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Button
+              type="submit"
+              disabled={props.pending || Boolean(props.blockedReason)}
+              aria-describedby={props.blockedReason ? "step-blocked-reason" : undefined}
+            >
               {props.pending ? "Saving…" : props.submitLabel}
             </Button>
             {props.onSkip ? (
               <Button type="button" variant="ghost" onClick={props.onSkip} disabled={props.pending}>
-                Skip for now
+                Skip this step
               </Button>
             ) : null}
           </div>
+          {props.blockedReason ? (
+            <p id="step-blocked-reason" className="text-sm text-muted-foreground">
+              {props.blockedReason}
+            </p>
+          ) : null}
         </form>
       </CardContent>
     </Card>
@@ -125,6 +148,7 @@ function Wizard() {
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-10">
+      <OnboardingExplainer workspaceId={progress.workspaceId} />
       <ol className="flex items-center justify-between gap-2" aria-label="Setup progress">
         {STEPS.map((s, i) => (
           <li key={s.key} className="flex flex-1 flex-col items-center gap-1 text-xs">
@@ -168,13 +192,17 @@ function Wizard() {
               restaurantId,
               branchId,
             });
-            await qc.invalidateQueries({ queryKey: sessionKeys.structure(progress.workspaceId!) });
+            await Promise.all([
+              qc.invalidateQueries({ queryKey: sessionKeys.structure(progress.workspaceId!) }),
+              invalidateEntitlements(qc, progress.workspaceId!),
+            ]);
             setStep("menu");
           }}
         />
       )}
       {activeStep === "menu" && progress.restaurantId && progress.workspaceId && (
         <MenuStep
+          workspaceId={progress.workspaceId}
           restaurantId={progress.restaurantId}
           categoryId={firstCategoryId}
           onCategory={setFirstCategoryId}
@@ -186,9 +214,11 @@ function Wizard() {
       )}
       {activeStep === "tables" && progress.branchId && progress.workspaceId && (
         <TablesStep
+          workspaceId={progress.workspaceId}
           branchId={progress.branchId}
           onDone={async () => {
             await saveProgress(progress.workspaceId!, { completedStep: "tables" });
+            await invalidateEntitlements(qc, progress.workspaceId!);
             setStep("done");
           }}
         />
@@ -221,6 +251,28 @@ function Wizard() {
   );
 }
 
+/** Plain-words definitions, plus the plan's numbers once the workspace exists. */
+function OnboardingExplainer({ workspaceId }: { workspaceId: string | null }) {
+  const ent = useEntitlements(workspaceId ?? undefined);
+  return (
+    <AboutPanel storageKey="onboarding" title="How RestaurantOS is organised">
+      <p>
+        <strong>Workspace</strong>: your business account. Team members, roles, billing and plan
+        limits live here. On a trial or monthly plan an organization has one workspace.
+      </p>
+      <p>
+        <strong>Restaurant</strong>: a brand or concept with its own menu and branding, e.g.
+        &ldquo;Saffron Kitchen&rdquo;.
+      </p>
+      <p>
+        <strong>Branch</strong>: a physical location of a restaurant with its own tables, staff,
+        settings, orders and bills, e.g. &ldquo;Indiranagar&rdquo;.
+      </p>
+      {ent.data ? <PlanLimitsLine entitlements={ent.data.entitlements} /> : null}
+    </AboutPanel>
+  );
+}
+
 function WorkspaceStep({
   activeWorkspaceId,
   onDone,
@@ -231,7 +283,7 @@ function WorkspaceStep({
   const [name, setName] = useState("");
   const [organizationId, setOrganizationId] = useState<string | undefined>(undefined);
   const [blocked, setBlocked] = useState<{ code: string; message: string } | null>(null);
-  const { pending, run, err } = useAction();
+  const { pending, run, err, error, formError, setFieldErrors } = useAction();
   const orgs = useQuery({
     queryKey: ["organizations", "mine"],
     queryFn: ({ signal }) => api.get<OrganizationSummaryDto[]>("/organizations", undefined, signal),
@@ -247,8 +299,17 @@ function WorkspaceStep({
       }
       pending={pending}
       submitLabel="Create workspace"
+      notice={!blocked && !isPlanError(error) ? <FormError>{formError}</FormError> : null}
       onSubmit={async () => {
         setBlocked(null);
+        if (!name.trim()) {
+          setFieldErrors({ name: ["Enter your business name"] });
+          return;
+        }
+        if (owned.length > 1 && !organizationId) {
+          setFieldErrors({ organizationId: ["Choose an organization"] });
+          return;
+        }
         const ws = await run(async () => {
           try {
             return await api.post<WorkspaceDto>("/workspaces", { name, organizationId });
@@ -266,7 +327,12 @@ function WorkspaceStep({
         if (ws) await onDone(ws);
       }}
     >
-      <FormField label="Business name" required error={err("name")}>
+      <FormField
+        label="Business name"
+        description="Your company or group name. Guests don't see it; they see restaurant names."
+        required
+        error={err("name")}
+      >
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -327,34 +393,76 @@ function RestaurantStep({
   const [restaurant, setRestaurant] = useState("");
   const [branch, setBranch] = useState("Main Branch");
   const [city, setCity] = useState("");
-  const { pending, run, err } = useAction();
+  // Kept so a failed branch step never creates a second restaurant on retry.
+  const [created, setCreated] = useState<RestaurantDto | null>(null);
+  const restaurantAction = useAction();
+  const branchAction = useAction();
+  const limit = useLimit(workspaceId, "maxRestaurants");
+  const pending = restaurantAction.pending || branchAction.pending;
+  const failed = restaurantAction.error ?? branchAction.error;
+  const otherError = restaurantAction.error ? restaurantAction.formError : branchAction.formError;
   return (
     <StepForm
       title="Your first restaurant"
-      description="Add the restaurant and its first branch. Tax, hours and address can be refined later."
+      description="Add the restaurant (your brand) and its first branch (a location). Tax, hours and address can be refined later in the branch settings."
       pending={pending}
-      submitLabel="Continue"
+      submitLabel={created ? "Create branch" : "Create restaurant and branch"}
+      blockedReason={created ? null : limit.reason}
+      notice={
+        <>
+          <PlanErrorNotice error={failed} workspaceId={workspaceId} />
+          {!isPlanError(failed) ? <FormError>{otherError}</FormError> : null}
+        </>
+      }
       onSubmit={async () => {
-        const result = await run(async () => {
-          const r = await api.post<RestaurantDto>(`/workspaces/${workspaceId}/restaurants`, {
-            name: restaurant,
-          });
-          const b = await api.post<BranchDto>(`/restaurants/${r.id}/branches`, {
+        const local: Record<string, string[]> = {};
+        if (!created && !restaurant.trim()) local.name = ["Enter the restaurant name"];
+        if (!branch.trim()) local.branchName = ["Enter a name for the first branch"];
+        restaurantAction.setFieldErrors(local.name ? { name: local.name } : {});
+        branchAction.setFieldErrors(local.branchName ? { name: local.branchName } : {});
+        if (Object.keys(local).length > 0) return;
+        let r = created;
+        if (!r) {
+          r = await restaurantAction.run(() =>
+            api.post<RestaurantDto>(`/workspaces/${workspaceId}/restaurants`, {
+              name: restaurant,
+            }),
+          );
+          if (!r) return;
+          setCreated(r);
+        }
+        const restaurantId = r.id;
+        const b = await branchAction.run(() =>
+          api.post<BranchDto>(`/restaurants/${restaurantId}/branches`, {
             name: branch,
             city: city || undefined,
-          });
-          return { r, b };
-        });
-        if (result) await onDone(result.r.id, result.b.id);
+          }),
+        );
+        if (b) await onDone(restaurantId, b.id);
       }}
     >
-      <FormField label="Restaurant name" required error={err("name")}>
-        <Input value={restaurant} onChange={(e) => setRestaurant(e.target.value)} autoFocus />
+      <FormField
+        label="Restaurant name"
+        description="The brand guests see on the QR menu."
+        required
+        error={restaurantAction.err("name")}
+      >
+        <Input
+          value={created ? created.name : restaurant}
+          onChange={(e) => setRestaurant(e.target.value)}
+          disabled={Boolean(created)}
+          autoFocus
+        />
       </FormField>
-      <FormField label="First branch name" required error={err("name")}>
+      <FormField
+        label="First branch name"
+        description="Usually the area or street, e.g. Indiranagar."
+        required
+        error={branchAction.err("name")}
+      >
         <Input value={branch} onChange={(e) => setBranch(e.target.value)} />
       </FormField>
-      <FormField label="City" error={err("city")}>
+      <FormField label="City" description="Optional." error={branchAction.err("city")}>
         <Input value={city} onChange={(e) => setCity(e.target.value)} />
       </FormField>
     </StepForm>
@@ -362,11 +470,13 @@ function RestaurantStep({
 }
 
 function MenuStep({
+  workspaceId,
   restaurantId,
   categoryId,
   onCategory,
   onDone,
 }: {
+  workspaceId: string;
   restaurantId: string;
   categoryId: string | null;
   onCategory: (id: string) => void;
@@ -376,55 +486,86 @@ function MenuStep({
   const [item, setItem] = useState("");
   const [price, setPrice] = useState("");
   const [dietary, setDietary] = useState<"VEG" | "NON_VEG">("VEG");
-  const { pending, run, err } = useAction();
+  const categoryAction = useAction();
+  const itemAction = useAction();
+  const pending = categoryAction.pending || itemAction.pending;
+  const failed = categoryAction.error ?? itemAction.error;
   return (
     <StepForm
       title="Add your first dish"
-      description="Start with one category and one item. Variants, add-ons, photos and the rest of the menu are managed on the Menu page."
+      description="Start with one category and one item. Variants, add-ons, photos and the rest of the menu are managed on the Menu page. The menu is shared by every branch of the restaurant."
       pending={pending}
-      submitLabel="Continue"
+      submitLabel="Add dish and continue"
       onSkip={() => void onDone()}
+      notice={
+        <>
+          <PlanErrorNotice error={failed} workspaceId={workspaceId} />
+          {!isPlanError(failed) ? (
+            <FormError>{categoryAction.formError ?? itemAction.formError}</FormError>
+          ) : null}
+        </>
+      }
       onSubmit={async () => {
         const amount = Number(price);
-        if (!Number.isFinite(amount) || amount < 0) {
-          toast.error("Enter a valid price");
-          return;
+        const local: Record<string, string[]> = {};
+        if (!categoryId && !category.trim()) local.category = ["Enter a category name"];
+        if (!item.trim()) local.name = ["Enter the dish name"];
+        if (price.trim() === "" || !Number.isFinite(amount) || amount < 0)
+          local.price = ["Enter a price of 0 or more, e.g. 249"];
+        categoryAction.setFieldErrors(local.category ? { name: local.category } : {});
+        itemAction.setFieldErrors({
+          ...(local.name ? { name: local.name } : {}),
+          ...(local.price ? { price: local.price } : {}),
+        });
+        if (Object.keys(local).length > 0) return;
+        let cid = categoryId;
+        if (!cid) {
+          const c = await categoryAction.run(() =>
+            api.post<{ id: string }>(`/restaurants/${restaurantId}/menu/categories`, {
+              name: category,
+            }),
+          );
+          if (!c) return;
+          cid = c.id;
+          onCategory(cid);
         }
-        const ok = await run(async () => {
-          let cid = categoryId;
-          if (!cid) {
-            const c = await api.post<{ id: string }>(
-              `/restaurants/${restaurantId}/menu/categories`,
-              {
-                name: category,
-              },
-            );
-            cid = c.id;
-            onCategory(cid);
-          }
-          return api.post(`/restaurants/${restaurantId}/menu/items`, {
-            categoryId: cid,
+        const categoryIdToUse = cid;
+        const ok = await itemAction.run(() =>
+          api.post(`/restaurants/${restaurantId}/menu/items`, {
+            categoryId: categoryIdToUse,
             name: item,
             price: toMinor(amount),
             dietary,
             prepTimeMinutes: 15,
             allergens: [],
-          });
-        });
+          }),
+        );
         if (ok) await onDone();
       }}
     >
-      <FormField label="Category" required error={err("name")}>
+      <FormField
+        label="Category"
+        description={
+          categoryId ? "Created. Add more categories on the Menu page." : "e.g. Mains, Starters"
+        }
+        required
+        error={categoryAction.err("name")}
+      >
         <Input
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           disabled={Boolean(categoryId)}
         />
       </FormField>
-      <FormField label="Item name" required error={err("name")}>
+      <FormField label="Dish name" required error={itemAction.err("name")}>
         <Input value={item} onChange={(e) => setItem(e.target.value)} placeholder="Paneer Tikka" />
       </FormField>
-      <FormField label="Price" required error={err("price")}>
+      <FormField
+        label="Price"
+        description="In the branch currency, e.g. 249 or 249.50."
+        required
+        error={itemAction.err("price")}
+      >
         <Input
           value={price}
           onChange={(e) => setPrice(e.target.value)}
@@ -451,25 +592,47 @@ function MenuStep({
 }
 
 function TablesStep({
+  workspaceId,
   branchId,
   onDone,
 }: {
+  workspaceId: string;
   branchId: string;
   onDone: () => void | Promise<void>;
 }) {
   const [prefix, setPrefix] = useState("T");
   const [count, setCount] = useState("10");
   const [capacity, setCapacity] = useState("4");
-  const { pending, run, err } = useAction();
+  const { pending, run, err, error, formError, setFieldErrors } = useAction();
+  const n = Number(count);
+  const limit = useLimit(workspaceId, "maxTables", {
+    adding: Number.isInteger(n) && n > 0 ? n : 1,
+  });
   return (
     <StepForm
       title="Add your tables"
       description="Create tables in bulk, for example T1–T10. Each table gets its own secure QR code on the next screen."
       pending={pending}
-      submitLabel="Create tables"
+      submitLabel={Number.isInteger(n) && n > 0 ? `Create ${n} tables` : "Create tables"}
+      blockedReason={limit.reason}
       onSkip={() => void onDone()}
+      notice={
+        <>
+          <PlanErrorNotice error={error} workspaceId={workspaceId} />
+          {!isPlanError(error) ? <FormError>{formError}</FormError> : null}
+        </>
+      }
       onSubmit={async () => {
-        const n = Number(count);
+        const local: Record<string, string[]> = {};
+        if (!Number.isInteger(n) || n < 1 || n > 100)
+          local.to = ["Enter a whole number from 1 to 100"];
+        const seats = Number(capacity);
+        if (!Number.isInteger(seats) || seats < 1 || seats > 100)
+          local.capacity = ["Enter 1 to 100 seats"];
+        if (Object.keys(local).length > 0) {
+          setFieldErrors(local);
+          return;
+        }
         const ok = await run(() =>
           api.post(`/branches/${branchId}/tables/bulk`, {
             prefix,
@@ -482,13 +645,13 @@ function TablesStep({
       }}
     >
       <div className="grid grid-cols-3 gap-3">
-        <FormField label="Prefix" error={err("prefix")}>
+        <FormField label="Prefix" description="Optional" error={err("prefix")}>
           <Input value={prefix} onChange={(e) => setPrefix(e.target.value)} />
         </FormField>
-        <FormField label="How many" required error={err("to")}>
+        <FormField label="How many" description="1 to 100" required error={err("to")}>
           <Input value={count} onChange={(e) => setCount(e.target.value)} inputMode="numeric" />
         </FormField>
-        <FormField label="Seats each" error={err("capacity")}>
+        <FormField label="Seats each" required error={err("capacity")}>
           <Input
             value={capacity}
             onChange={(e) => setCapacity(e.target.value)}

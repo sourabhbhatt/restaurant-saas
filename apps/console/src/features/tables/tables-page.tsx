@@ -21,6 +21,7 @@ import {
   EmptyState,
   ErrorState,
   FilterBar,
+  GatedAction,
   PageHeader,
   PageSkeleton,
   StatusBadge,
@@ -43,6 +44,7 @@ import { TABLE_STATUSES, type TableStatus } from "@ros/domain/tables/table-statu
 import { errorMessage } from "@ros/api-client";
 import { cn } from "@ros/ui/utils";
 import { permissionChecker, useBranchContext } from "@ros/web-core/features/session/queries";
+import { LimitNoticeView, useLimit } from "@ros/web-core/features/subscriptions/limit-notice";
 
 import { QrDialog } from "./qr-dialog";
 import { useDeleteTable, useTables } from "./queries";
@@ -66,6 +68,7 @@ export function TablesPage() {
   const can = permissionChecker(ctx.data?.permissions);
   const canManage = can("tables.manage");
   const tables = useTables(branchId, Boolean(ctx.data));
+  const limit = useLimit(ctx.data?.workspaceId, "maxTables");
 
   const [section, setSection] = useState("all");
   const [status, setStatus] = useState("all");
@@ -112,6 +115,28 @@ export function TablesPage() {
     printIds.length && printIds.length !== all.length ? `&tableIds=${printIds.join(",")}` : ""
   }`;
   const qrLive = qrTable ? (all.find((t) => t.id === qrTable.id) ?? qrTable) : null;
+  const addButtons = (labels: { bulk: string; one: string }, primary: "bulk" | "one") => (
+    <GatedAction reason={limit.reason} align={primary === "one" ? "end" : "start"}>
+      {(gate) => (
+        <div className="flex flex-wrap gap-2 *:max-sm:flex-1">
+          <Button
+            variant={primary === "bulk" ? "default" : "outline"}
+            onClick={() => setBulkOpen(true)}
+            {...gate}
+          >
+            <ListPlus aria-hidden /> {labels.bulk}
+          </Button>
+          <Button
+            variant={primary === "one" ? "default" : "outline"}
+            onClick={() => setEditing({ table: null })}
+            {...gate}
+          >
+            <Plus aria-hidden /> {labels.one}
+          </Button>
+        </div>
+      )}
+    </GatedAction>
+  );
 
   const toggle = (id: string, on: boolean) =>
     setSelected((prev) => {
@@ -126,7 +151,7 @@ export function TablesPage() {
       <Toaster />
       <PageHeader
         title="Tables & QR"
-        description={`${all.length} tables · ${all.filter((t) => t.status !== "AVAILABLE" && t.status !== "CLOSED").length} in use right now`}
+        description={`${all.length} tables at this branch · ${all.filter((t) => t.status !== "AVAILABLE" && t.status !== "CLOSED").length} in use right now. Each table has its own QR code guests scan to order.`}
         actions={
           canManage ? (
             <>
@@ -134,20 +159,27 @@ export function TablesPage() {
                 <Button variant="outline" asChild>
                   <Link href={printHref} target="_blank" rel="noopener">
                     <Printer aria-hidden />
-                    {selected.size > 0 ? `Print ${selected.size} QR` : "Print QR codes"}
+                    {selected.size > 0
+                      ? `Print ${selected.size} selected QR code${selected.size === 1 ? "" : "s"}`
+                      : "Print QR codes"}
                   </Link>
                 </Button>
               )}
-              <Button variant="outline" onClick={() => setBulkOpen(true)}>
-                <ListPlus aria-hidden /> Add several
-              </Button>
-              <Button onClick={() => setEditing({ table: null })}>
-                <Plus aria-hidden /> Add table
-              </Button>
+              {addButtons({ bulk: "Add several tables", one: "Add table" }, "one")}
             </>
           ) : undefined
         }
       />
+
+      {canManage && limit.data ? (
+        <LimitNoticeView
+          workspaceId={ctx.data.workspaceId}
+          limitKey="maxTables"
+          entitlements={limit.data.entitlements}
+          usage={limit.data.usage}
+          scopeNote="Tables count across all branches in this workspace."
+        />
+      ) : null}
 
       {all.length === 0 ? (
         <EmptyState
@@ -159,16 +191,9 @@ export function TablesPage() {
               : "A manager hasn't set up tables for this branch yet."
           }
           action={
-            canManage ? (
-              <>
-                <Button onClick={() => setBulkOpen(true)}>
-                  <ListPlus aria-hidden /> Add T1–T10
-                </Button>
-                <Button variant="outline" onClick={() => setEditing({ table: null })}>
-                  <Plus aria-hidden /> Add one table
-                </Button>
-              </>
-            ) : undefined
+            canManage
+              ? addButtons({ bulk: "Add tables T1–T10", one: "Add one table" }, "bulk")
+              : undefined
           }
         />
       ) : (
@@ -290,14 +315,15 @@ export function TablesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onSelect={() => setQrTable(t)}>
-                              <QrCode aria-hidden /> QR code
+                              <QrCode aria-hidden />{" "}
+                              {t.qr.active ? "View QR code" : "Create QR code"}
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => setEditing({ table: t })}>
-                              <Pencil aria-hidden /> Edit
+                              <Pencil aria-hidden /> Edit table
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(t)}>
-                              <Trash2 aria-hidden /> Delete
+                              <Trash2 aria-hidden /> Delete table
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -309,6 +335,7 @@ export function TablesPage() {
                     <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Users className="size-3.5" aria-hidden /> {t.capacity}
+                        <span className="sr-only">seats</span>
                       </span>
                       <span className="truncate">{t.section ?? "—"}</span>
                     </div>
@@ -318,7 +345,7 @@ export function TablesPage() {
                         size="sm"
                         onClick={() => setQrTable(t)}
                       >
-                        <QrCode aria-hidden /> {t.qr.active ? "View QR" : "Create QR"}
+                        <QrCode aria-hidden /> {t.qr.active ? "View QR code" : "Create QR code"}
                       </Button>
                     )}
                   </li>
@@ -335,16 +362,23 @@ export function TablesPage() {
             open={editing !== null}
             onOpenChange={(o) => !o && setEditing(null)}
             branchId={branchId}
+            workspaceId={ctx.data.workspaceId}
             table={editing?.table ?? null}
             sections={sections}
           />
-          <BulkTablesDialog open={bulkOpen} onOpenChange={setBulkOpen} branchId={branchId} />
+          <BulkTablesDialog
+            open={bulkOpen}
+            onOpenChange={setBulkOpen}
+            branchId={branchId}
+            workspaceId={ctx.data.workspaceId}
+            remaining={limit.check?.remaining ?? null}
+          />
           <QrDialog table={qrLive} onOpenChange={(o) => !o && setQrTable(null)} />
           <ConfirmDialog
             open={deleting !== null}
             onOpenChange={(o) => !o && setDeleting(null)}
             title={`Delete ${deleting?.name ?? "table"}?`}
-            description="Its QR code stops working. Past orders and bills are kept."
+            description="Its QR code stops working immediately and printed codes for it become invalid. Past orders and bills are kept, and it stops counting towards your plan's table limit."
             confirmLabel="Delete table"
             destructive
             getErrorMessage={errorMessage}

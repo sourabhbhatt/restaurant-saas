@@ -4,11 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
-import { ErrorState, PageSkeleton } from "@ros/ui/shared/feedback";
+import { ErrorState, FormError, PageSkeleton } from "@ros/ui/shared/feedback";
 import { Button } from "@ros/ui/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ros/ui/ui/card";
 import type { AcceptInvitationResultDto, InvitationPreviewDto } from "@ros/contracts/tenancy";
 import { useMe } from "@ros/web-core/features/session/queries";
+import { isPlanError } from "@ros/web-core/features/subscriptions/limits";
 import { api, errorMessage } from "@ros/api-client";
 import { useAction } from "@ros/web-core/use-action";
 
@@ -22,7 +23,7 @@ export function AcceptInvitePage() {
       api.get<InvitationPreviewDto>(`/invitations/${token}`, undefined, signal),
     retry: false,
   });
-  const { pending, run } = useAction();
+  const { pending, run, error, formError } = useAction();
   if (preview.isPending || me.isPending) return <PageSkeleton variant="detail" />;
   if (preview.isError)
     return <ErrorState title="Invitation not found" message={errorMessage(preview.error)} />;
@@ -67,20 +68,27 @@ export function AcceptInvitePage() {
               out and use that account.
             </p>
           ) : (
-            <Button
-              disabled={pending}
-              onClick={async () => {
-                const res = await run(() =>
-                  api.post<AcceptInvitationResultDto>(`/invitations/${token}/accept`),
-                );
-                if (res)
-                  router.push(
-                    res.branchId ? `/app/b/${res.branchId}` : `/app/w/${res.workspaceId}`,
+            <>
+              <FormError>
+                {isPlanError(error)
+                  ? `${error.message.replace(/\.$/, "")}. The workspace has no free staff seat on its plan, so you can't join yet. Ask ${p.inviterName ?? "the workspace owner"} to upgrade the plan or free a seat, then try again.`
+                  : formError}
+              </FormError>
+              <Button
+                disabled={pending}
+                onClick={async () => {
+                  const res = await run(() =>
+                    api.post<AcceptInvitationResultDto>(`/invitations/${token}/accept`),
                   );
-              }}
-            >
-              {pending ? "Joining…" : "Accept invitation"}
-            </Button>
+                  if (res)
+                    router.push(
+                      res.branchId ? `/app/b/${res.branchId}` : `/app/w/${res.workspaceId}`,
+                    );
+                }}
+              >
+                {pending ? "Joining…" : `Accept and join ${p.workspaceName}`}
+              </Button>
+            </>
           )}
         </CardContent>
       </Card>

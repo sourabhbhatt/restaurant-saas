@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { PageSkeleton } from "@ros/ui/shared/feedback";
+import { FormError, PageSkeleton } from "@ros/ui/shared/feedback";
 import { Button } from "@ros/ui/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ros/ui/ui/card";
 import { FormField } from "@ros/ui/ui/form-field";
@@ -19,7 +19,7 @@ import { useAction } from "../../use-action";
 function ProfileCard({ initialName }: { initialName: string }) {
   const qc = useQueryClient();
   const [name, setName] = useState(initialName);
-  const { pending, run, err } = useAction();
+  const { pending, run, err, formError, setFieldErrors } = useAction();
   return (
     <Card>
       <CardHeader>
@@ -28,8 +28,13 @@ function ProfileCard({ initialName }: { initialName: string }) {
       <CardContent>
         <form
           className="flex flex-col gap-4"
+          noValidate
           onSubmit={async (e) => {
             e.preventDefault();
+            if (!name.trim()) {
+              setFieldErrors({ name: ["Enter your name"] });
+              return;
+            }
             const ok = await run(() => api.patch("/account/profile", { name }));
             if (ok) {
               toast.success("Profile updated");
@@ -37,11 +42,17 @@ function ProfileCard({ initialName }: { initialName: string }) {
             }
           }}
         >
-          <FormField label="Full name" required error={err("name")}>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          <FormField
+            label="Full name"
+            description="Shown to your team, e.g. on orders you approve."
+            required
+            error={err("name")}
+          >
+            <Input autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
           </FormField>
-          <Button type="submit" disabled={pending} className="self-start">
-            {pending ? "Saving…" : "Save"}
+          <FormError>{formError}</FormError>
+          <Button type="submit" disabled={pending || name === initialName} className="self-start">
+            {pending ? "Saving…" : "Save name"}
           </Button>
         </form>
       </CardContent>
@@ -52,7 +63,7 @@ function ProfileCard({ initialName }: { initialName: string }) {
 function PasswordCard() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
-  const { pending, run, err } = useAction();
+  const { pending, run, err, formError, setFieldErrors } = useAction();
   return (
     <Card>
       <CardHeader>
@@ -62,8 +73,16 @@ function PasswordCard() {
       <CardContent>
         <form
           className="flex flex-col gap-4"
+          noValidate
           onSubmit={async (e) => {
             e.preventDefault();
+            const local: Record<string, string[]> = {};
+            if (!current) local.currentPassword = ["Enter your current password"];
+            if (!next) local.newPassword = ["Enter a new password"];
+            if (Object.keys(local).length > 0) {
+              setFieldErrors(local);
+              return;
+            }
             const ok = await run(() =>
               api.put("/auth/password", { currentPassword: current, newPassword: next }),
             );
@@ -95,6 +114,7 @@ function PasswordCard() {
               autoComplete="new-password"
             />
           </FormField>
+          <FormError>{formError}</FormError>
           <Button type="submit" disabled={pending} className="self-start">
             {pending ? "Saving…" : "Change password"}
           </Button>

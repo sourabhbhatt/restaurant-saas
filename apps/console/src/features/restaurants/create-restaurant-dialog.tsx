@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
@@ -11,8 +10,8 @@ import {
   DialogTitle,
 } from "@ros/ui/ui/dialog";
 import type { RestaurantDto } from "@ros/contracts/tenancy";
+import { PlanErrorNotice, usePlanError } from "@ros/web-core/features/subscriptions/limit-notice";
 
-import { handlePlanError } from "./plan-error";
 import { useCreateRestaurant } from "./queries";
 import { RestaurantForm } from "./restaurant-form";
 
@@ -27,30 +26,40 @@ export function CreateRestaurantDialog({
   onOpenChange: (open: boolean) => void;
   onCreated?: (restaurant: RestaurantDto) => void;
 }) {
-  const router = useRouter();
   const create = useCreateRestaurant(workspaceId);
+  const plan = usePlanError(workspaceId);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) plan.clear();
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>New restaurant</DialogTitle>
+          <DialogTitle>Create restaurant</DialogTitle>
           <DialogDescription>
-            A restaurant has its own menu and branding. You can add branches next.
+            A restaurant is a brand or concept with its own menu and branding. You add its branches
+            (locations) next.
           </DialogDescription>
         </DialogHeader>
         <RestaurantForm
           workspaceId={workspaceId}
           compact
           submitLabel="Create restaurant"
+          notice={<PlanErrorNotice error={plan.error} workspaceId={workspaceId} />}
           onCancel={() => onOpenChange(false)}
           onSubmit={async (values) => {
+            plan.clear();
             try {
               const restaurant = await create.mutateAsync(values);
               toast.success(`${restaurant.name} created`);
               onOpenChange(false);
               onCreated?.(restaurant);
             } catch (error) {
-              if (!handlePlanError(error, workspaceId, (href) => router.push(href))) throw error;
+              // The server re-checks the plan; if it refuses, say so next to the button.
+              if (!plan.capture(error)) throw error;
             }
           }}
         />

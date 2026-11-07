@@ -17,6 +17,7 @@ import type {
   UploadResultDto,
 } from "@ros/contracts/menu";
 import { API_BASE, ApiError, api } from "@ros/api-client";
+import { invalidateEntitlements } from "@ros/web-core/features/subscriptions/queries";
 
 const menuKeys = {
   all: ["menu"] as const,
@@ -64,6 +65,13 @@ function useInvalidateMenu() {
   return () => qc.invalidateQueries({ queryKey: menuKeys.all });
 }
 
+/** Menu items count against the plan's item limit, so usage is refreshed too. */
+function useInvalidateMenuAndUsage() {
+  const qc = useQueryClient();
+  return () =>
+    Promise.all([qc.invalidateQueries({ queryKey: menuKeys.all }), invalidateEntitlements(qc)]);
+}
+
 export function useCreateCategory(restaurantId: string) {
   const invalidate = useInvalidateMenu();
   return useMutation({
@@ -91,7 +99,7 @@ export function useDeleteCategory() {
 }
 
 export function useCreateItem(restaurantId: string) {
-  const invalidate = useInvalidateMenu();
+  const invalidate = useInvalidateMenuAndUsage();
   return useMutation({
     mutationFn: (input: CreateItemInput) =>
       api.post<MenuItemDto>(`/restaurants/${restaurantId}/menu/items`, input),
@@ -109,7 +117,7 @@ export function useUpdateItem() {
 }
 
 export function useDeleteItem() {
-  const invalidate = useInvalidateMenu();
+  const invalidate = useInvalidateMenuAndUsage();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/menu/items/${id}`),
     onSuccess: invalidate,

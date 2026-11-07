@@ -284,7 +284,7 @@ function PaymentPanelBody({ bill, branchId, methods }: Props) {
             size="sm"
             onClick={() => edit("amount", toMajorText(Math.round(balance / 2)))}
           >
-            Half
+            Half of balance
           </Button>
         )}
         {method === "CASH" &&

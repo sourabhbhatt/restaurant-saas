@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import type {
   CheckoutSessionDto,
@@ -8,12 +8,17 @@ import type {
   CreateCheckoutInput,
   VerifyCheckoutInput,
 } from "@ros/contracts/payments";
-import type { PublicPlanDto, SubscriptionOverviewDto } from "@ros/contracts/platform";
+import type {
+  PublicPlanDto,
+  SubscriptionOverviewDto,
+  WorkspaceEntitlementsDto,
+} from "@ros/contracts/platform";
 import type { CreateUpgradeRequestInput, UpgradeRequestDto } from "@ros/contracts/upgrades";
 import { api, ApiError } from "@ros/api-client";
 
 export const subscriptionKeys = {
   overview: (workspaceId: string) => ["workspace", workspaceId, "subscription"] as const,
+  entitlements: (workspaceId: string) => ["workspace", workspaceId, "entitlements"] as const,
   publicPlans: ["public", "plans"] as const,
 };
 
@@ -31,6 +36,44 @@ export function useSubscriptionOverview(workspaceId: string | undefined, enabled
       ),
     enabled: Boolean(workspaceId) && enabled,
     retry: noRetryOnAuth,
+  });
+}
+
+/**
+ * Effective plan limits plus current usage of a workspace, shared by every page
+ * that shows a usage meter or gates a create button. Readable by any member.
+ */
+export function useEntitlements(workspaceId: string | undefined) {
+  return useQuery({
+    queryKey: subscriptionKeys.entitlements(workspaceId ?? ""),
+    queryFn: ({ signal }) =>
+      api.get<WorkspaceEntitlementsDto>(
+        `/workspaces/${workspaceId}/entitlements`,
+        undefined,
+        signal,
+      ),
+    enabled: Boolean(workspaceId),
+    retry: noRetryOnAuth,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Refresh usage after something that counts against a limit was created or
+ * removed. Without a workspace id every cached workspace is refreshed (for
+ * screens that only know the branch).
+ */
+export function invalidateEntitlements(qc: QueryClient, workspaceId?: string) {
+  if (workspaceId) {
+    return Promise.all([
+      qc.invalidateQueries({ queryKey: subscriptionKeys.entitlements(workspaceId) }),
+      qc.invalidateQueries({ queryKey: subscriptionKeys.overview(workspaceId) }),
+    ]);
+  }
+  return qc.invalidateQueries({
+    predicate: (q) =>
+      q.queryKey[0] === "workspace" &&
+      (q.queryKey[2] === "entitlements" || q.queryKey[2] === "subscription"),
   });
 }
 

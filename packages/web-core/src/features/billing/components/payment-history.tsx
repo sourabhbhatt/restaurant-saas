@@ -101,7 +101,7 @@ export function PaymentHistory({ bill, branchId, timezone, canVoid }: Props) {
                       onClick={() => setTarget(p)}
                       aria-label={`Void ${p.kind === "REFUND" ? "refund" : "payment"} of ${money(p.amount, bill.currency)}`}
                     >
-                      <Ban aria-hidden /> Void
+                      <Ban aria-hidden /> {p.kind === "REFUND" ? "Void refund" : "Void payment"}
                     </Button>
                   )
                 )}
@@ -120,7 +120,7 @@ export function PaymentHistory({ bill, branchId, timezone, canVoid }: Props) {
             ? `${money(target.amount, bill.currency)} by ${METHOD_LABEL[target.method]} will no longer count toward the bill. This is recorded in the audit log.`
             : undefined
         }
-        confirmLabel="Void"
+        confirmLabel={target?.kind === "REFUND" ? "Void refund" : "Void payment"}
         pendingLabel="Voiding…"
         placeholder="e.g. Recorded on the wrong table"
         onConfirm={async (reason) => {

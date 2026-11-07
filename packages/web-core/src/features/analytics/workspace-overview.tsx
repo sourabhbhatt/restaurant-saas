@@ -43,6 +43,9 @@ import {
   useWorkspaceStructure,
 } from "../session/queries";
 import { api, ApiError, errorMessage } from "@ros/api-client";
+import { PlanUsageCard } from "../subscriptions/limit-notice";
+import { useEntitlements } from "../subscriptions/queries";
+import { StructureExplainer } from "../workspaces/structure-explainer";
 
 import { todayIn } from "./date-range-filter";
 import { formatCount, formatMoney } from "./format";
@@ -273,6 +276,7 @@ export function WorkspaceOverview() {
   const can = permissionChecker(s?.permissions);
   const analyticsAllowed = can("workspace.analytics.view");
   // Per-branch numbers for the cards come from the same request as the KPIs (cached).
+  const entitlements = useEntitlements(workspaceId);
   const todayReport = useWorkspaceAnalytics(
     workspaceId,
     { from: today, to: today },
@@ -320,6 +324,10 @@ export function WorkspaceOverview() {
         title={firstName ? `${greeting()}, ${firstName}` : greeting()}
         description={`Here's what's happening at ${s.workspaceName}.`}
       />
+      <StructureExplainer
+        storageKey="workspace-overview"
+        entitlements={entitlements.data?.entitlements}
+      />
       {can("workspace.update") && <OnboardingCard workspaceId={workspaceId} canEdit />}
       {analyticsAllowed && <TodayKpis workspaceId={workspaceId} />}
 
@@ -339,7 +347,7 @@ export function WorkspaceOverview() {
             action={
               can("restaurant.create") ? (
                 <Button asChild>
-                  <Link href="/app/onboarding">Set up a restaurant</Link>
+                  <Link href="/app/onboarding">Set up your first restaurant</Link>
                 </Button>
               ) : undefined
             }
@@ -357,6 +365,10 @@ export function WorkspaceOverview() {
           </div>
         )}
       </section>
+
+      {can("restaurant.create") || can("workspace.members.manage") ? (
+        <PlanUsageCard workspaceId={workspaceId} />
+      ) : null}
 
       {links.length > 0 && (
         <section aria-labelledby="links-heading" className="flex flex-col gap-3">

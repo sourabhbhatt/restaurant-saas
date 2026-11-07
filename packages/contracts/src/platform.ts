@@ -198,6 +198,12 @@ export interface WorkspaceUsageDto {
   storageBytes: number;
 }
 
+/** GET /workspaces/:id/entitlements: effective plan limits plus current usage. */
+export interface WorkspaceEntitlementsDto {
+  entitlements: Entitlements;
+  usage: WorkspaceUsageDto;
+}
+
 export interface SubscriptionOverviewDto {
   workspaceId: string;
   workspaceName: string;
