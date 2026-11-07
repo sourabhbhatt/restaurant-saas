@@ -387,7 +387,24 @@ export function entitlementRepository(db: Executor): EntitlementRepository {
     async loadOrganizationSubscriptionContext(organizationId) {
       const organization = await organizationRef(organizationId);
       if (!organization) return null;
-      return { organization, ...(await currentSubscription({ organizationId })) };
+      // Organization-level actions (adding workspaces) stop while a Super Admin has any
+      // of its workspaces suspended; a suspended tenant must not sidestep it with a sibling.
+      // Sibling workspaces themselves keep their own status (the per-workspace path).
+      const [suspended] = await db
+        .select({ id: workspaces.id })
+        .from(workspaces)
+        .where(
+          and(
+            eq(workspaces.organizationId, organizationId),
+            eq(workspaces.status, "SUSPENDED"),
+            isNull(workspaces.deletedAt),
+          ),
+        )
+        .limit(1);
+      return {
+        organization: suspended ? { ...organization, status: "SUSPENDED" } : organization,
+        ...(await currentSubscription({ organizationId })),
+      };
     },
     async loadPlatformSettingRows() {
       return db
