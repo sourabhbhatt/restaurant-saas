@@ -117,6 +117,11 @@ export function workspaceRepository(db: Executor): WorkspaceRepository {
         .groupBy(organizations.id, organizations.name, organizationMembers.role)
         .orderBy(organizations.name);
     },
+    async lockOrganization(organizationId) {
+      await db.execute(
+        sql`select id from ${organizations} where ${organizations.id} = ${organizationId} for update`,
+      );
+    },
     async countOrganizationWorkspaces(organizationId, since) {
       const [row] = await db
         .select({

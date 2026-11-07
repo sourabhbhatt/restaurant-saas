@@ -205,6 +205,33 @@ describe("workspace creation limits per organization", () => {
     expect(later.status).toBe(201);
   });
 
+  it("concurrent creates on the last slot yield one success and one LIMIT_REACHED", async () => {
+    const owner = await signUpUser("Racing Owner");
+    const first = await createWorkspaceAs(owner, "Race One");
+    const organizationId = await organizationOf(c, first.id);
+    await activateOn(first.id, "pro", "ANNUAL");
+    expect((await create(owner.cookie, "Race Two")).status).toBe(201);
+
+    const results = await Promise.all([
+      create(owner.cookie, "Race Three A"),
+      create(owner.cookie, "Race Three B"),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual([201, 402]);
+    const refused = results.find((r) => r.status === 402)!;
+    expect(refused.body.error?.code).toBe("LIMIT_REACHED");
+    expect(refused.body.error?.details).toMatchObject({
+      reason: "PLAN_LIMIT",
+      limit: 3,
+      current: 3,
+    });
+    expect(
+      await c.db
+        .select({ id: workspaces.id })
+        .from(workspaces)
+        .where(eq(workspaces.organizationId, organizationId)),
+    ).toHaveLength(3);
+  });
+
   it("override 2 lets a trial org hold 2", async () => {
     const owner = await signUpUser("Override Owner");
     const first = await createWorkspaceAs(owner, "Override One");

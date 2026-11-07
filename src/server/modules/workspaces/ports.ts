@@ -42,6 +42,8 @@ export interface WorkspaceRepository {
   findPlanByKey(key: string): Promise<{ id: string; key: string } | null>;
   /** Organizations the user belongs to, with their non-deleted workspace counts. */
   listOrganizationsForUser(userId: string): Promise<OrganizationMembershipRow[]>;
+  /** Row lock on the organization for the rest of the transaction (serialises creations). */
+  lockOrganization(organizationId: string): Promise<void>;
   /** Non-deleted workspaces in the organization, in total and created after `since`. */
   countOrganizationWorkspaces(
     organizationId: string,

@@ -40,6 +40,8 @@ export interface WorkspaceServiceDeps {
       | "insertMembership"
       | "findPlanByKey"
       | "hasStartedTrial"
+      | "lockOrganization"
+      | "countOrganizationWorkspaces"
       | "insertOrganization"
       | "insertOrganizationMember"
       | "insertSubscription"
@@ -165,33 +167,35 @@ export function createWorkspaceService({
 
       const limit = await entitlements.getOrganizationWorkspaceLimit(target.id);
       assertOperationAllowed(limit.entitlements, "grow");
-      const counts = await tx.read((r) =>
-        r.workspaces.countOrganizationWorkspaces(target.id, addDays(clock.now(), -1)),
-      );
-      try {
-        assertCanCreateWorkspace({
-          ...limit.input,
-          currentWorkspaces: counts.total,
-          createdLast24h: counts.createdSince,
-          createsPerDay: limit.createsPerDay,
-        });
-      } catch (error) {
-        const reason = error instanceof DomainError ? error.details?.reason : undefined;
-        if (error instanceof DomainError && (reason === "FAIR_USE" || reason === "DAILY_LIMIT")) {
-          // Recorded in its own transaction: the refusal itself is the event.
-          await bootstrap.run((r) =>
-            recordAudit(
+      const outcome = await bootstrap.run(async (r) => {
+        // The organization row is locked for the whole transaction, so concurrent
+        // creations serialise and the counts below cannot race past the limit.
+        await r.workspaces.lockOrganization(target.id);
+        const counts = await r.workspaces.countOrganizationWorkspaces(
+          target.id,
+          addDays(clock.now(), -1),
+        );
+        try {
+          assertCanCreateWorkspace({
+            ...limit.input,
+            currentWorkspaces: counts.total,
+            createdLast24h: counts.createdSince,
+            createsPerDay: limit.createsPerDay,
+          });
+        } catch (error) {
+          const reason = error instanceof DomainError ? error.details?.reason : undefined;
+          if (error instanceof DomainError && (reason === "FAIR_USE" || reason === "DAILY_LIMIT")) {
+            await recordAudit(
               r.audit,
               auditActorFor(actor, meta),
               "organization.fair_use_limit_hit",
               { workspaceId: null, targetType: "organization", targetId: target.id },
               error.details,
-            ),
-          );
+            );
+          }
+          // Returned, not thrown, so the refusal's audit row commits.
+          return { refused: error };
         }
-        throw error;
-      }
-      return bootstrap.run(async (r) => {
         const ws = await r.workspaces.insert({
           ...input,
           organizationId: target.id,
@@ -210,8 +214,10 @@ export function createWorkspaceService({
           { workspaceId: ws.id, targetType: "workspace", targetId: ws.id },
           { organizationId: target.id, workspaceCount: counts.total + 1 },
         );
-        return ws;
+        return { ws };
       });
+      if ("refused" in outcome) throw outcome.refused;
+      return outcome.ws;
     },
 
     /** The actor's organizations with how many workspaces each may hold right now. */
