@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   index,
+  integer,
   jsonb,
   pgTable,
   primaryKey,
@@ -20,10 +21,57 @@ import { users } from "./identity";
 
 export type { OnboardingProgress };
 
+export const ORGANIZATION_STATUSES = ["ACTIVE", "SUSPENDED"] as const;
+export type OrganizationStatus = (typeof ORGANIZATION_STATUSES)[number];
+
+export const ORGANIZATION_ROLES = ["OWNER", "BILLING_ADMIN"] as const;
+export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];
+
+/**
+ * The billing owner (spec section 7.1): one subscription per organization,
+ * shared by all of its workspaces. Backfilled organizations reuse their
+ * workspace's id (migration 0003).
+ */
+export const organizations = pgTable(
+  "organizations",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    status: text("status").$type<OrganizationStatus>().notNull().default("ACTIVE"),
+    /** Super Admin per-organization workspace limit; wins over the plan and fair use. */
+    maxWorkspacesOverride: integer("max_workspaces_override"),
+    ...timestamps,
+  },
+  (t) => [check("organizations_status_ck", sql`${t.status} in ('ACTIVE', 'SUSPENDED')`)],
+);
+
+export const organizationMembers = pgTable(
+  "organization_members",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: text("role").$type<OrganizationRole>().notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("organization_members_uq").on(t.organizationId, t.userId),
+    index("organization_members_user_idx").on(t.userId),
+    check("organization_members_role_ck", sql`${t.role} in ('OWNER', 'BILLING_ADMIN')`),
+  ],
+);
+
 export const workspaces = pgTable(
   "workspaces",
   {
     id: id(),
+    /** Nullable until the contract step (spec section 9.2); backfilled for every row. */
+    organizationId: uuid("organization_id").references(() => organizations.id),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     status: text("status").$type<WorkspaceStatus>().notNull().default("ACTIVE"),
@@ -45,6 +93,7 @@ export const workspaces = pgTable(
   },
   (t) => [
     uniqueIndex("workspaces_slug_uq").on(t.slug),
+    index("workspaces_organization_idx").on(t.organizationId),
     check("workspaces_status_ck", sql`${t.status} in ('ACTIVE', 'SUSPENDED', 'DEACTIVATED')`),
   ],
 );

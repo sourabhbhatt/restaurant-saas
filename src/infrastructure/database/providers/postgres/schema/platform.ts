@@ -20,7 +20,7 @@ import type {
 
 import { id, money, timestamps, tstz } from "./_helpers";
 import { users } from "./identity";
-import { workspaces } from "./tenancy";
+import { organizations, workspaces } from "./tenancy";
 
 export const subscriptionPlans = pgTable(
   "subscription_plans",
@@ -49,9 +49,17 @@ export const subscriptions = pgTable(
   "subscriptions",
   {
     id: id(),
+    /**
+     * Legacy billing owner, kept and dual-written until the contract step
+     * (spec section 9.2): the organization's first workspace.
+     */
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** The billing owner. Nullable only until the contract step; backfilled for every row. */
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
     planId: uuid("plan_id")
       .notNull()
       .references(() => subscriptionPlans.id),
@@ -73,6 +81,9 @@ export const subscriptions = pgTable(
     uniqueIndex("subscriptions_current_uq")
       .on(t.workspaceId)
       .where(sql`${t.isCurrent}`),
+    uniqueIndex("subscriptions_current_org_uq")
+      .on(t.organizationId)
+      .where(sql`${t.isCurrent} and ${t.organizationId} is not null`),
     check(
       "subscriptions_status_ck",
       sql`${t.status} in ('TRIALING','ACTIVE','CANCELLED','EXPIRED')`,

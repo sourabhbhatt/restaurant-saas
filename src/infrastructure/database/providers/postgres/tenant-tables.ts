@@ -44,3 +44,13 @@ export const TENANT_TABLES = [
 ] as const;
 
 export type TenantTable = (typeof TENANT_TABLES)[number];
+
+/**
+ * Billing-owner tables without a `workspace_id`. Row-level security scopes
+ * them to the organization of the bound workspace, or to the bound user's
+ * memberships (migration 0003_organizations). Tenants read them only; every
+ * write goes through the system runner.
+ */
+export const ORGANIZATION_TABLES = ["organizations", "organization_members"] as const;
+
+export type OrganizationTable = (typeof ORGANIZATION_TABLES)[number];

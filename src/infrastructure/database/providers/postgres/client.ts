@@ -53,13 +53,14 @@ export async function connectPglite(dataDir?: string): Promise<DatabaseHandle> {
 export async function runMigrations(
   handle: DatabaseHandle,
   provider: "postgres" | "pglite",
+  migrationsFolder = MIGRATIONS_DIR,
 ): Promise<void> {
   if (provider === "pglite") {
     const { migrate } = await import("drizzle-orm/pglite/migrator");
-    await migrate(handle.db as never, { migrationsFolder: MIGRATIONS_DIR });
+    await migrate(handle.db as never, { migrationsFolder });
   } else {
     const { migrate } = await import("drizzle-orm/node-postgres/migrator");
-    await migrate(handle.db as never, { migrationsFolder: MIGRATIONS_DIR });
+    await migrate(handle.db as never, { migrationsFolder });
   }
 }
 

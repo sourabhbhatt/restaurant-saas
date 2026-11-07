@@ -12,7 +12,10 @@ import {
   runMigrations,
   type Executor,
 } from "@/infrastructure/database/providers/postgres/client";
-import { TENANT_TABLES } from "@/infrastructure/database/providers/postgres/tenant-tables";
+import {
+  ORGANIZATION_TABLES,
+  TENANT_TABLES,
+} from "@/infrastructure/database/providers/postgres/tenant-tables";
 import type { Container } from "@/server/container";
 import { addStaffMember } from "@/test/fixtures";
 import { createTenantWorld, type TenantWorld } from "@/test/fixtures-rls";
@@ -92,7 +95,7 @@ describe("row-level security schema", () => {
       c.db,
       sql`select tablename, policyname, roles::text as roles from pg_policies where schemaname = 'public'`,
     );
-    for (const table of TENANT_TABLES) {
+    for (const table of [...TENANT_TABLES, ...ORGANIZATION_TABLES]) {
       const mine = policies.filter((p) => p.tablename === table);
       expect(mine.find((p) => p.policyname === "tenant_isolation")?.roles, table).toBe(
         "{ros_tenant}",
@@ -100,6 +103,58 @@ describe("row-level security schema", () => {
       expect(mine.find((p) => p.policyname === "runtime_access")?.roles, table).toBe(
         "{ros_runtime}",
       );
+    }
+  });
+
+  it("organization tables have RLS enabled and tenant policies scoped by workspace or membership", async () => {
+    const tables = await rows<{ relname: string; rls: boolean }>(
+      c.db,
+      sql`select c.relname, c.relrowsecurity as rls from pg_class c
+          join pg_namespace ns on ns.oid = c.relnamespace
+          where ns.nspname = 'public' and c.relname in ('organizations', 'organization_members')`,
+    );
+    expect(tables.map((t) => t.relname).sort()).toEqual([...ORGANIZATION_TABLES].sort());
+    expect(tables.filter((t) => !t.rls)).toEqual([]);
+
+    const policies = await rows<{
+      tablename: string;
+      cmd: string;
+      qual: string | null;
+      with_check: string | null;
+    }>(
+      c.db,
+      sql`select tablename, cmd, qual, with_check from pg_policies
+          where schemaname = 'public' and policyname = 'tenant_isolation'
+            and tablename in ('organizations', 'organization_members')`,
+    );
+    const viaWorkspace =
+      "( SELECT workspaces.organization_id\n   FROM workspaces\n  WHERE (workspaces.id = app_current_workspace()))";
+    expect(policies.find((p) => p.tablename === "organizations")).toMatchObject({
+      cmd: "ALL",
+      qual: `((id = ${viaWorkspace}) OR (id IN ( SELECT organization_members.organization_id\n   FROM organization_members\n  WHERE (organization_members.user_id = app_current_user()))))`,
+      with_check: `(id = ${viaWorkspace})`,
+    });
+    expect(policies.find((p) => p.tablename === "organization_members")).toMatchObject({
+      cmd: "ALL",
+      qual: `((organization_id = ${viaWorkspace}) OR (user_id = app_current_user()))`,
+      with_check: `(organization_id = ${viaWorkspace})`,
+    });
+  });
+
+  it("organization tables are read-only for tenants", async () => {
+    for (const table of ORGANIZATION_TABLES) {
+      for (const privilege of ["INSERT", "UPDATE", "DELETE"]) {
+        const [row] = await rows<{ ok: boolean }>(
+          c.db,
+          sql`select has_table_privilege('ros_tenant', ${table}, ${privilege}) as ok`,
+        );
+        expect(row!.ok, `${table} ${privilege}`).toBe(false);
+      }
+      const [row] = await rows<{ ok: boolean }>(
+        c.db,
+        sql`select has_table_privilege('ros_tenant', ${table}, 'SELECT') as ok`,
+      );
+      expect(row!.ok, `${table} SELECT`).toBe(true);
     }
   });
 
@@ -426,14 +481,17 @@ describe("tenant_rls migration", () => {
           sql`select count(*)::int as n from pg_class c join pg_namespace ns on ns.oid = c.relnamespace
               where ns.nspname = 'public' and c.relrowsecurity`,
         );
-      expect(await enabled()).toBe(TENANT_TABLES.length);
+      expect(await enabled()).toBe(TENANT_TABLES.length + ORGANIZATION_TABLES.length);
 
-      const down = await readFile(
-        path.join(MIGRATIONS_DIR, "../migrations-down/0002_tenant_rls.down.sql"),
-        "utf8",
-      );
-      const statements = down.split("\n").filter((line) => line.trim() && !line.startsWith("--"));
-      for (const statement of statements) await handle.db.execute(sql.raw(statement));
+      // Down scripts run newest first.
+      for (const script of ["0003_organizations", "0002_tenant_rls"]) {
+        const down = await readFile(
+          path.join(MIGRATIONS_DIR, `../migrations-down/${script}.down.sql`),
+          "utf8",
+        );
+        const statements = down.split("\n").filter((line) => line.trim() && !line.startsWith("--"));
+        for (const statement of statements) await handle.db.execute(sql.raw(statement));
+      }
       expect(await enabled()).toBe(0);
       expect(
         await n(
