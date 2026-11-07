@@ -36,8 +36,10 @@ import type { PushSender } from "@/infrastructure/push/interfaces/push-sender";
 import { createNoopPushSender } from "@/infrastructure/push/providers/noop-push";
 import type { RealtimeBus } from "@/infrastructure/realtime/interfaces/realtime";
 import { createMemoryBus, createNoopBus } from "@/infrastructure/realtime/providers/memory-bus";
+import { createPostgresBus } from "@/infrastructure/realtime/providers/postgres-bus";
 import type { ObjectStorage } from "@/infrastructure/storage/interfaces/object-storage";
 import { createLocalStorage } from "@/infrastructure/storage/providers/local-storage";
+import { createS3Storage } from "@/infrastructure/storage/providers/s3-storage";
 
 import { createAccessService, type AccessService } from "./authz/access-service";
 import { getEnv, type ServerEnv } from "./config/env";
@@ -103,13 +105,31 @@ function selectEmail(env: ServerEnv, logger: Logger): EmailSender {
   return createOutboxEmailSender();
 }
 
-function selectStorage(env: ServerEnv, logger: Logger): ObjectStorage {
+export function selectStorage(env: ServerEnv, _logger: Logger): ObjectStorage {
   if (env.STORAGE_PROVIDER === "s3") {
-    // The S3 adapter is documented in docs/provider-migration-guide.md and
-    // requires credentials; until configured, local storage is used.
-    logger.warn("storage_s3_not_configured_using_local");
+    if (!env.S3_BUCKET || !env.S3_REGION || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY)
+      throw new Error(
+        "S3 storage selected but S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY are required",
+      );
+    return createS3Storage({
+      endpoint: env.S3_ENDPOINT,
+      region: env.S3_REGION,
+      bucket: env.S3_BUCKET,
+      accessKeyId: env.S3_ACCESS_KEY_ID,
+      secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+      forcePathStyle: env.S3_FORCE_PATH_STYLE,
+    });
   }
   return createLocalStorage(env.STORAGE_LOCAL_DIR);
+}
+
+export function selectRealtime(env: ServerEnv, logger: Logger): RealtimeBus {
+  if (env.REALTIME_PROVIDER === "postgres") {
+    if (env.DATABASE_PROVIDER === "pglite")
+      throw new Error("REALTIME_PROVIDER=postgres requires DATABASE_PROVIDER=postgres");
+    return createPostgresBus({ connectionString: env.DATABASE_URL, logger });
+  }
+  return env.REALTIME_PROVIDER === "memory" ? createMemoryBus() : createNoopBus();
 }
 
 export interface BuildOptions {
@@ -128,58 +148,79 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
     ? silentLogger
     : createConsoleLogger(env.LOG_LEVEL, { app: env.APP_NAME });
   const clock = createAdjustableClock();
+  // Providers that validate config run first so a bad config opens nothing.
+  const email = selectEmail(env, logger);
+  const storage = selectStorage(env, logger);
+  const ownsHandle = !options.database;
   const handle =
     options.database ??
     (env.DATABASE_PROVIDER === "pglite"
       ? await connectPglite(env.PGLITE_DATA_DIR)
       : await connectPostgres(env.DATABASE_URL, env.DATABASE_POOL_MAX));
-  if (options.migrate) await runMigrations(handle, env.DATABASE_PROVIDER);
-  else if (
-    !options.database &&
-    env.DATABASE_PROVIDER === "pglite" &&
-    isPersistentPgliteDir(env.PGLITE_DATA_DIR)
-  ) {
-    const pending = await pendingMigrations(handle);
-    if (pending.length > 0) {
-      await handle.close();
-      throw new Error(
-        `Pending migrations for ${env.PGLITE_DATA_DIR}: ${pending.join(", ")}. Run pnpm db:snapshot then pnpm db:migrate.`,
-      );
+  let realtime: RealtimeBus | undefined;
+  try {
+    if (options.migrate) await runMigrations(handle, env.DATABASE_PROVIDER);
+    else if (
+      !options.database &&
+      env.DATABASE_PROVIDER === "pglite" &&
+      isPersistentPgliteDir(env.PGLITE_DATA_DIR)
+    ) {
+      const pending = await pendingMigrations(handle);
+      if (pending.length > 0) {
+        throw new Error(
+          `Pending migrations for ${env.PGLITE_DATA_DIR}: ${pending.join(", ")}. Run pnpm db:snapshot then pnpm db:migrate.`,
+        );
+      }
     }
+    const db = handle.db;
+    if (options.syncSystemData !== false) await ensureSystemData(db);
+
+    const entitlements = createEntitlementService({ repo: entitlementRepository(db), clock });
+    const access = createAccessService({ repo: accessRepository(db), entitlements });
+    realtime = selectRealtime(env, logger);
+
+    return {
+      env,
+      logger,
+      errors: env.ERROR_REPORTER === "log" ? createLogErrorReporter(logger) : { capture: () => {} },
+      clock,
+      db,
+      identity: createLocalIdentityProvider(db, {
+        ttlDays: env.SESSION_TTL_DAYS,
+        now: clock.now,
+        fastHashing: env.NODE_ENV === "test",
+      }),
+      email,
+      storage,
+      realtime,
+      push: createNoopPushSender(),
+      access,
+      entitlements,
+      repos: {
+        identity: identityRepository(db),
+        access: accessRepository(db),
+        audit: auditRepository(db),
+        idempotency: idempotencyRepository(db),
+        rateLimit: rateLimitRepository(db),
+        emailOutbox: emailOutboxRepository(db),
+      },
+      close: async () => {
+        try {
+          await realtime?.close?.();
+        } finally {
+          await handle.close();
+        }
+      },
+    };
+  } catch (error) {
+    // Cleanup failures are logged so the original build error is what surfaces.
+    await realtime
+      ?.close?.()
+      .catch((e: unknown) => logger.error("container_cleanup_failed", { e }));
+    if (ownsHandle)
+      await handle.close().catch((e: unknown) => logger.error("container_cleanup_failed", { e }));
+    throw error;
   }
-  const db = handle.db;
-  if (options.syncSystemData !== false) await ensureSystemData(db);
-
-  const entitlements = createEntitlementService({ repo: entitlementRepository(db), clock });
-  const access = createAccessService({ repo: accessRepository(db), entitlements });
-
-  return {
-    env,
-    logger,
-    errors: env.ERROR_REPORTER === "log" ? createLogErrorReporter(logger) : { capture: () => {} },
-    clock,
-    db,
-    identity: createLocalIdentityProvider(db, {
-      ttlDays: env.SESSION_TTL_DAYS,
-      now: clock.now,
-      fastHashing: env.NODE_ENV === "test",
-    }),
-    email: selectEmail(env, logger),
-    storage: selectStorage(env, logger),
-    realtime: env.REALTIME_PROVIDER === "memory" ? createMemoryBus() : createNoopBus(),
-    push: createNoopPushSender(),
-    access,
-    entitlements,
-    repos: {
-      identity: identityRepository(db),
-      access: accessRepository(db),
-      audit: auditRepository(db),
-      idempotency: idempotencyRepository(db),
-      rateLimit: rateLimitRepository(db),
-      emailOutbox: emailOutboxRepository(db),
-    },
-    close: () => handle.close(),
-  };
 }
 
 const globalForContainer = globalThis as unknown as {
