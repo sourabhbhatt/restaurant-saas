@@ -100,8 +100,12 @@ async function rows<T>(db: Executor, query: ReturnType<typeof sql>): Promise<T[]
   return ((await db.execute(query)) as unknown as { rows: T[] }).rows;
 }
 
+/** The db CLIs live in the database package; run them from there. */
+const DATABASE_PACKAGE = path.resolve(import.meta.dirname, "../../../../packages/database");
+
 async function script(name: string, args: string[], env: Record<string, string>) {
   return run("pnpm", ["exec", "tsx", `scripts/${name}.ts`, ...args], {
+    cwd: DATABASE_PACKAGE,
     env: { ...process.env, ...env },
   });
 }

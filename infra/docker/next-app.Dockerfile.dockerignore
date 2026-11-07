@@ -1,0 +1,21 @@
+# BuildKit reads <Dockerfile>.dockerignore next to the Dockerfile, so this
+# applies to `docker build -f infra/docker/next-app.Dockerfile .`.
+.git
+.github
+.worktrees
+.superpowers
+.claude
+.data
+docs
+infra/compose
+**/node_modules
+**/.next
+**/.turbo
+**/coverage
+**/playwright-report
+**/test-results
+**/*.tsbuildinfo
+**/.env*
+!**/.env.example
+*.jar
+*.cookies
