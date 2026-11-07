@@ -42,6 +42,7 @@ import type { ObjectStorage } from "@/infrastructure/storage/interfaces/object-s
 import type { Container } from "@/server/container";
 import {
   addStaffMember,
+  createSiblingWorkspaceAs,
   createWorkspaceAs,
   insertRestaurantWithBranch,
   signUpUser,
@@ -242,7 +243,7 @@ describe("menu items", () => {
     expect(fe["variants.1.name"]).toBeDefined();
     expect(fe["addonGroups.0.maxSelect"]).toBeDefined();
 
-    const otherWs = await createWorkspaceAs(owner, "Other WS");
+    const otherWs = await createSiblingWorkspaceAs(c, owner, "Other WS");
     const other = await insertRestaurantWithBranch(c, otherWs.id, { name: "Elsewhere" });
     const wrongCategory = await call(createItem, {
       params: p,
@@ -375,7 +376,7 @@ describe("menu items", () => {
   });
 
   it("enforces the maxMenuItems limit", async () => {
-    const w = await createWorkspaceAs(owner, "Limited WS");
+    const w = await createSiblingWorkspaceAs(c, owner, "Limited WS");
     const r = await insertRestaurantWithBranch(c, w.id, { name: "Tiny" });
     await c.db
       .insert(workspaceEntitlements)
@@ -696,7 +697,7 @@ describe("uploads", () => {
   });
 
   it("enforces the storage limit", async () => {
-    const w = await createWorkspaceAs(owner, "Storage WS");
+    const w = await createSiblingWorkspaceAs(c, owner, "Storage WS");
     await c.db
       .insert(workspaceEntitlements)
       .values({ workspaceId: w.id, key: "storageMb", value: 1 });
@@ -713,7 +714,7 @@ describe("uploads", () => {
   });
 
   it("rejects a restaurant from another workspace the uploader also belongs to", async () => {
-    const other = await createWorkspaceAs(owner, "Other Upload WS");
+    const other = await createSiblingWorkspaceAs(c, owner, "Other Upload WS");
     const foreign = await insertRestaurantWithBranch(c, other.id, { name: "Foreign Upload" });
     const res = await uploadFile(owner.cookie, ws.id, PNG, { restaurantId: foreign.restaurantId });
     expect(res.status).toBe(422);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,11 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { BranchDto, RestaurantDto } from "@/contracts/tenancy";
-import type { WorkspaceDto } from "@/contracts/workspaces";
+import type { OrganizationSummaryDto, WorkspaceDto } from "@/contracts/workspaces";
 import { toMinor } from "@/domain/shared/money";
 import { sessionKeys, useMe } from "@/features/session/queries";
-import { api } from "@/lib/api-client";
+import { UpgradeButton } from "@/features/subscriptions/upgrade-modal";
+import { api, ApiError } from "@/lib/api-client";
 import { useAction } from "@/lib/use-action";
 
 type Step = "workspace" | "restaurant" | "menu" | "tables" | "done";
@@ -147,6 +155,7 @@ function Wizard() {
 
       {activeStep === "workspace" && (
         <WorkspaceStep
+          activeWorkspaceId={activeId}
           onDone={async (ws) => {
             await qc.invalidateQueries({ queryKey: sessionKeys.me });
             setProgress({ workspaceId: ws.id, restaurantId: null, branchId: null });
@@ -218,17 +227,48 @@ function Wizard() {
   );
 }
 
-function WorkspaceStep({ onDone }: { onDone: (ws: WorkspaceDto) => void | Promise<void> }) {
+function WorkspaceStep({
+  activeWorkspaceId,
+  onDone,
+}: {
+  activeWorkspaceId: string | null;
+  onDone: (ws: WorkspaceDto) => void | Promise<void>;
+}) {
   const [name, setName] = useState("");
+  const [organizationId, setOrganizationId] = useState<string | undefined>(undefined);
+  const [blocked, setBlocked] = useState<{ code: string; message: string } | null>(null);
   const { pending, run, err } = useAction();
+  const orgs = useQuery({
+    queryKey: ["organizations", "mine"],
+    queryFn: ({ signal }) => api.get<OrganizationSummaryDto[]>("/organizations", undefined, signal),
+  });
+  const owned = (orgs.data ?? []).filter((o) => o.role === "OWNER");
   return (
     <StepForm
       title="Name your business"
-      description="This is your workspace. You can run several restaurants and branches inside it. Your free trial starts now."
+      description={
+        owned.length > 0
+          ? "This is a new workspace in your organization; it shares the organization's plan."
+          : "This is your workspace. You can run several restaurants and branches inside it. Your free trial starts now."
+      }
       pending={pending}
       submitLabel="Create workspace"
       onSubmit={async () => {
-        const ws = await run(() => api.post<WorkspaceDto>("/workspaces", { name }));
+        setBlocked(null);
+        const ws = await run(async () => {
+          try {
+            return await api.post<WorkspaceDto>("/workspaces", { name, organizationId });
+          } catch (error) {
+            if (
+              error instanceof ApiError &&
+              (error.code === "LIMIT_REACHED" || error.code === "TRIAL_ALREADY_USED")
+            ) {
+              setBlocked({ code: error.code, message: error.message });
+              return null;
+            }
+            throw error;
+          }
+        });
         if (ws) await onDone(ws);
       }}
     >
@@ -240,6 +280,45 @@ function WorkspaceStep({ onDone }: { onDone: (ws: WorkspaceDto) => void | Promis
           autoFocus
         />
       </FormField>
+      {owned.length > 1 ? (
+        <FormField label="Organization" required error={err("organizationId")}>
+          {(control) => (
+            <Select value={organizationId ?? ""} onValueChange={setOrganizationId}>
+              <SelectTrigger {...control}>
+                <SelectValue placeholder="Choose an organization" />
+              </SelectTrigger>
+              <SelectContent>
+                {owned.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.name} · {o.workspaceCount}/{o.maxWorkspaces} workspaces
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FormField>
+      ) : null}
+      {blocked ? (
+        <div role="alert" className="rounded-md border bg-muted/40 p-3 text-sm">
+          <p>{blocked.message}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {blocked.code === "LIMIT_REACHED" && activeWorkspaceId ? (
+              <UpgradeButton workspaceId={activeWorkspaceId} size="sm">
+                Request an upgrade
+              </UpgradeButton>
+            ) : null}
+            {activeWorkspaceId ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/app/w/${activeWorkspaceId}/subscription`}>
+                  {blocked.code === "TRIAL_ALREADY_USED"
+                    ? "Upgrade your existing organization"
+                    : "View subscription"}
+                </Link>
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </StepForm>
   );
 }

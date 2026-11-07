@@ -5,6 +5,7 @@ import {
   branches,
   menuCategories,
   menus,
+  organizationMembers,
   restaurantSettings,
   restaurants,
   roleAssignments,
@@ -63,6 +64,31 @@ export async function organizationOf(c: Container, workspaceId: string): Promise
 
 // ------------------------------------------------------------------
 // Direct-insert fixtures for module tests (bypass APIs owned by other modules).
+
+/**
+ * A further workspace in the organization `user` owns (the one of their first
+ * workspace), sharing its subscription. Tests that need a second tenant for the
+ * same person use this: a trial organization holds one workspace, so a second
+ * `createWorkspaceAs` is refused by design.
+ */
+export async function createSiblingWorkspaceAs(
+  c: Container,
+  user: TestUser,
+  name: string,
+): Promise<{ id: string; name: string }> {
+  const [member] = await c.db
+    .select({ organizationId: organizationMembers.organizationId })
+    .from(organizationMembers)
+    .where(and(eq(organizationMembers.userId, user.userId), eq(organizationMembers.role, "OWNER")))
+    .orderBy(organizationMembers.createdAt)
+    .limit(1);
+  if (!member) throw new Error(`user ${user.userId} owns no organization`);
+  return addWorkspaceToOrganization(c, {
+    organizationId: member.organizationId,
+    userId: user.userId,
+    name,
+  });
+}
 
 /**
  * A further workspace inside an existing organization, owned by `userId`.

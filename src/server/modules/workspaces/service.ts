@@ -1,6 +1,12 @@
-import { ONBOARDING_STEPS, type OnboardingStep, type WorkspaceDto } from "@/contracts/workspaces";
-import { conflict, DomainError } from "@/domain/shared/errors";
-import { addDays } from "@/domain/subscriptions/entitlements";
+import {
+  ONBOARDING_STEPS,
+  type OnboardingStep,
+  type OrganizationSummaryDto,
+  type WorkspaceDto,
+} from "@/contracts/workspaces";
+import { conflict, DomainError, notFound } from "@/domain/shared/errors";
+import { addDays, assertOperationAllowed } from "@/domain/subscriptions/entitlements";
+import { assertCanCreateWorkspace } from "@/domain/subscriptions/workspace-limit";
 import type { TransactionRunner } from "@/infrastructure/database/interfaces/transaction";
 
 import { recordAudit } from "../../audit/audit-service";
@@ -33,6 +39,7 @@ export interface WorkspaceServiceDeps {
       | "findSystemRoleId"
       | "insertMembership"
       | "findPlanByKey"
+      | "hasStartedTrial"
       | "insertOrganization"
       | "insertOrganizationMember"
       | "insertSubscription"
@@ -49,74 +56,173 @@ export function createWorkspaceService({
   clock,
   entitlements,
 }: WorkspaceServiceDeps) {
+  type Bootstrap = Parameters<Parameters<WorkspaceServiceDeps["bootstrap"]["run"]>[0]>[0];
+
+  async function allocateSlug(repo: Bootstrap["workspaces"], name: string): Promise<string> {
+    const base = slugify(name);
+    let slug = base;
+    for (let i = 0; await repo.slugExists(slug); i++) {
+      if (i > 20) throw conflict("Could not allocate a workspace URL; try another name");
+      slug = `${base}-${Math.random().toString(36).slice(2, 7)}`;
+    }
+    return slug;
+  }
+
+  /** First workspace: a new organization owned by the actor, on a trial (once per person). */
+  async function createOrganization(
+    actor: UserActor,
+    input: { name: string; defaultCurrency: string; country: string },
+    meta: RequestMeta,
+  ): Promise<WorkspaceDto> {
+    const settings = await entitlements.getPlatformSettings();
+    // Trials are per person, not per organization (spec section 7.1).
+    if (await bootstrap.read((r) => r.workspaces.hasStartedTrial(actor.userId))) {
+      throw new DomainError(
+        "TRIAL_ALREADY_USED",
+        "You have already used a free trial. Upgrade your existing organization to add workspaces.",
+      );
+    }
+    return bootstrap.run(async (r) => {
+      const org = await r.workspaces.insertOrganization({
+        name: input.name,
+        createdBy: actor.userId,
+      });
+      await r.workspaces.insertOrganizationMember({
+        organizationId: org.id,
+        userId: actor.userId,
+        role: "OWNER",
+      });
+      const ws = await r.workspaces.insert({
+        name: input.name,
+        defaultCurrency: input.defaultCurrency,
+        country: input.country,
+        organizationId: org.id,
+        slug: await allocateSlug(r.workspaces, input.name),
+        createdBy: actor.userId,
+      });
+      await r.workspaces.insertMembership({
+        workspaceId: ws.id,
+        userId: actor.userId,
+        roleId: await r.workspaces.findSystemRoleId("workspace_owner"),
+      });
+
+      const plan = await r.workspaces.findPlanByKey(settings.trialPlanKey);
+      if (!plan) throw new DomainError("CONFLICT", "No trial plan is configured. Contact support.");
+      const now = clock.now();
+      await r.workspaces.insertSubscription({
+        organizationId: org.id,
+        workspaceId: ws.id,
+        planId: plan.id,
+        planKey: plan.key,
+        status: "TRIALING",
+        trialStartsAt: now,
+        trialEndsAt: addDays(now, settings.trialDays),
+        actorUserId: actor.userId,
+      });
+      await recordAudit(
+        r.audit,
+        auditActorFor(actor, meta),
+        "workspace.created",
+        { workspaceId: ws.id, targetType: "workspace", targetId: ws.id },
+        { organizationId: org.id, trialDays: settings.trialDays, planKey: plan.key },
+      );
+      return ws;
+    });
+  }
+
   return {
     /**
-     * Create an organization (the billing owner) with its first workspace,
-     * owned by the actor, and start the organization's free trial. The trial
-     * plan and length come from platform settings (Super Admin), never code.
+     * Create a workspace for the actor. The first workspace creates an
+     * organization (the billing owner) and starts its free trial; later ones
+     * join an organization the actor owns, within its workspace limit (spec
+     * section 7.2). The trial plan and length come from platform settings.
      */
     async create(
       actor: UserActor,
-      input: { name: string; defaultCurrency: string; country: string },
+      input: { name: string; defaultCurrency: string; country: string; organizationId?: string },
       meta: RequestMeta,
     ): Promise<WorkspaceDto> {
-      const settings = await entitlements.getPlatformSettings();
-      return bootstrap.run(async (r) => {
-        const base = slugify(input.name);
-        let slug = base;
-        for (let i = 0; await r.workspaces.slugExists(slug); i++) {
-          if (i > 20) throw conflict("Could not allocate a workspace URL; try another name");
-          slug = `${base}-${Math.random().toString(36).slice(2, 7)}`;
+      const owned = (
+        await tx.read((r) => r.workspaces.listOrganizationsForUser(actor.userId))
+      ).filter((o) => o.role === "OWNER");
+      let target: { id: string } | null;
+      if (input.organizationId) {
+        // Hidden from non-owners, like every tenant resource.
+        target = owned.find((o) => o.id === input.organizationId) ?? null;
+        if (!target) throw notFound("Organization");
+      } else if (owned.length <= 1) {
+        target = owned[0] ?? null;
+      } else {
+        throw new DomainError(
+          "VALIDATION_FAILED",
+          "Choose the organization for the new workspace",
+          {
+            fieldErrors: { organizationId: ["Choose an organization"] },
+          },
+        );
+      }
+      if (!target) return createOrganization(actor, input, meta);
+
+      const limit = await entitlements.getOrganizationWorkspaceLimit(target.id);
+      assertOperationAllowed(limit.entitlements, "grow");
+      const counts = await tx.read((r) =>
+        r.workspaces.countOrganizationWorkspaces(target.id, addDays(clock.now(), -1)),
+      );
+      try {
+        assertCanCreateWorkspace({
+          ...limit.input,
+          currentWorkspaces: counts.total,
+          createdLast24h: counts.createdSince,
+          createsPerDay: limit.createsPerDay,
+        });
+      } catch (error) {
+        const reason = error instanceof DomainError ? error.details?.reason : undefined;
+        if (error instanceof DomainError && (reason === "FAIR_USE" || reason === "DAILY_LIMIT")) {
+          // Recorded in its own transaction: the refusal itself is the event.
+          await bootstrap.run((r) =>
+            recordAudit(
+              r.audit,
+              auditActorFor(actor, meta),
+              "organization.fair_use_limit_hit",
+              { workspaceId: null, targetType: "organization", targetId: target.id },
+              error.details,
+            ),
+          );
         }
-        const org = await r.workspaces.insertOrganization({
-          name: input.name,
-          createdBy: actor.userId,
-        });
-        await r.workspaces.insertOrganizationMember({
-          organizationId: org.id,
-          userId: actor.userId,
-          role: "OWNER",
-        });
+        throw error;
+      }
+      return bootstrap.run(async (r) => {
         const ws = await r.workspaces.insert({
           ...input,
-          organizationId: org.id,
-          slug,
+          organizationId: target.id,
+          slug: await allocateSlug(r.workspaces, input.name),
           createdBy: actor.userId,
         });
-        const ownerRole = await r.workspaces.findSystemRoleId("workspace_owner");
         await r.workspaces.insertMembership({
           workspaceId: ws.id,
           userId: actor.userId,
-          roleId: ownerRole,
-        });
-
-        const plan = await r.workspaces.findPlanByKey(settings.trialPlanKey);
-        if (!plan)
-          throw new DomainError("CONFLICT", "No trial plan is configured. Contact support.");
-        const now = clock.now();
-        await r.workspaces.insertSubscription({
-          organizationId: org.id,
-          workspaceId: ws.id,
-          planId: plan.id,
-          planKey: plan.key,
-          status: "TRIALING",
-          trialStartsAt: now,
-          trialEndsAt: addDays(now, settings.trialDays),
-          actorUserId: actor.userId,
+          roleId: await r.workspaces.findSystemRoleId("workspace_owner"),
         });
         await recordAudit(
           r.audit,
           auditActorFor(actor, meta),
           "workspace.created",
-          {
-            workspaceId: ws.id,
-            targetType: "workspace",
-            targetId: ws.id,
-          },
-          { organizationId: org.id, trialDays: settings.trialDays, planKey: plan.key },
+          { workspaceId: ws.id, targetType: "workspace", targetId: ws.id },
+          { organizationId: target.id, workspaceCount: counts.total + 1 },
         );
         return ws;
       });
+    },
+
+    /** The actor's organizations with how many workspaces each may hold right now. */
+    async listOrganizations(actor: UserActor): Promise<OrganizationSummaryDto[]> {
+      const rows = await tx.read((r) => r.workspaces.listOrganizationsForUser(actor.userId));
+      return Promise.all(
+        rows.map(async (o) => ({
+          ...o,
+          maxWorkspaces: (await entitlements.getOrganizationWorkspaceLimit(o.id)).maxWorkspaces,
+        })),
+      );
     },
 
     async get(scope: WorkspaceScope): Promise<WorkspaceDto> {

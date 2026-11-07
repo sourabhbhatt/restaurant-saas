@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, count, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import type { WorkspaceDto } from "@/contracts/workspaces";
 import type { WorkspaceRepository } from "@/server/modules/workspaces/ports";
@@ -98,6 +98,43 @@ export function workspaceRepository(db: Executor): WorkspaceRepository {
         .where(and(eq(subscriptionPlans.key, key), eq(subscriptionPlans.status, "ACTIVE")))
         .limit(1);
       return row ?? null;
+    },
+    async listOrganizationsForUser(userId) {
+      return db
+        .select({
+          id: organizations.id,
+          name: organizations.name,
+          role: organizationMembers.role,
+          workspaceCount: count(workspaces.id),
+        })
+        .from(organizationMembers)
+        .innerJoin(organizations, eq(organizations.id, organizationMembers.organizationId))
+        .leftJoin(
+          workspaces,
+          and(eq(workspaces.organizationId, organizations.id), isNull(workspaces.deletedAt)),
+        )
+        .where(eq(organizationMembers.userId, userId))
+        .groupBy(organizations.id, organizations.name, organizationMembers.role)
+        .orderBy(organizations.name);
+    },
+    async countOrganizationWorkspaces(organizationId, since) {
+      const [row] = await db
+        .select({
+          total: count(),
+          createdSince: sql<number>`count(*) filter (where ${workspaces.createdAt} > ${since.toISOString()}::timestamptz)::int`,
+        })
+        .from(workspaces)
+        .where(and(eq(workspaces.organizationId, organizationId), isNull(workspaces.deletedAt)));
+      return { total: row?.total ?? 0, createdSince: Number(row?.createdSince ?? 0) };
+    },
+    async hasStartedTrial(userId) {
+      const [row] = await db
+        .select({ id: subscriptions.id })
+        .from(subscriptions)
+        .innerJoin(organizations, eq(organizations.id, subscriptions.organizationId))
+        .where(and(eq(organizations.createdBy, userId), isNotNull(subscriptions.trialStartsAt)))
+        .limit(1);
+      return Boolean(row);
     },
     async insertOrganization(input) {
       const [row] = await db

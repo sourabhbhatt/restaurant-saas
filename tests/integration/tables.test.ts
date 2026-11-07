@@ -28,6 +28,7 @@ import type { Container } from "@/server/container";
 import { hashQrToken } from "@/server/modules/tables/qr-tokens";
 import {
   addStaffMember,
+  createSiblingWorkspaceAs,
   createWorkspaceAs,
   insertRestaurantWithBranch,
   signUpUser,
@@ -154,7 +155,7 @@ describe("tables CRUD", () => {
   });
 
   it("enforces maxTables", async () => {
-    const w = await createWorkspaceAs(owner, "Small WS");
+    const w = await createSiblingWorkspaceAs(c, owner, "Small WS");
     const r = await insertRestaurantWithBranch(c, w.id, { name: "Small" });
     await c.db
       .insert(workspaceEntitlements)

@@ -25,7 +25,12 @@ import {
   rateLimitBuckets,
 } from "@/infrastructure/database/providers/postgres/schema";
 import type { Container } from "@/server/container";
-import { createWorkspaceAs, signUpUser, type TestUser } from "@/test/fixtures";
+import {
+  createSiblingWorkspaceAs,
+  createWorkspaceAs,
+  signUpUser,
+  type TestUser,
+} from "@/test/fixtures";
 import { call, createTestContainer } from "@/test/harness";
 
 let c: Container;
@@ -176,7 +181,7 @@ describe("notification center", () => {
   it("scoped mark-all only touches that workspace and platform notifications", async () => {
     const owner = await signUpUser("Scoped");
     const ws1 = await createWorkspaceAs(owner, "WS one");
-    const ws2 = await createWorkspaceAs(owner, "WS two");
+    const ws2 = await createSiblingWorkspaceAs(c, owner, "WS two");
     await notify(owner, ws1.id, "ws1");
     await notify(owner, ws2.id, "ws2");
     const res = await call<MarkNotificationsReadResult>(markRead, {

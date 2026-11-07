@@ -28,8 +28,24 @@ export const createWorkspaceSchema = z.object({
   name: z.string().trim().min(2, "Enter a workspace name").max(80, "Name is too long"),
   defaultCurrency: z.enum(SUPPORTED_CURRENCIES).default("INR"),
   country: z.string().trim().length(2, "Use a 2-letter country code").default("IN"),
+  /**
+   * The organization (billing owner) to add the workspace to. Required only
+   * when the caller owns more than one; omitted, the first workspace creates
+   * a new organization and starts its trial.
+   */
+  organizationId: z.uuid().optional(),
 });
 export type CreateWorkspaceInput = z.input<typeof createWorkspaceSchema>;
+
+/** An organization the caller belongs to (`GET /organizations`). */
+export interface OrganizationSummaryDto {
+  id: string;
+  name: string;
+  role: "OWNER" | "BILLING_ADMIN";
+  workspaceCount: number;
+  /** Effective limit now: override, else plan rules (trial, grace, monthly = 1), else fair use. */
+  maxWorkspaces: number;
+}
 
 export const updateWorkspaceSchema = z.object({
   name: z.string().trim().min(2, "Enter a workspace name").max(80).optional(),

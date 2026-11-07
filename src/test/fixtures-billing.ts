@@ -20,6 +20,7 @@ import { POST as signUp } from "@/app/api/v1/auth/signup/route";
 
 import {
   addStaffMember,
+  createSiblingWorkspaceAs,
   createWorkspaceAs,
   insertRestaurantWithBranch,
   type TestUser,
@@ -60,7 +61,10 @@ export async function setupBillingBranch(
   } = {},
 ): Promise<BillingBranch> {
   const owner = opts.owner ?? (await signUpBillingUser("Owner"));
-  const ws = await createWorkspaceAs(owner, `Billing WS ${++seq}`);
+  // An existing owner gets a second workspace in their organization (a trial holds one).
+  const ws = opts.owner
+    ? await createSiblingWorkspaceAs(c, owner, `Billing WS ${++seq}`)
+    : await createWorkspaceAs(owner, `Billing WS ${++seq}`);
   const r = await insertRestaurantWithBranch(c, ws.id, { taxes: opts.taxes });
   if (opts.settings) {
     await c.db

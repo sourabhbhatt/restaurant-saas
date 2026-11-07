@@ -65,7 +65,12 @@ export interface CallResult<T = unknown> {
   status: number;
   body: {
     data?: T;
-    error?: { code: string; message: string; fieldErrors?: Record<string, string[]> };
+    error?: {
+      code: string;
+      message: string;
+      fieldErrors?: Record<string, string[]>;
+      details?: Record<string, unknown>;
+    };
   };
   headers: Headers;
   setCookie: string | null;

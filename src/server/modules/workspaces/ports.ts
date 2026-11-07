@@ -3,6 +3,13 @@ import type { AuditRepository } from "@/server/ports/core-repositories";
 
 export type { OnboardingProgress };
 
+export interface OrganizationMembershipRow {
+  id: string;
+  name: string;
+  role: "OWNER" | "BILLING_ADMIN";
+  workspaceCount: number;
+}
+
 export interface CreateWorkspaceRecord {
   organizationId: string;
   name: string;
@@ -33,6 +40,15 @@ export interface WorkspaceRepository {
     invitedBy?: string | null;
   }): Promise<string>;
   findPlanByKey(key: string): Promise<{ id: string; key: string } | null>;
+  /** Organizations the user belongs to, with their non-deleted workspace counts. */
+  listOrganizationsForUser(userId: string): Promise<OrganizationMembershipRow[]>;
+  /** Non-deleted workspaces in the organization, in total and created after `since`. */
+  countOrganizationWorkspaces(
+    organizationId: string,
+    since: Date,
+  ): Promise<{ total: number; createdSince: number }>;
+  /** True when any organization the user created ever started a trial. */
+  hasStartedTrial(userId: string): Promise<boolean>;
   insertOrganization(input: { name: string; createdBy: string }): Promise<{ id: string }>;
   insertOrganizationMember(input: {
     organizationId: string;
