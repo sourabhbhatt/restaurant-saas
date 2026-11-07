@@ -1029,6 +1029,23 @@ describe("cross-tenant isolation over HTTP", () => {
       body: { logoKey: fileKey, coverKey: fileKey },
     });
     expect(logo.status).toBe(422);
+    // Dot segments under B's own prefix would resolve to A's file in a browser.
+    const tail = fileKey.slice(`ws/${a.workspaceId}/`.length);
+    for (const sneaky of [
+      `ws/${b.workspaceId}/../${a.workspaceId}/${tail}`,
+      `ws/${b.workspaceId}/%2e%2e/${a.workspaceId}/${tail}`,
+      `ws/${b.workspaceId}/logo/../../${a.workspaceId}/${tail}`,
+    ]) {
+      for (const field of ["logoKey", "coverKey"]) {
+        const res = await call(h("restaurants/[restaurantId]", "PATCH"), {
+          method: "PATCH",
+          params: rest(b),
+          cookie: b.owner.cookie,
+          body: { [field]: sneaky },
+        });
+        expect(res.status, `${field} ${sneaky}`).toBe(422);
+      }
+    }
     const created = await call(h("workspaces/[workspaceId]/restaurants", "POST"), {
       params: ws(b),
       cookie: b.owner.cookie,

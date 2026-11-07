@@ -11,6 +11,7 @@ import { PAYMENT_METHODS, type PaymentMethod } from "@/domain/billing/payments";
 import { MAX_BPS, SUPPORTED_CURRENCIES } from "@/domain/shared/money";
 
 import { emailSchema } from "./auth";
+import { OBJECT_KEY } from "./menu";
 
 /**
  * Tenancy contracts: restaurants, branches, settings, members, invitations,
@@ -55,7 +56,7 @@ const optionalFileKey = z
   .string()
   .trim()
   .max(300)
-  .regex(/^[A-Za-z0-9/_.-]*$/, "Invalid file")
+  .refine((v) => v === "" || OBJECT_KEY.test(v), "Upload the image again")
   .transform((v) => (v === "" ? null : v))
   .nullable()
   .optional();

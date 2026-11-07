@@ -12,6 +12,7 @@ import type {
   updateBranchSchema,
   updateRestaurantSchema,
 } from "@/contracts/tenancy";
+import { OBJECT_KEY } from "@/contracts/menu";
 import { defaultBusinessHours } from "@/contracts/tenancy";
 import { effectivePermissions } from "@/domain/access/permissions";
 import { validateTaxConfig } from "@/domain/billing/bill-calculator";
@@ -47,7 +48,7 @@ const codeTaken = () =>
 function assertOwnImageKeys(workspaceId: string, input: Partial<CreateRestaurant>): void {
   for (const field of ["logoKey", "coverKey"] as const) {
     const key = input[field];
-    if (key && !key.startsWith(`ws/${workspaceId}/`)) {
+    if (key && (!OBJECT_KEY.test(key) || !key.startsWith(`ws/${workspaceId}/`))) {
       throw validationFailed("Upload the image again", { [field]: ["Upload the image again"] });
     }
   }
