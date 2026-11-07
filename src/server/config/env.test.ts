@@ -5,6 +5,13 @@ import { appOriginAllowed, getEnv, resetEnvCache, tenantRole } from "./env";
 afterEach(() => {
   delete process.env.DATABASE_TENANT_ROLE;
   delete process.env.ALLOWED_ORIGINS;
+  for (const key of [
+    "PAYMENT_PROVIDER",
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
+    "RAZORPAY_WEBHOOK_SECRET",
+  ])
+    delete process.env[key];
   resetEnvCache();
 });
 
@@ -43,5 +50,29 @@ describe("ALLOWED_ORIGINS", () => {
     process.env.ALLOWED_ORIGINS = "https://other.example";
     resetEnvCache();
     expect(appOriginAllowed(getEnv())).toBe(false);
+  });
+});
+
+describe("PAYMENT_PROVIDER", () => {
+  it("defaults to none", () => {
+    expect(getEnv().PAYMENT_PROVIDER).toBe("none");
+  });
+
+  it("razorpay without secrets fails startup, naming the missing variables", () => {
+    process.env.PAYMENT_PROVIDER = "razorpay";
+    process.env.RAZORPAY_KEY_ID = "rzp_test_key";
+    resetEnvCache();
+    expect(() => getEnv()).toThrow(
+      "PAYMENT_PROVIDER=razorpay requires RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET",
+    );
+  });
+
+  it("razorpay with every secret starts", () => {
+    process.env.PAYMENT_PROVIDER = "razorpay";
+    process.env.RAZORPAY_KEY_ID = "rzp_test_key";
+    process.env.RAZORPAY_KEY_SECRET = "s";
+    process.env.RAZORPAY_WEBHOOK_SECRET = "w";
+    resetEnvCache();
+    expect(getEnv().PAYMENT_PROVIDER).toBe("razorpay");
   });
 });

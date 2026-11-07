@@ -89,6 +89,13 @@ const fields = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().optional(),
 
+  /** `none` keeps the manual upgrade-request flow only; `razorpay` adds online checkout. */
+  PAYMENT_PROVIDER: z.enum(["none", "razorpay"]).default("none"),
+  /** The only Razorpay value ever sent to the browser. */
+  RAZORPAY_KEY_ID: z.string().min(1).optional(),
+  RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
+
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   ERROR_REPORTER: z.enum(["log", "none"]).default("log"),
 
@@ -116,6 +123,12 @@ export function getEnv(): ServerEnv {
     throw new Error(`Invalid server environment: ${issues}`);
   }
   const env = parsed.data;
+  if (env.PAYMENT_PROVIDER === "razorpay") {
+    const missing = (
+      ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET"] as const
+    ).filter((key) => !env[key]);
+    if (missing.length) throw new Error(`PAYMENT_PROVIDER=razorpay requires ${missing.join(", ")}`);
+  }
   if (env.NODE_ENV === "production") {
     if (env.APP_SECRET.startsWith("dev-only"))
       throw new Error("APP_SECRET must be set in production");

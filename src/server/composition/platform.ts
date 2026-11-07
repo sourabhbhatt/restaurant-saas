@@ -18,6 +18,7 @@ export function platformService(c: Container) {
     entitlements: c.entitlements,
     appUrl: c.env.APP_URL,
     logger: c.logger,
+    paymentsEnabled: c.payments !== null,
     mailer: {
       send: (to, template, subject, text) => sendEmail(c, { to, template, subject, text }),
     },

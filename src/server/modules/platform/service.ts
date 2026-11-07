@@ -75,6 +75,8 @@ export interface PlatformServiceDeps {
   mailer: PlatformMailer;
   appUrl: string;
   logger?: Logger;
+  /** Whether an online payment gateway is wired (shows the Pay button). Default false. */
+  paymentsEnabled?: boolean;
 }
 
 interface Mail {
@@ -186,7 +188,7 @@ function auditFilter(q: {
 }
 
 export function createPlatformService(deps: PlatformServiceDeps) {
-  const { tx, clock, entitlements, mailer, appUrl, logger } = deps;
+  const { tx, clock, entitlements, mailer, appUrl, logger, paymentsEnabled = false } = deps;
   const base = appUrl.replace(/\/$/, "");
 
   async function settings(): Promise<PlatformSettings> {
@@ -364,6 +366,8 @@ export function createPlatformService(deps: PlatformServiceDeps) {
           trialDays: s.trialDays,
           supportEmail: s.supportEmail,
           canRequestUpgrade: scope.can("workspace.subscription.manage"),
+          organizationId: ws.organizationId,
+          paymentsEnabled,
         };
       });
     },

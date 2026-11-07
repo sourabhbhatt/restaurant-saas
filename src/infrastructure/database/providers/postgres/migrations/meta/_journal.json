@@ -36,6 +36,13 @@
       "when": 1794064173284,
       "tag": "0004_trial_and_workspace_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794066256012,
+      "tag": "0005_payments",
+      "breakpoints": true
     }
   ]
 }

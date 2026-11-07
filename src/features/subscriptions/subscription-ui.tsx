@@ -79,6 +79,7 @@ export function formatDateTime(value: Date | string | null | undefined): string 
 const EVENT_LABELS: Record<string, string> = {
   trial_started: "Trial started",
   activated: "Subscription activated",
+  paid: "Payment received",
   trial_extended: "Trial extended",
   cancelled: "Subscription cancelled",
   expired: "Subscription expired",
@@ -98,7 +99,12 @@ export function eventLabel(type: string): string {
 }
 
 export function eventTone(type: string): StatusTone {
-  if (type === "activated" || type === "workspace_active" || type === "trial_extended")
+  if (
+    type === "activated" ||
+    type === "paid" ||
+    type === "workspace_active" ||
+    type === "trial_extended"
+  )
     return "success";
   if (type.includes("expired") || type.includes("ended") || type === "workspace_suspended")
     return "danger";

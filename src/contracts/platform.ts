@@ -219,6 +219,10 @@ export interface SubscriptionOverviewDto {
   trialDays: number;
   supportEmail: string;
   canRequestUpgrade: boolean;
+  /** The billing owner; checkout is created per organization. Null only for pre-backfill rows. */
+  organizationId: string | null;
+  /** True when a payment gateway is configured (PAYMENT_PROVIDER): shows the Pay button. */
+  paymentsEnabled: boolean;
 }
 
 // ------------------------------------------------------------------ support

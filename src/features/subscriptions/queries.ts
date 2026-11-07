@@ -2,6 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import type {
+  CheckoutSessionDto,
+  CheckoutVerifyDto,
+  CreateCheckoutInput,
+  VerifyCheckoutInput,
+} from "@/contracts/payments";
 import type { PublicPlanDto, SubscriptionOverviewDto } from "@/contracts/platform";
 import type { CreateUpgradeRequestInput, UpgradeRequestDto } from "@/contracts/upgrades";
 import { api, ApiError } from "@/lib/api-client";
@@ -69,6 +75,27 @@ export function useCancelUpgrade(workspaceId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: subscriptionKeys.overview(workspaceId) });
       void qc.invalidateQueries({ queryKey: ["workspace", workspaceId, "upgrade-requests"] });
+    },
+  });
+}
+
+/** Creates the provider order for one billing period (organization owners and billing admins). */
+export function useCreateCheckout(organizationId: string | null) {
+  return useMutation({
+    mutationFn: (body: CreateCheckoutInput) =>
+      api.post<CheckoutSessionDto>(`/organizations/${organizationId}/checkout`, body),
+  });
+}
+
+/** Confirms the checkout callback; the plan counts as paid only when `status` is ACTIVE. */
+export function useVerifyCheckout(organizationId: string | null, workspaceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: VerifyCheckoutInput) =>
+      api.post<CheckoutVerifyDto>(`/organizations/${organizationId}/checkout/verify`, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: subscriptionKeys.overview(workspaceId) });
+      void qc.invalidateQueries({ queryKey: ["workspace", workspaceId] });
     },
   });
 }

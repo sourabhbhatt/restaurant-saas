@@ -54,3 +54,12 @@ export type TenantTable = (typeof TENANT_TABLES)[number];
 export const ORGANIZATION_TABLES = ["organizations", "organization_members"] as const;
 
 export type OrganizationTable = (typeof ORGANIZATION_TABLES)[number];
+
+/**
+ * Payment tables (migration 0005_payments): organization-scoped like the
+ * tables above, read-only for tenants; the payments module writes them
+ * through the system runner.
+ */
+export const PAYMENT_TABLES = ["payment_orders", "payment_events"] as const;
+
+export type PaymentTable = (typeof PAYMENT_TABLES)[number];

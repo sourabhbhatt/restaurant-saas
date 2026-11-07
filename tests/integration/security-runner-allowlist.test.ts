@@ -36,6 +36,8 @@ const SYSTEM_ALLOW_LIST: Record<string, string> = {
     "Super Admin platform aggregates (route auth platform) count across workspaces",
   "src/server/composition/notifications.ts":
     "the actor's own notification writes span workspaces and workspace-less rows; filtered by user",
+  "src/server/composition/payments.ts":
+    "payment orders/events are tenant read-only and activation rewrites the organization's subscription; the webhook has no user. Checkout/verify first pass a tenant-scoped membership check",
 };
 
 /**

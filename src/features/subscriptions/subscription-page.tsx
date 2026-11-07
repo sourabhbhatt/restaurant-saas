@@ -200,7 +200,9 @@ function TrialCard({ d }: { d: SubscriptionOverviewDto }) {
         <CardContent className="text-sm text-muted-foreground">
           {sub?.status === "CANCELLED"
             ? "Cancelled — the plan won't renew. Access continues until the date above."
-            : "Plans are renewed by our team. You'll get reminders before the period ends."}
+            : d.paymentsEnabled
+              ? "Renew any time from Upgrade; a payment adds a period after the date above. You'll get reminders before the period ends."
+              : "Plans are renewed by our team. You'll get reminders before the period ends."}
         </CardContent>
       </Card>
     );

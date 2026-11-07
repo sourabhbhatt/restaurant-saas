@@ -11,6 +11,7 @@ import {
 import { users } from "@/infrastructure/database/providers/postgres/schema";
 import { buildContainer, setContainerForTests, type Container } from "@/server/container";
 import { getEnv, resetEnvCache } from "@/server/config/env";
+import type { PaymentGateway } from "@/server/ports/payment-gateway";
 import { eq } from "drizzle-orm";
 
 import { migrateTo } from "./migrate-to";
@@ -25,6 +26,8 @@ export interface TestContainerOptions {
    */
   upTo?: string;
   seed?: (db: Executor) => Promise<void>;
+  /** A payment gateway (the fake) for the payments tests; default none. */
+  payments?: PaymentGateway;
 }
 
 export async function createTestContainer(options: TestContainerOptions = {}): Promise<Container> {
@@ -40,7 +43,12 @@ export async function createTestContainer(options: TestContainerOptions = {}): P
     await options.seed?.(handle.db);
   }
   await runMigrations(handle, "pglite");
-  const c = await buildContainer({ env: getEnv(), database: handle, quiet: true });
+  const c = await buildContainer({
+    env: getEnv(),
+    database: handle,
+    quiet: true,
+    payments: options.payments ?? null,
+  });
   setContainerForTests(c);
   return c;
 }

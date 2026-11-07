@@ -55,6 +55,7 @@ The application layer enforces isolation on every query (above), and every tenan
 
 - `tests/integration/auth-and-workspaces.test.ts` — IDOR on workspace read/update, CSRF block, stale version, enumeration-safe sign-in.
 - Module suites (`tests/integration/*`) include cross-workspace and cross-branch denial and role-restriction cases for every endpoint group (tenancy, menu, ordering, staff-ops, billing, platform, analytics, notifications).
+- `tests/integration/payments-razorpay.test.ts` — checkout and verify by a non-member (404), forged checkout and webhook signatures (401, nothing written), amount mismatch (never activates), and tenant read-only access to `payment_orders` scoped by organization.
 
 ## Super Admin inspection and upgrade approval
 

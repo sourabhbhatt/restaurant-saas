@@ -28,6 +28,7 @@ import { applyFieldErrors, errorMessage } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 import { useCancelUpgrade, useRequestUpgrade, useSubscriptionOverview } from "./queries";
+import { PayWithRazorpayButton } from "./razorpay-checkout";
 import { formatDate, formatPrice } from "./subscription-ui";
 
 const upgradeFormSchema = z.object({
@@ -89,6 +90,7 @@ function UpgradeBody({
     resetOptions: { keepDirtyValues: true },
   });
   const cycle = useWatch({ control: form.control, name: "billingCycle" });
+  const chosenKey = useWatch({ control: form.control, name: "planKey" });
 
   if (overview.isPending) return <LoadingState label="Loading plans…" />;
   if (overview.isError) {
@@ -158,6 +160,14 @@ function UpgradeBody({
     );
   }
 
+  const chosen = plans.find((p) => p.key === chosenKey);
+  const chosenPrice = chosen
+    ? cycle === "ANNUAL"
+      ? chosen.annualPrice
+      : chosen.monthlyPrice
+    : null;
+  const canPayOnline = d.paymentsEnabled && Boolean(d.organizationId) && Boolean(chosenPrice);
+
   const onSubmit = form.handleSubmit(async (values) => {
     const plan = plans.find((p) => p.key === values.planKey);
     try {
@@ -181,9 +191,9 @@ function UpgradeBody({
       <Alert variant="info">
         <Info aria-hidden />
         <AlertDescription>
-          Online payment isn&apos;t available yet. Sending this request notifies our team, who will
-          contact you at your account email to arrange payment and activate the plan. Nothing is
-          charged now.
+          {d.paymentsEnabled
+            ? "Pay online with Razorpay and the plan activates right away. Prefer an invoice? Send a request instead and our team will contact you at your account email; nothing is charged then."
+            : "Online payment isn't available yet. Sending this request notifies our team, who will contact you at your account email to arrange payment and activate the plan. Nothing is charged now."}
         </AlertDescription>
       </Alert>
 
@@ -263,10 +273,25 @@ function UpgradeBody({
         <Button type="button" variant="outline" onClick={onDone} disabled={request.isPending}>
           Cancel
         </Button>
-        <Button type="submit" disabled={request.isPending}>
+        <Button
+          type="submit"
+          variant={canPayOnline ? "outline" : "default"}
+          disabled={request.isPending}
+        >
           {request.isPending ? <Spinner decorative /> : <Sparkles aria-hidden />}
           Send upgrade request
         </Button>
+        {canPayOnline && chosen ? (
+          <PayWithRazorpayButton
+            organizationId={d.organizationId}
+            workspaceId={workspaceId}
+            planKey={chosen.key}
+            billingCycle={cycle}
+            setFieldError={form.setError}
+            disabled={request.isPending}
+            onPaid={onDone}
+          />
+        ) : null}
       </DialogFooter>
     </form>
   );

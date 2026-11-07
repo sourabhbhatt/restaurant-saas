@@ -40,12 +40,14 @@ import type { RealtimeBus } from "@/infrastructure/realtime/interfaces/realtime"
 import { createMemoryBus, createNoopBus } from "@/infrastructure/realtime/providers/memory-bus";
 import { createPostgresBus } from "@/infrastructure/realtime/providers/postgres-bus";
 import type { ObjectStorage } from "@/infrastructure/storage/interfaces/object-storage";
+import { createRazorpayGateway } from "@/infrastructure/payments/providers/razorpay";
 import { createLocalStorage } from "@/infrastructure/storage/providers/local-storage";
 import { createS3Storage } from "@/infrastructure/storage/providers/s3-storage";
 
 import { createAccessService, type AccessService } from "./authz/access-service";
 import { appOriginAllowed, getEnv, tenantRole, type ServerEnv } from "./config/env";
 import type { Clock, ErrorReporter, Logger } from "./ports/observability";
+import type { PaymentGateway } from "./ports/payment-gateway";
 import {
   createEntitlementService,
   type EntitlementService,
@@ -67,6 +69,8 @@ export interface Container {
   storage: ObjectStorage;
   realtime: RealtimeBus;
   push: PushSender;
+  /** Null when PAYMENT_PROVIDER=none: the checkout endpoints and the Pay button are off. */
+  payments: PaymentGateway | null;
   access: AccessService;
   entitlements: EntitlementService;
   /** Readiness probe: the database answers and no migration is pending. Throws when unreachable. */
@@ -136,8 +140,24 @@ export function selectRealtime(env: ServerEnv, logger: Logger): RealtimeBus {
   return env.REALTIME_PROVIDER === "memory" ? createMemoryBus() : createNoopBus();
 }
 
+export function selectPaymentGateway(env: ServerEnv): PaymentGateway | null {
+  if (env.PAYMENT_PROVIDER !== "razorpay") return null;
+  // getEnv() already refuses this combination; the check stays for injected envs (tests).
+  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET || !env.RAZORPAY_WEBHOOK_SECRET)
+    throw new Error(
+      "PAYMENT_PROVIDER=razorpay requires RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET",
+    );
+  return createRazorpayGateway({
+    keyId: env.RAZORPAY_KEY_ID,
+    keySecret: env.RAZORPAY_KEY_SECRET,
+    webhookSecret: env.RAZORPAY_WEBHOOK_SECRET,
+  });
+}
+
 export interface BuildOptions {
   env?: ServerEnv;
+  /** Inject a gateway (tests use the fake); undefined selects by env. */
+  payments?: PaymentGateway | null;
   /** Inject an existing database (tests). */
   database?: DatabaseHandle;
   migrate?: boolean;
@@ -155,6 +175,7 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
   // Providers that validate config run first so a bad config opens nothing.
   const email = selectEmail(env, logger);
   const storage = selectStorage(env, logger);
+  const payments = options.payments !== undefined ? options.payments : selectPaymentGateway(env);
   const ownsHandle = !options.database;
   const handle =
     options.database ??
@@ -207,6 +228,7 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
       storage,
       realtime,
       push: createNoopPushSender(),
+      payments,
       access,
       entitlements,
       isReady: async () => {
