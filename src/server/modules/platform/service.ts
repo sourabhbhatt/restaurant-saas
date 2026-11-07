@@ -118,6 +118,7 @@ export function toPublicPlan(p: AdminPlanDto): PublicPlanDto {
     annualPrice: p.annualPrice,
     isTrialEligible: p.isTrialEligible,
     limits: p.limits,
+    maxWorkspaces: p.maxWorkspaces,
     features: p.features
       .filter((f) => f in FEATURE_META && FEATURE_META[f].advertised)
       .map((f) => ({ key: f, label: FEATURES[f] })),

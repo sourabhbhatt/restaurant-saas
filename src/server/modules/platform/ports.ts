@@ -51,6 +51,7 @@ export interface PlanRecordRow {
   key: string;
   name: string;
   limits: PlanLimits;
+  maxWorkspaces: number | null;
   features: FeatureKey[];
 }
 

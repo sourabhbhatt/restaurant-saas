@@ -52,6 +52,12 @@ export function AdminPlansPage() {
                 </p>
               ))}
               <p className="text-muted-foreground">
+                Max workspaces:{" "}
+                {p.maxWorkspaces === null
+                  ? "Unlimited (fair use)"
+                  : `${p.maxWorkspaces} on annual billing`}
+              </p>
+              <p className="text-muted-foreground">
                 {p.features.filter((f) => ADVERTISED_FEATURES.includes(f)).length} features ·{" "}
                 {p.activeSubscriptions} workspaces
               </p>

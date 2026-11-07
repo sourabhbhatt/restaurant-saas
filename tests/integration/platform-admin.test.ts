@@ -61,6 +61,7 @@ const planBody = (over: Partial<PlanInput> = {}): PlanInput => ({
     maxMenuItems: null,
     storageMb: 5000,
   },
+  maxWorkspaces: 2,
   features: ["qr_ordering", "analytics"],
   sortOrder: 5,
   ...over,

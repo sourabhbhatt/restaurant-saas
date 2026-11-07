@@ -126,6 +126,7 @@ export const DEFAULT_PLANS: (typeof subscriptionPlans.$inferInsert)[] = [
       maxMenuItems: 150,
       storageMb: 200,
     }),
+    maxWorkspaces: 1,
     features: [
       "qr_ordering",
       "kitchen_display",
@@ -152,6 +153,8 @@ export const DEFAULT_PLANS: (typeof subscriptionPlans.$inferInsert)[] = [
       maxMenuItems: 1000,
       storageMb: 2000,
     }),
+    // Reachable on ANNUAL billing only (spec section 7.2).
+    maxWorkspaces: 3,
     features: allFeatures,
     sortOrder: 2,
   },
@@ -165,6 +168,8 @@ export const DEFAULT_PLANS: (typeof subscriptionPlans.$inferInsert)[] = [
     isTrialEligible: false,
     isPublic: true,
     limits: limits({}),
+    /** Unlimited, within the fair-use platform settings. */
+    maxWorkspaces: null,
     features: allFeatures,
     sortOrder: 3,
   },

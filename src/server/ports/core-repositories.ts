@@ -146,6 +146,8 @@ export interface PlanRow {
   key: string;
   name: string;
   limits: PlanLimits;
+  /** Workspaces per organization on ANNUAL billing; null = unlimited within fair use. */
+  maxWorkspaces: number | null;
   features: FeatureKey[];
 }
 

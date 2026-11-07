@@ -89,6 +89,8 @@ export const planInputSchema = z.object({
   isPublic: z.boolean(),
   status: z.enum(["ACTIVE", "ARCHIVED"]),
   limits: planLimitsSchema,
+  /** Workspaces per organization on ANNUAL billing; null = unlimited within fair use. */
+  maxWorkspaces: z.number().int().min(1, "Use 1 or more").max(1000).nullable().default(1),
   features: z.array(z.enum(FEATURE_KEYS as [FeatureKey, ...FeatureKey[]])).max(50),
   sortOrder: z.number().int().min(0).max(1000),
 });
@@ -132,6 +134,8 @@ export interface PublicPlanDto {
   annualPrice: number | null;
   isTrialEligible: boolean;
   limits: PlanLimits;
+  /** Workspaces per organization on annual billing; null = unlimited (fair use). */
+  maxWorkspaces: number | null;
   features: PlanFeatureDto[];
 }
 
@@ -147,6 +151,7 @@ export interface AdminPlanDto {
   isPublic: boolean;
   status: "ACTIVE" | "ARCHIVED";
   limits: PlanLimits;
+  maxWorkspaces: number | null;
   features: FeatureKey[];
   sortOrder: number;
   /** Workspaces whose current subscription uses this plan. */

@@ -346,6 +346,7 @@ export function entitlementRepository(db: Executor): EntitlementRepository {
             key: row.plan.key,
             name: row.plan.name,
             limits: row.plan.limits,
+            maxWorkspaces: row.plan.maxWorkspaces,
             features: row.plan.features,
           }
         : null,

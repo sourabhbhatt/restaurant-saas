@@ -39,6 +39,11 @@ export const subscriptionPlans = pgTable(
     status: text("status").$type<"ACTIVE" | "ARCHIVED">().notNull().default("ACTIVE"),
     limits: jsonb("limits").$type<PlanLimits>().notNull(),
     features: jsonb("features").$type<FeatureKey[]>().notNull().default([]),
+    /**
+     * Workspaces per organization on ANNUAL billing (trial, grace and monthly
+     * allow 1); null = unlimited within fair use (spec section 7.2).
+     */
+    maxWorkspaces: integer("max_workspaces").default(1),
     sortOrder: integer("sort_order").notNull().default(0),
     ...timestamps,
   },

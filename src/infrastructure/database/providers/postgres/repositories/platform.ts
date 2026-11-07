@@ -73,6 +73,7 @@ function toPlanDto(row: typeof subscriptionPlans.$inferSelect, active = 0): Admi
     isPublic: row.isPublic,
     status: row.status,
     limits: row.limits,
+    maxWorkspaces: row.maxWorkspaces,
     features: row.features,
     sortOrder: row.sortOrder,
     activeSubscriptions: active,
@@ -297,6 +298,7 @@ export function platformRepository(db: Executor): PlatformRepository {
           isPublic: input.isPublic,
           status: input.status,
           limits: input.limits,
+          maxWorkspaces: input.maxWorkspaces,
           features: input.features,
           sortOrder: input.sortOrder,
         })
@@ -317,6 +319,7 @@ export function platformRepository(db: Executor): PlatformRepository {
           isPublic: input.isPublic,
           status: input.status,
           limits: input.limits,
+          maxWorkspaces: input.maxWorkspaces,
           features: input.features,
           sortOrder: input.sortOrder,
         })
@@ -655,6 +658,7 @@ export function platformRepository(db: Executor): PlatformRepository {
                 key: s.plan.key,
                 name: s.plan.name,
                 limits: s.plan.limits,
+                maxWorkspaces: s.plan.maxWorkspaces,
                 features: s.plan.features,
               }
             : null,

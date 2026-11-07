@@ -3,15 +3,31 @@
  * migrations applied, the real container, and helpers to call route handlers
  * exactly as Next.js would. No mocks of business logic or the database.
  */
-import { connectPglite, runMigrations } from "@/infrastructure/database/providers/postgres/client";
+import {
+  connectPglite,
+  runMigrations,
+  type Executor,
+} from "@/infrastructure/database/providers/postgres/client";
 import { users } from "@/infrastructure/database/providers/postgres/schema";
 import { buildContainer, setContainerForTests, type Container } from "@/server/container";
 import { getEnv, resetEnvCache } from "@/server/config/env";
 import { eq } from "drizzle-orm";
 
+import { migrateTo } from "./migrate-to";
+
 export const TEST_ORIGIN = "http://localhost:3000";
 
-export async function createTestContainer(): Promise<Container> {
+export interface TestContainerOptions {
+  /**
+   * Data-migration tests: migrate up to this journal tag, run `seed` against
+   * that older schema, then apply the remaining migrations before the
+   * container is built.
+   */
+  upTo?: string;
+  seed?: (db: Executor) => Promise<void>;
+}
+
+export async function createTestContainer(options: TestContainerOptions = {}): Promise<Container> {
   Object.assign(process.env, { NODE_ENV: "test" });
   process.env.DATABASE_PROVIDER = "pglite";
   process.env.ENABLE_TEST_HOOKS = "true";
@@ -19,6 +35,10 @@ export async function createTestContainer(): Promise<Container> {
   delete process.env.DATABASE_TENANT_ROLE;
   resetEnvCache();
   const handle = await connectPglite();
+  if (options.upTo) {
+    await migrateTo(handle, options.upTo);
+    await options.seed?.(handle.db);
+  }
   await runMigrations(handle, "pglite");
   const c = await buildContainer({ env: getEnv(), database: handle, quiet: true });
   setContainerForTests(c);
