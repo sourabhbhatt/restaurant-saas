@@ -1,24 +1,6 @@
 {
+  "extends": "./packages/tooling/tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["dom", "dom.iterable", "esnext", "webworker"],
-    "allowJs": false,
-    "skipLibCheck": true,
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "incremental": true,
-    "types": ["vitest/globals", "@testing-library/jest-dom"],
     "plugins": [
       {
         "name": "next"
@@ -36,5 +18,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "apps", "packages", ".worktrees"]
 }

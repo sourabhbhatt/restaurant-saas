@@ -25,7 +25,7 @@ export default defineConfig({
         test: {
           name: "ui",
           environment: "jsdom",
-          setupFiles: ["./vitest.setup.ts"],
+          setupFiles: ["./packages/tooling/vitest.setup.ts"],
           include: ["src/{components,features,lib,app}/**/*.test.{ts,tsx}"],
         },
       },
