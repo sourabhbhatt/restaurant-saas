@@ -36,6 +36,7 @@ import type { PushSender } from "@/infrastructure/push/interfaces/push-sender";
 import { createNoopPushSender } from "@/infrastructure/push/providers/noop-push";
 import type { RealtimeBus } from "@/infrastructure/realtime/interfaces/realtime";
 import { createMemoryBus, createNoopBus } from "@/infrastructure/realtime/providers/memory-bus";
+import { createPostgresBus } from "@/infrastructure/realtime/providers/postgres-bus";
 import type { ObjectStorage } from "@/infrastructure/storage/interfaces/object-storage";
 import { createLocalStorage } from "@/infrastructure/storage/providers/local-storage";
 import { createS3Storage } from "@/infrastructure/storage/providers/s3-storage";
@@ -122,6 +123,15 @@ export function selectStorage(env: ServerEnv, _logger: Logger): ObjectStorage {
   return createLocalStorage(env.STORAGE_LOCAL_DIR);
 }
 
+export function selectRealtime(env: ServerEnv, logger: Logger): RealtimeBus {
+  if (env.REALTIME_PROVIDER === "postgres") {
+    if (env.DATABASE_PROVIDER === "pglite")
+      throw new Error("REALTIME_PROVIDER=postgres requires DATABASE_PROVIDER=postgres");
+    return createPostgresBus({ connectionString: env.DATABASE_URL, logger });
+  }
+  return env.REALTIME_PROVIDER === "memory" ? createMemoryBus() : createNoopBus();
+}
+
 export interface BuildOptions {
   env?: ServerEnv;
   /** Inject an existing database (tests). */
@@ -176,7 +186,7 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
     }),
     email: selectEmail(env, logger),
     storage: selectStorage(env, logger),
-    realtime: env.REALTIME_PROVIDER === "memory" ? createMemoryBus() : createNoopBus(),
+    realtime: selectRealtime(env, logger),
     push: createNoopPushSender(),
     access,
     entitlements,

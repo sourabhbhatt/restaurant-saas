@@ -42,7 +42,7 @@ const schema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().optional(),
   S3_FORCE_PATH_STYLE: booleanish.default(false),
 
-  REALTIME_PROVIDER: z.enum(["memory", "none"]).default("memory"),
+  REALTIME_PROVIDER: z.enum(["memory", "postgres", "none"]).default("memory"),
 
   PUSH_PROVIDER: z.enum(["none", "webpush"]).default("none"),
   VAPID_PUBLIC_KEY: z.string().optional(),

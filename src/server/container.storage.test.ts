@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { silentLogger } from "@/infrastructure/logging/console-logger";
 
-import { selectStorage } from "./container";
+import { selectRealtime, selectStorage } from "./container";
 import { getEnv, type ServerEnv } from "./config/env";
 
 const parseEnv = (over: Partial<ServerEnv>): ServerEnv => ({ ...getEnv(), ...over });
@@ -24,5 +24,12 @@ describe("selectStorage", () => {
       S3_SECRET_ACCESS_KEY: "s",
     });
     expect(selectStorage(env, silentLogger).name).toBe("s3");
+  });
+});
+
+describe("selectRealtime", () => {
+  it("rejects the postgres bus on pglite", () => {
+    const env = parseEnv({ REALTIME_PROVIDER: "postgres", DATABASE_PROVIDER: "pglite" });
+    expect(() => selectRealtime(env, silentLogger)).toThrow("requires DATABASE_PROVIDER=postgres");
   });
 });
