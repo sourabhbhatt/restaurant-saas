@@ -41,7 +41,6 @@ const EXCLUDED = [
   /^files\//,
   /^test\//,
   /^dev\//,
-  /^health(\/|$)/,
 ];
 
 const ROUTES = await loadRoutes();

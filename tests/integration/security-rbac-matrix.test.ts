@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   ROLE_TEMPLATE_LIST,
   ROLE_TEMPLATES,
+  ALL_PERMISSIONS,
   type Permission,
   type RoleTemplate,
   type RoleTemplateKey,
@@ -160,12 +161,16 @@ async function freshBill(ctx: Ctx, paid = false) {
   return { ...s, billId, paymentId };
 }
 
+/** Permissions with no entry in RBAC_ACTIONS, and why. */
+const EXCLUDED_PERMS: Partial<Record<Permission, string>> = {
+  "restaurant.view":
+    "no route requires it: restaurant reads fall back to workspace.view for members the scope already lets see the restaurant",
+  "workspace.analytics.view":
+    "workspace analytics also admit reports.view holders, limited to their restaurants",
+};
+
 /**
  * One entry per permission that guards a mutation or a sensitive read.
- * Not listed: `restaurant.view` (no route requires it: restaurant reads fall
- * back to `workspace.view` for members the scope already lets see the
- * restaurant) and `workspace.analytics.view` (workspace analytics also admit
- * `reports.view` holders, limited to their restaurants).
  * `restaurant.delete` is last: archiving the restaurant ends the world.
  */
 export const RBAC_ACTIONS: RbacAction[] = [
@@ -599,6 +604,17 @@ beforeAll(async () => {
 afterAll(() => c.close());
 
 describe("RBAC matrix across system roles", () => {
+  it("every permission is an action or an explicit exclusion", () => {
+    const listed = new Set<string>(RBAC_ACTIONS.map((a) => a.permission));
+    const excluded = Object.keys(EXCLUDED_PERMS);
+    expect(
+      excluded.filter((p) => listed.has(p)),
+      "both listed and excluded",
+    ).toEqual([]);
+    const missing = ALL_PERMISSIONS.filter((p) => !listed.has(p) && !excluded.includes(p));
+    expect(missing, `Add RBAC_ACTIONS or EXCLUDED_PERMS for: ${missing.join(", ")}`).toEqual([]);
+  });
+
   it("covers the 7 system roles", () => {
     expect(ROLE_TEMPLATE_LIST.map((t) => t.key).sort()).toEqual(
       [
