@@ -10,7 +10,7 @@ paths = [
   '''^tests/''',
   '''^\.env\.example$''',
   # Local-dev cookie jars committed by mistake in 586e3b4 (see SECURITY.md).
-  # The pinned gitleaks release does not flag them, but a newer ruleset might.
+  # Newer gitleaks rulesets may flag these historical files; see SECURITY.md.
   '''^n\.jar$''',
   '''^o\.jar$''',
 ]
