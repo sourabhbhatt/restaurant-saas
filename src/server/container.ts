@@ -38,6 +38,7 @@ import type { RealtimeBus } from "@/infrastructure/realtime/interfaces/realtime"
 import { createMemoryBus, createNoopBus } from "@/infrastructure/realtime/providers/memory-bus";
 import type { ObjectStorage } from "@/infrastructure/storage/interfaces/object-storage";
 import { createLocalStorage } from "@/infrastructure/storage/providers/local-storage";
+import { createS3Storage } from "@/infrastructure/storage/providers/s3-storage";
 
 import { createAccessService, type AccessService } from "./authz/access-service";
 import { getEnv, type ServerEnv } from "./config/env";
@@ -103,11 +104,20 @@ function selectEmail(env: ServerEnv, logger: Logger): EmailSender {
   return createOutboxEmailSender();
 }
 
-function selectStorage(env: ServerEnv, logger: Logger): ObjectStorage {
+export function selectStorage(env: ServerEnv, _logger: Logger): ObjectStorage {
   if (env.STORAGE_PROVIDER === "s3") {
-    // The S3 adapter is documented in docs/provider-migration-guide.md and
-    // requires credentials; until configured, local storage is used.
-    logger.warn("storage_s3_not_configured_using_local");
+    if (!env.S3_BUCKET || !env.S3_REGION || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY)
+      throw new Error(
+        "S3 storage selected but S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY are required",
+      );
+    return createS3Storage({
+      endpoint: env.S3_ENDPOINT,
+      region: env.S3_REGION,
+      bucket: env.S3_BUCKET,
+      accessKeyId: env.S3_ACCESS_KEY_ID,
+      secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+      forcePathStyle: env.S3_FORCE_PATH_STYLE,
+    });
   }
   return createLocalStorage(env.STORAGE_LOCAL_DIR);
 }
