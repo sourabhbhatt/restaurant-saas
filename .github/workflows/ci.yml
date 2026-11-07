@@ -8,9 +8,54 @@ on:
 permissions:
   contents: read
 
+env:
+  TURBO_TELEMETRY_DISABLED: "1"
+  NEXT_TELEMETRY_DISABLED: "1"
+  # Base commit for "affected" filters: the PR base, or the previous commit on main.
+  TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+
 jobs:
+  # Only the packages and apps changed since the base (and their dependents) run.
   verify:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Affected apps and packages
+        run: pnpm exec turbo run typecheck lint test build --filter="...[${TURBO_SCM_BASE}]"
+      - name: Root files
+        run: |
+          pnpm exec tsc --noEmit -p tsconfig.json
+          pnpm exec eslint --max-warnings=0 .
+          pnpm format:check
+          pnpm test:codemod
+
+  # Role, grant and realtime behaviour PGlite cannot reproduce.
+  integration-pg:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      PG_TEST_URL: postgres://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -19,11 +64,44 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm format:check
-      - run: pnpm test
-      - run: pnpm build
+      - name: PostgreSQL 18 client (pg_dump/pg_restore for the restore suite)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-18
+      - name: RLS roles and dump/restore on PostgreSQL
+        run: pnpm --filter @ros/api exec vitest run tests/integration/security-rls.test.ts tests/integration/db-restore-postgres.test.ts
+      - name: Postgres realtime bus
+        run: pnpm --filter @ros/adapters exec vitest run src/realtime/providers/postgres-bus.test.ts
+
+  # The S3 contract against MinIO.
+  storage-s3:
+    runs-on: ubuntu-latest
+    env:
+      S3_TEST_ENDPOINT: http://127.0.0.1:9000
+      S3_TEST_BUCKET: ros-test
+      S3_TEST_ACCESS_KEY: minio
+      S3_TEST_SECRET_KEY: minio-dev-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minio -e MINIO_ROOT_PASSWORD=minio-dev-secret \
+            minio/minio server /data
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:9000/minio/health/live && break; sleep 1; done
+          docker run --rm --network host --entrypoint /bin/sh minio/mc -c \
+            "mc alias set local http://127.0.0.1:9000 minio minio-dev-secret && mc mb --ignore-existing local/ros-test"
+      - name: S3 object storage contract
+        run: pnpm --filter @ros/adapters exec vitest run src/storage/providers/s3-storage.test.ts
 
   secrets:
     runs-on: ubuntu-latest
@@ -45,3 +123,47 @@ jobs:
         with:
           node-version: 22
       - run: pnpm audit --prod --audit-level=high
+
+  # One image per app, built (never pushed) only when that app's turbo graph changed.
+  images:
+    runs-on: ubuntu-latest
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, console, ops, admin]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Is @ros/${{ matrix.app }} affected?
+        id: affected
+        run: |
+          if pnpm exec turbo ls --affected --output=json | node -e '
+            let d = ""; process.stdin.on("data", (c) => (d += c)).on("end", () => {
+              const names = JSON.parse(d).packages.items.map((p) => p.name);
+              process.exit(names.includes("@ros/${{ matrix.app }}") ? 0 : 1);
+            });'; then echo "affected=true" >> "$GITHUB_OUTPUT"; else echo "affected=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: docker/setup-buildx-action@v3
+        if: steps.affected.outputs.affected == 'true'
+      - name: Build ros-${{ matrix.app }}
+        if: steps.affected.outputs.affected == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/next-app.Dockerfile
+          build-args: APP=${{ matrix.app }}
+          tags: ros-${{ matrix.app }}:ci
+          push: false
+          load: true
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,scope=${{ matrix.app }},mode=max
+      - name: Image size
+        if: steps.affected.outputs.affected == 'true'
+        run: docker images ros-${{ matrix.app }}:ci
