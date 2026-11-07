@@ -1,11 +1,13 @@
+import { spawn } from "node:child_process";
+import { createReadStream, createWriteStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
+
 import type { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 
-import type { Executor } from "./client";
-
-function rowsOf<T>(result: unknown): T[] {
-  return (Array.isArray(result) ? result : ((result as { rows?: T[] }).rows ?? [])) as T[];
-}
+import { connectPglite, type DatabaseHandle, type Executor } from "./client";
+import { countRows, listPublicTables, rowsOf } from "./row-counts";
+import { isPersistentPgliteDir, snapshotPglite } from "./snapshot";
 
 export type TableCounts = Record<string, number>;
 
@@ -19,17 +21,6 @@ export interface CountMismatch {
   table: string;
   expected: number | null;
   actual: number | null;
-}
-
-/** Number of base tables in `public`; restore refuses to run unless it is zero. */
-export async function publicTableCount(db: Executor): Promise<number> {
-  const rows = rowsOf<{ n: string | number }>(
-    await db.execute(
-      sql`select count(*) as n from information_schema.tables
-          where table_schema = 'public' and table_type = 'BASE TABLE'`,
-    ),
-  );
-  return Number(rows[0]?.n ?? 0);
 }
 
 /**
@@ -52,43 +43,111 @@ export function formatMismatches(mismatches: CountMismatch[]): string {
   return [line(["table", "expected", "actual"]), ...rows.map(line)].join("\n");
 }
 
-/**
- * pg_dump from PGlite emits statements that only make sense inside PGlite
- * (it wraps `search_path` handling the same way upstream does) plus
- * `CREATE EXTENSION`/`SET` lines that a server may reject. Remove those lines
- * from the DUMP text, never from the data.
- */
-export function filterPgliteDump(text: string): { text: string; removed: string[] } {
-  const removed: string[] = [];
-  const kept = text.split("\n").filter((line) => {
-    const drop =
-      /^CREATE EXTENSION\b/i.test(line) ||
-      /^COMMENT ON EXTENSION\b/i.test(line) ||
-      /^SET (default_table_access_method|transaction_timeout)\b/i.test(line);
-    if (drop) removed.push(line);
-    return !drop;
-  });
-  return { text: kept.join("\n"), removed };
-}
-
 /** Plain-SQL dump of an embedded PGlite database (schema, data and the drizzle migration table). */
 export async function dumpPgliteSql(pg: PGlite): Promise<string> {
   const { pgDump } = await import("@electric-sql/pglite-tools/pg_dump");
   const file = await pgDump({ pg });
-  return filterPgliteDump(await file.text()).text;
+  return file.text();
 }
 
 export class NonEmptyTargetError extends Error {
-  constructor(readonly tables: number) {
-    super(`Refusing to restore: target already has ${tables} table(s) in "public".`);
+  constructor(
+    readonly tables: number,
+    readonly hasDrizzleSchema = false,
+  ) {
+    super(
+      `Refusing to restore: target already has ${tables} table(s) in "public"` +
+        (hasDrizzleSchema ? ' and a "drizzle" schema (migrations were applied)' : "") +
+        ".",
+    );
     this.name = "NonEmptyTargetError";
   }
 }
 
-/** Restore never overwrites: the target must have no tables in `public`. */
+/** Restore never overwrites: no tables in `public` and no `drizzle` migration schema. */
 export async function assertEmptyTarget(db: Executor): Promise<void> {
-  const tables = await publicTableCount(db);
-  if (tables > 0) throw new NonEmptyTargetError(tables);
+  const tables = (await listPublicTables(db)).length;
+  const schema = rowsOf<{ n: string | number }>(
+    await db.execute(
+      sql`select count(*) as n from pg_catalog.pg_namespace where nspname = 'drizzle'`,
+    ),
+  );
+  const hasDrizzleSchema = Number(schema[0]?.n ?? 0) > 0;
+  if (tables > 0 || hasDrizzleSchema) throw new NonEmptyTargetError(tables, hasDrizzleSchema);
+}
+
+export interface DumpPgliteDeps {
+  snapshot: typeof snapshotPglite;
+  open: (dir?: string) => Promise<DatabaseHandle>;
+  count: typeof countRows;
+  dump: (pg: PGlite) => Promise<string>;
+}
+
+const dumpDefaults: DumpPgliteDeps = {
+  snapshot: snapshotPglite,
+  open: connectPglite,
+  count: countRows,
+  dump: dumpPgliteSql,
+};
+
+/**
+ * Plain-SQL dump plus row counts of a PGlite directory. A persistent directory
+ * is snapshotted first and only the copy is opened, so opening never rewrites
+ * the original's files.
+ */
+export async function dumpPgliteDir(
+  dir: string | undefined,
+  deps: DumpPgliteDeps = dumpDefaults,
+): Promise<{ sql: string; counts: TableCounts }> {
+  const target = isPersistentPgliteDir(dir) ? (await deps.snapshot(dir)).dest : dir;
+  const handle = await deps.open(target);
+  try {
+    return { sql: await deps.dump(handle.pglite!), counts: await deps.count(handle.db) };
+  } finally {
+    await handle.close();
+  }
+}
+
+const DEV_DATABASE_URL = "postgres://restaurantos:restaurantos@localhost:5432/restaurantos_dev";
+
+/** The Postgres URL used for both the row-count connection and pg_dump. */
+export function resolvePostgresUrl(env: Record<string, string | undefined>): string {
+  const url = env.DATABASE_URL ?? DEV_DATABASE_URL;
+  if (!/^postgres(ql)?:\/\//.test(url)) {
+    throw new Error("DATABASE_URL must be a postgres:// or postgresql:// URL.");
+  }
+  return url;
+}
+
+function exitPromise(child: ReturnType<typeof spawn>, cmd: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (code) =>
+      code === 0 ? resolve() : reject(new Error(`${cmd} exited with ${code}`)),
+    );
+  });
+}
+
+/** Run a command, writing its stdout to `out`; resolves only after the file is flushed and the exit code is 0. */
+export async function spawnToFile(cmd: string, args: string[], out: string): Promise<void> {
+  const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "inherit"] });
+  const exit = exitPromise(child, cmd);
+  exit.catch(() => {}); // surfaced through Promise.all below
+  await Promise.all([pipeline(child.stdout!, createWriteStream(out)), exit]).catch((error) => {
+    child.kill();
+    throw error;
+  });
+}
+
+/** Run a command with `file` piped to its stdin; read errors and a non-zero exit both reject. */
+export async function spawnFromFile(cmd: string, args: string[], file: string): Promise<void> {
+  const child = spawn(cmd, args, { stdio: ["pipe", "inherit", "inherit"] });
+  const exit = exitPromise(child, cmd);
+  exit.catch(() => {});
+  await Promise.all([pipeline(createReadStream(file), child.stdin!), exit]).catch((error) => {
+    child.kill();
+    throw error;
+  });
 }
 
 /**
