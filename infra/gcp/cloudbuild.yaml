@@ -1,0 +1,101 @@
+# Builds the four app images and the migration image in parallel and pushes them
+# to Artifact Registry (asia-south1). Run from the repo root:
+#   gcloud builds submit --config infra/gcp/cloudbuild.yaml --region asia-south1 \
+#     --substitutions=_TAG=$(git rev-parse --short HEAD) .
+# .gcloudignore keeps local data, env files and node_modules out of the upload.
+substitutions:
+  _REGION: asia-south1
+  _REPO: ros
+  _TAG: manual
+options:
+  machineType: E2_HIGHCPU_8
+  env: ["DOCKER_BUILDKIT=1"]
+  logging: CLOUD_LOGGING_ONLY
+timeout: 3600s
+steps:
+  - id: api
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["-"]
+    args:
+      [
+        "build",
+        "-f",
+        "infra/docker/next-app.Dockerfile",
+        "--target",
+        "runner",
+        "--build-arg",
+        "APP=api",
+        "-t",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/api:${_TAG}",
+        ".",
+      ]
+  - id: console
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["-"]
+    args:
+      [
+        "build",
+        "-f",
+        "infra/docker/next-app.Dockerfile",
+        "--target",
+        "runner",
+        "--build-arg",
+        "APP=console",
+        "-t",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/console:${_TAG}",
+        ".",
+      ]
+  - id: ops
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["-"]
+    args:
+      [
+        "build",
+        "-f",
+        "infra/docker/next-app.Dockerfile",
+        "--target",
+        "runner",
+        "--build-arg",
+        "APP=ops",
+        "-t",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/ops:${_TAG}",
+        ".",
+      ]
+  - id: admin
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["-"]
+    args:
+      [
+        "build",
+        "-f",
+        "infra/docker/next-app.Dockerfile",
+        "--target",
+        "runner",
+        "--build-arg",
+        "APP=admin",
+        "-t",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/admin:${_TAG}",
+        ".",
+      ]
+  - id: migrate
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["-"]
+    args:
+      [
+        "build",
+        "-f",
+        "infra/docker/next-app.Dockerfile",
+        "--target",
+        "migrate",
+        "--build-arg",
+        "APP=api",
+        "-t",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/migrate:${_TAG}",
+        ".",
+      ]
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/api:${_TAG}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/console:${_TAG}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/ops:${_TAG}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/admin:${_TAG}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/migrate:${_TAG}

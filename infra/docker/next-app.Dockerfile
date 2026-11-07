@@ -34,6 +34,12 @@ COPY --from=pruner /app/out/full/ .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV CI=1
 RUN pnpm turbo run build --filter=@ros/${APP}
+# Only the API ships the migration journal (frontends are pruned without the
+# database package); stage it at a fixed path so the runner COPY always works.
+RUN mkdir -p /migrations \
+    && if [ -d packages/database/src/providers/postgres/migrations ]; then \
+         cp -r packages/database/src/providers/postgres/migrations/. /migrations/; \
+       fi
 
 # ---------------------------------------------------------------------------
 # One-shot migrations (docker compose `migrate` service): the builder image
@@ -65,8 +71,7 @@ COPY --from=builder --chown=app:app /app/apps/${APP}/.next/static ./apps/${APP}/
 COPY --from=builder --chown=app:app /app/apps/${APP}/public ./apps/${APP}/public
 # /api/v1/health/ready reads the migration journal through MIGRATIONS_DIR,
 # which resolves next to the database package's client module.
-COPY --from=builder --chown=app:app /app/packages/database/src/providers/postgres/migrations \
-    ./packages/database/src/providers/postgres/migrations
+COPY --from=builder --chown=app:app /migrations ./packages/database/src/providers/postgres/migrations
 # Liveness path: the API has no /healthz page.
 RUN if [ "${APP}" = "api" ]; then echo "/api/v1/health" > /app/.healthcheck; else echo "/healthz" > /app/.healthcheck; fi \
     && chown app:app /app/.healthcheck
