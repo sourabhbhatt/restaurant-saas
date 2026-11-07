@@ -1,4 +1,4 @@
-import { createTransactionRunner } from "@/infrastructure/database/providers/postgres/client";
+import { createSystemRunner } from "@/infrastructure/database/providers/postgres/client";
 import { auditRepository } from "@/infrastructure/database/providers/postgres/repositories/core";
 import { platformRepository } from "@/infrastructure/database/providers/postgres/repositories/platform";
 
@@ -9,7 +9,8 @@ import { sendEmail } from "../notifications/email";
 /** Per-module wiring: binds the platform module's ports to the Postgres adapters. */
 export function platformService(c: Container) {
   return createPlatformService({
-    tx: createTransactionRunner(c.db, (db) => ({
+    // System: the Super Admin console and scheduled jobs work across workspaces.
+    tx: createSystemRunner(c.db, (db) => ({
       platform: platformRepository(db),
       audit: auditRepository(db),
     })),

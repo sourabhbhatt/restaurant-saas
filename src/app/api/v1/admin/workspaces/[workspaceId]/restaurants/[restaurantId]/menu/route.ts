@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AdminRestaurantMenuDto } from "@/contracts/menu";
 import { notFound } from "@/domain/shared/errors";
 import { menuService } from "@/server/composition/menu";
+import { bindWorkspace } from "@/server/db-context";
 import { route } from "@/server/http/route";
 
 /**
@@ -18,6 +19,8 @@ export const GET = route(
   async ({ params, c }) => {
     const ref = await c.repos.access.findRestaurantRef(params.restaurantId);
     if (!ref || ref.workspaceId !== params.workspaceId) throw notFound("Restaurant");
+    // Super Admin inspects one tenant: the menu reads stay confined to that workspace.
+    bindWorkspace(ref.workspaceId);
     const structure = await c.repos.access.listStructure(params.workspaceId);
     const restaurant = structure.find((r) => r.id === ref.id);
     if (!restaurant) throw notFound("Restaurant");

@@ -14,6 +14,13 @@ export interface TenancyMail {
 
 export interface TenancyServiceDeps {
   tx: TransactionRunner<TenancyRepos>;
+  /** Owner-level runner, used only to resolve an invitation token to its workspace. */
+  lookup: TransactionRunner<TenancyRepos>;
+  /**
+   * Owner-level runner for writes outside the bound workspace: the actor's own
+   * profile, and the workspace-less notification to an invited existing user.
+   */
+  account: TransactionRunner<TenancyRepos>;
   clock: Clock;
   entitlements: EntitlementService;
   /** Best-effort email delivery (outbox); never throws. */

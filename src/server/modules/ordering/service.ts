@@ -19,6 +19,7 @@ import type { RealtimePublisher } from "@/infrastructure/realtime/interfaces/rea
 import { recordAudit } from "../../audit/audit-service";
 import type { BranchScope } from "../../authz/access-service";
 import { auditActorFor, type AuditActor, type RequestMeta } from "../../context";
+import { bindWorkspace } from "../../db-context";
 import type { RateLimitRepository } from "../../ports/core-repositories";
 import type { Clock, Logger } from "../../ports/observability";
 import type { EntitlementService } from "../../subscriptions/entitlement-service";
@@ -74,6 +75,8 @@ class IdempotencyRace extends Error {
 
 export interface OrderingServiceDeps {
   tx: TransactionRunner<OrderingRepos>;
+  /** Owner-level runner, used only to resolve QR and guest tokens to their workspace. */
+  lookup: TransactionRunner<OrderingRepos>;
   clock: Clock;
   entitlements: EntitlementService;
   realtime: RealtimePublisher;
@@ -101,7 +104,7 @@ function targetOf(t: BranchTarget): BranchTarget {
 }
 
 export function createOrderingService(deps: OrderingServiceDeps) {
-  const { tx, clock, entitlements, realtime, rateLimit, fileUrl, logger } = deps;
+  const { tx, lookup, clock, entitlements, realtime, rateLimit, fileUrl, logger } = deps;
 
   /** Workspace may serve QR guests right now (subscription + plan feature). */
   async function guestOrderingAllowed(workspaceId: string): Promise<boolean> {
@@ -120,18 +123,22 @@ export function createOrderingService(deps: OrderingServiceDeps) {
   /** Resolve a QR token to an operational table, or throw one indistinguishable QR_INVALID. */
   async function resolveTable(token: string): Promise<TableContext> {
     if (!isWellFormedToken(token)) throw qrInvalid();
-    const table = await tx.read(async (r) => r.ordering.findTableByQrHash(await hashToken(token)));
+    const table = await lookup.read(async (r) =>
+      r.ordering.findTableByQrHash(await hashToken(token)),
+    );
     if (!table || !table.operational || !table.acceptingOrders) throw qrInvalid();
+    bindWorkspace(table.workspaceId);
     if (!(await guestOrderingAllowed(table.workspaceId))) throw qrInvalid();
     return table;
   }
 
   async function resolveGuest(guestToken: string | null): Promise<GuestRecord> {
     if (!guestToken || !isWellFormedToken(guestToken)) throw guestRequired();
-    const guest = await tx.read(async (r) =>
+    const guest = await lookup.read(async (r) =>
       r.ordering.findGuestByTokenHash(await hashToken(guestToken)),
     );
     if (!guest) throw guestRequired();
+    bindWorkspace(guest.table.workspaceId);
     return guest;
   }
 

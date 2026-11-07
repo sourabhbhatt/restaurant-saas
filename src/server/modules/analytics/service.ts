@@ -53,6 +53,8 @@ export interface AnalyticsRepos {
 
 export interface AnalyticsServiceDeps {
   tx: TransactionRunner<AnalyticsRepos>;
+  /** Owner-level runner for the Super Admin platform aggregates only (they span workspaces). */
+  platform: TransactionRunner<AnalyticsRepos>;
   clock: Clock;
   entitlements: EntitlementService;
 }
@@ -110,7 +112,12 @@ function rangeDto(range: ResolvedRange, timezone: string): AnalyticsRangeDto {
   return { ...range, timezone };
 }
 
-export function createAnalyticsService({ tx, clock, entitlements }: AnalyticsServiceDeps) {
+export function createAnalyticsService({
+  tx,
+  platform,
+  clock,
+  entitlements,
+}: AnalyticsServiceDeps) {
   /** Reports may be read in any subscription phase except a platform suspension. */
   function assertReadable(scope: WorkspaceScope | BranchScope) {
     assertOperationAllowed(scope.entitlements, "read");
@@ -433,7 +440,7 @@ export function createAnalyticsService({ tx, clock, entitlements }: AnalyticsSer
       const firstWeek = addDaysIso(today, -dow - 7 * 11);
       const usageFrom = addDaysIso(today, -29);
 
-      return tx.read(async (r) => {
+      return platform.read(async (r) => {
         const [counts, subs, recent, growth, before, conversion, perDay, active] =
           await Promise.all([
             r.analytics.platformCounts(),

@@ -97,9 +97,6 @@ export function createSystemRunner<R>(
   };
 }
 
-/** @deprecated Use createSystemRunner or createTenantRunner. */
-export const createTransactionRunner = createSystemRunner;
-
 export interface TenantRunnerOptions {
   /** Role to switch into for each transaction; null disables the switch (emergency rollback). */
   role: string | null;

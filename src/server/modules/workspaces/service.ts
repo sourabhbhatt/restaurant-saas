@@ -24,11 +24,18 @@ export function slugify(name: string): string {
 
 export interface WorkspaceServiceDeps {
   tx: TransactionRunner<WorkspaceRepos>;
+  /** Owner-level runner for `create` only: the new workspace has no tenant context yet. */
+  bootstrap: TransactionRunner<WorkspaceRepos>;
   clock: Clock;
   entitlements: EntitlementService;
 }
 
-export function createWorkspaceService({ tx, clock, entitlements }: WorkspaceServiceDeps) {
+export function createWorkspaceService({
+  tx,
+  bootstrap,
+  clock,
+  entitlements,
+}: WorkspaceServiceDeps) {
   return {
     /**
      * Create a workspace owned by the actor and start its free trial. The trial
@@ -40,7 +47,7 @@ export function createWorkspaceService({ tx, clock, entitlements }: WorkspaceSer
       meta: RequestMeta,
     ): Promise<WorkspaceDto> {
       const settings = await entitlements.getPlatformSettings();
-      return tx.run(async (r) => {
+      return bootstrap.run(async (r) => {
         const base = slugify(input.name);
         let slug = base;
         for (let i = 0; await r.workspaces.slugExists(slug); i++) {

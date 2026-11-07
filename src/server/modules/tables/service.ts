@@ -23,6 +23,8 @@ import { decryptQrToken, newQrToken, qrUrl } from "./qr-tokens";
 
 export interface TableServiceDeps {
   tx: TransactionRunner<TableRepos>;
+  /** Owner-level runner, used only to find which branch/restaurant owns an id before authorization. */
+  lookup: TransactionRunner<TableRepos>;
   clock: Clock;
   entitlements: EntitlementService;
   access: AccessService;
@@ -74,7 +76,7 @@ function moveTo(ids: string[], id: string, index: number): string[] {
 }
 
 export function createTableService(deps: TableServiceDeps) {
-  const { tx, clock, entitlements, access, appUrl, appSecret } = deps;
+  const { tx, lookup, clock, entitlements, access, appUrl, appSecret } = deps;
 
   async function qrDto(row: QrTokenRecord, tableName: string): Promise<TableQrDto> {
     const url = qrUrl(appUrl, decryptQrToken(row.tokenCiphertext, appSecret));
@@ -111,7 +113,7 @@ export function createTableService(deps: TableServiceDeps) {
   return {
     /** Resolve the branch scope of a table; other tenants' tables read as NOT_FOUND. */
     async scopeForTable(actor: UserActor, tableId: string): Promise<BranchScope> {
-      const loc = await tx.read((r) => r.tables.locateTable(tableId));
+      const loc = await lookup.read((r) => r.tables.locateTable(tableId));
       if (!loc) throw notFound("Table");
       try {
         const scope = await access.forBranch(actor, loc.branchId);

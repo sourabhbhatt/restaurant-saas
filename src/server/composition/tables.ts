@@ -1,17 +1,24 @@
-import { createTransactionRunner } from "@/infrastructure/database/providers/postgres/client";
+import {
+  createSystemRunner,
+  type Executor,
+} from "@/infrastructure/database/providers/postgres/client";
 import { auditRepository } from "@/infrastructure/database/providers/postgres/repositories/core";
 import { tableRepository } from "@/infrastructure/database/providers/postgres/repositories/tables";
 
 import type { Container } from "../container";
+import { tenantRunner } from "./runners";
 import { createTableService } from "../modules/tables/service";
 
 /** Per-module wiring: binds the tables module's ports to the Postgres adapters. */
 export function tableService(c: Container) {
+  const build = (e: Executor) => ({
+    tables: tableRepository(e),
+    audit: auditRepository(e),
+  });
   return createTableService({
-    tx: createTransactionRunner(c.db, (db) => ({
-      tables: tableRepository(db),
-      audit: auditRepository(db),
-    })),
+    tx: tenantRunner(c, build),
+    // System: finds the branch owning a table id; the access service then authorizes and binds.
+    lookup: createSystemRunner(c.db, build),
     clock: c.clock,
     entitlements: c.entitlements,
     access: c.access,

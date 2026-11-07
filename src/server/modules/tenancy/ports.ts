@@ -272,14 +272,8 @@ export interface TenancyRepository {
   ): Promise<InvitationRecord | null>;
   /** Locks the row (accept flow). */
   findInvitationByTokenHash(tokenHash: string, lock?: boolean): Promise<InvitationLookup | null>;
-  /**
-   * Inserts the invitation; when the email belongs to an existing user, also
-   * writes them an in-app notification in the same transaction.
-   */
   insertInvitation(input: {
     workspaceId: string;
-    workspaceName: string;
-    inviterName: string;
     email: string;
     tokenHash: string;
     workspaceRoleId: string;
@@ -289,6 +283,16 @@ export interface TenancyRepository {
     invitedBy: string;
     expiresAt: Date;
   }): Promise<string>;
+  /**
+   * If the invited email already belongs to a user, write them a workspace-less
+   * in-app notification (they are not a member of the workspace yet).
+   */
+  notifyInvitee(input: {
+    email: string;
+    workspaceName: string;
+    inviterName: string;
+    invitationId: string;
+  }): Promise<void>;
   rotateInvitationToken(
     workspaceId: string,
     invitationId: string,

@@ -30,6 +30,8 @@ import type { BranchTarget, OrderRecord, OrderTransitionPatch, StaffOpsRepos } f
 
 export interface StaffOpsServiceDeps {
   tx: TransactionRunner<StaffOpsRepos>;
+  /** Owner-level runner, used only to find which branch/restaurant owns an id before authorization. */
+  lookup: TransactionRunner<StaffOpsRepos>;
   access: AccessService;
   clock: Clock;
   realtime: RealtimePublisher;
@@ -109,7 +111,7 @@ interface ChangedOrder {
 }
 
 export function createStaffOpsService(deps: StaffOpsServiceDeps) {
-  const { tx, access, clock, realtime, logger } = deps;
+  const { tx, lookup, access, clock, realtime, logger } = deps;
 
   /** Realtime is a refetch hint; failures never affect the committed change. */
   async function publish(branchId: string, changes: ChangedOrder[]): Promise<void> {
@@ -140,7 +142,7 @@ export function createStaffOpsService(deps: StaffOpsServiceDeps) {
    * actor cannot see is reported as not found (no cross-tenant probing).
    */
   async function scopeForOrder(actor: UserActor, orderId: string): Promise<BranchScope> {
-    const branchId = await tx.read((r) => r.staffOps.findOrderBranchId(orderId));
+    const branchId = await lookup.read((r) => r.staffOps.findOrderBranchId(orderId));
     if (!branchId) throw notFound("Order");
     try {
       return await access.forBranch(actor, branchId);

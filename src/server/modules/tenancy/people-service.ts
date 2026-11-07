@@ -28,6 +28,7 @@ import { UniqueViolationError } from "@/infrastructure/database/interfaces/trans
 import { recordAudit } from "../../audit/audit-service";
 import type { BranchScope, WorkspaceScope } from "../../authz/access-service";
 import { auditActorFor, type RequestMeta, type UserActor } from "../../context";
+import { bindWorkspace } from "../../db-context";
 import type { TenancyServiceDeps } from "./deps";
 import type { RoleRecord, TenancyRepos } from "./ports";
 import {
@@ -68,6 +69,8 @@ async function validateAssignmentTarget(
 
 export function createPeopleService({
   tx,
+  lookup,
+  account,
   clock,
   entitlements,
   sendEmail,
@@ -465,8 +468,6 @@ export function createPeopleService({
           }
           const id = await r.tenancy.insertInvitation({
             workspaceId: scope.workspaceId,
-            workspaceName: ws.name,
-            inviterName,
             email: input.email,
             tokenHash,
             workspaceRoleId: workspaceRole.id,
@@ -499,6 +500,14 @@ export function createPeopleService({
         }
         throw error;
       }
+      await account.run((r) =>
+        r.tenancy.notifyInvitee({
+          email: input.email,
+          workspaceName: created.workspaceName,
+          inviterName,
+          invitationId: created.invitation.id,
+        }),
+      );
       await issueInvitationEmail(created.workspaceName, inviterName, input.email, token);
       return { invitation: created.invitation, inviteUrl: inviteUrl(token) };
     },
@@ -562,10 +571,11 @@ export function createPeopleService({
     /** Public preview: only what the invitee needs to decide. */
     async previewInvitation(token: string): Promise<InvitationPreviewDto> {
       if (!isWellFormedToken(token)) throw notFound("Invitation");
-      const inv = await tx.read(async (r) =>
+      const inv = await lookup.read(async (r) =>
         r.tenancy.findInvitationByTokenHash(await hashToken(token)),
       );
       if (!inv) throw notFound("Invitation");
+      bindWorkspace(inv.workspaceId);
       const expired =
         inv.status === "EXPIRED" ||
         (inv.status === "PENDING" && inv.expiresAt.getTime() <= clock.now().getTime());
@@ -592,7 +602,7 @@ export function createPeopleService({
       const tokenHash = await hashToken(token);
       const now = clock.now();
       // Seat check first (the entitlement service reads outside this module's transaction).
-      const pre = await tx.read(async (r) => {
+      const pre = await lookup.read(async (r) => {
         const found = await r.tenancy.findInvitationByTokenHash(tokenHash);
         return found
           ? {
@@ -601,8 +611,9 @@ export function createPeopleService({
             }
           : null;
       });
+      if (!pre) throw notFound("Invitation");
+      bindWorkspace(pre.inv.workspaceId);
       if (
-        pre &&
         pre.inv.status === "PENDING" &&
         pre.inv.email.toLowerCase() === actor.email.trim().toLowerCase() &&
         (!pre.existing || pre.existing.status === "DISABLED")
@@ -787,7 +798,7 @@ export function createPeopleService({
 
     // ---------------------------------------------------------------- account
     async updateProfile(actor: UserActor, input: { name: string }, meta: RequestMeta) {
-      await tx.run(async (r) => {
+      await account.run(async (r) => {
         await r.tenancy.updateUserName(actor.userId, input.name);
         await recordAudit(
           r.audit,

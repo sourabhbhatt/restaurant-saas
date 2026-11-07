@@ -151,6 +151,9 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
   if (tenantRole(env) === null) logger.warn("tenant_role_disabled");
   if (options.syncSystemData !== false) await ensureSystemData(db);
 
+  // System (owner, bypasses row-level security): authentication, the authorization lookup itself,
+  // entitlement resolution, rate limits, idempotency and the outbox run before or outside a tenant
+  // scope. Module compositions use the tenant runner instead (src/server/composition/runners.ts).
   const entitlements = createEntitlementService({ repo: entitlementRepository(db), clock });
   const access = createAccessService({ repo: accessRepository(db), entitlements });
 

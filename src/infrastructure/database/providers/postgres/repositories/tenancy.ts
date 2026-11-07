@@ -1069,26 +1069,28 @@ export function tenancyRepository(db: Executor): TenancyRepository {
           expiresAt: input.expiresAt,
         })
         .returning({ id: invitations.id });
+      return row!.id;
+    },
+    async notifyInvitee(input) {
+      const email = input.email.trim().toLowerCase();
       const [existing] = await db
         .select({ id: users.id })
         .from(users)
         .where(eq(users.email, email))
         .limit(1);
-      if (existing) {
-        // Global (workspace null): the invitee is not a member of this workspace yet.
-        await notifyUsers(
-          db,
-          [existing.id],
-          { workspaceId: null },
-          {
-            type: "staff.invited",
-            title: `You're invited to join ${input.workspaceName}`,
-            body: `${input.inviterName} invited you. Open the invitation link sent to ${email} to accept.`,
-            data: { invitationId: row!.id },
-          },
-        );
-      }
-      return row!.id;
+      if (!existing) return;
+      // Global (workspace null): the invitee is not a member of this workspace yet.
+      await notifyUsers(
+        db,
+        [existing.id],
+        { workspaceId: null },
+        {
+          type: "staff.invited",
+          title: `You're invited to join ${input.workspaceName}`,
+          body: `${input.inviterName} invited you. Open the invitation link sent to ${email} to accept.`,
+          data: { invitationId: input.invitationId },
+        },
+      );
     },
     async rotateInvitationToken(workspaceId, invitationId, tokenHash, expiresAt) {
       const rows = await db

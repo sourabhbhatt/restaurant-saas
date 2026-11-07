@@ -46,6 +46,11 @@ export function defaultPreference(type: NotificationType): NotificationPreferenc
 
 export interface NotificationServiceDeps {
   tx: TransactionRunner<NotificationRepos>;
+  /**
+   * Owner-level runner for the actor's own account writes, which span workspaces or have no
+   * workspace (row-level security checks writes against the bound workspace only).
+   */
+  account: TransactionRunner<NotificationRepos>;
   clock: Clock;
   push: { enabled: boolean; publicKey: string | null };
 }
@@ -55,7 +60,7 @@ export interface NotificationServiceDeps {
  * rows; an optional workspace filter must come from a verified WorkspaceScope
  * (membership checked by the access service), never a raw client id.
  */
-export function createNotificationService({ tx, clock, push }: NotificationServiceDeps) {
+export function createNotificationService({ tx, account, clock, push }: NotificationServiceDeps) {
   function workspaceFilter(actor: UserActor, scope: WorkspaceScope | null) {
     if (scope && scope.actor.userId !== actor.userId) {
       throw new DomainError("FORBIDDEN", "Scope does not belong to this user");
@@ -106,7 +111,7 @@ export function createNotificationService({ tx, clock, push }: NotificationServi
       const base = workspaceFilter(actor, scope);
       const ids = input.all ? null : [...new Set(input.ids ?? [])];
       if (ids && ids.length === 0) throw validationFailed("Nothing to mark as read");
-      return tx.run(async (r) => {
+      return account.run(async (r) => {
         const updated = await r.notifications.markRead(base, ids, clock.now());
         const unreadCount = await r.notifications.unreadCount(base);
         return { updated, unreadCount };
@@ -127,7 +132,7 @@ export function createNotificationService({ tx, clock, push }: NotificationServi
         email: p.email,
         push: p.push,
       }));
-      await tx.run(async (r) => {
+      await account.run(async (r) => {
         await r.notifications.upsertPreferences(actor.userId, clean);
         await recordAudit(
           r.audit,

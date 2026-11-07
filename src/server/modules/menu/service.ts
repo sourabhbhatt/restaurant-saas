@@ -20,6 +20,8 @@ import type { ItemPatch, MenuItemRecord, MenuRepos, Tenant } from "./ports";
 
 export interface MenuServiceDeps {
   tx: TransactionRunner<MenuRepos>;
+  /** Owner-level runner, used only to find which branch/restaurant owns an id before authorization. */
+  lookup: TransactionRunner<MenuRepos>;
   clock: Clock;
   entitlements: EntitlementService;
   access: AccessService;
@@ -52,7 +54,7 @@ function assertImageKey(workspaceId: string, key: string | null | undefined) {
 }
 
 export function createMenuService(deps: MenuServiceDeps) {
-  const { tx, clock, entitlements, access, fileUrl } = deps;
+  const { tx, lookup, clock, entitlements, access, fileUrl } = deps;
 
   const toDto = (r: MenuItemRecord): MenuItemDto => ({
     ...r,
@@ -84,10 +86,14 @@ export function createMenuService(deps: MenuServiceDeps) {
 
   return {
     async scopeForCategory(actor: UserActor, categoryId: string) {
-      return scopeFor(actor, await tx.read((r) => r.menu.locateCategory(categoryId)), "Category");
+      return scopeFor(
+        actor,
+        await lookup.read((r) => r.menu.locateCategory(categoryId)),
+        "Category",
+      );
     },
     async scopeForItem(actor: UserActor, itemId: string) {
-      return scopeFor(actor, await tx.read((r) => r.menu.locateItem(itemId)), "Menu item");
+      return scopeFor(actor, await lookup.read((r) => r.menu.locateItem(itemId)), "Menu item");
     },
 
     /**

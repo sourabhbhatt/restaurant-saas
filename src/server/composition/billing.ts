@@ -1,19 +1,20 @@
-import { createTransactionRunner } from "@/infrastructure/database/providers/postgres/client";
+import { createSystemRunner } from "@/infrastructure/database/providers/postgres/client";
 import { billingRepository } from "@/infrastructure/database/providers/postgres/repositories/billing";
 import { auditRepository } from "@/infrastructure/database/providers/postgres/repositories/core";
 import { DomainError, notFound } from "@/domain/shared/errors";
 
 import type { BranchScope } from "../authz/access-service";
 import type { Container } from "../container";
+import { tenantRunner } from "./runners";
 import type { UserActor } from "../context";
 import { createBillingService } from "../modules/billing/service";
 
 /** Billing wiring: binds the billing ports to the Postgres adapter. */
 export function billingService(c: Container) {
   return createBillingService({
-    tx: createTransactionRunner(c.db, (db) => ({
-      billing: billingRepository(db),
-      audit: auditRepository(db),
+    tx: tenantRunner(c, (e) => ({
+      billing: billingRepository(e),
+      audit: auditRepository(e),
     })),
     clock: c.clock,
     realtime: c.realtime,
@@ -23,10 +24,12 @@ export function billingService(c: Container) {
 
 /** Resolve the branch that owns a bill or payment (for scope resolution only). */
 export function billingLookup(c: Container) {
-  const repo = billingRepository(c.db);
+  // System: finds the branch owning a bill/payment id; the access service then authorizes and binds.
+  const lookup = createSystemRunner(c.db, (e) => billingRepository(e));
   return {
-    billBranchId: (billId: string) => repo.findBillBranchId(billId),
-    paymentBranchId: (paymentId: string) => repo.findPaymentBranchId(paymentId),
+    billBranchId: (billId: string) => lookup.read((repo) => repo.findBillBranchId(billId)),
+    paymentBranchId: (paymentId: string) =>
+      lookup.read((repo) => repo.findPaymentBranchId(paymentId)),
   };
 }
 
