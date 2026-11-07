@@ -12,7 +12,8 @@ import {
   PATCH as patchWorkspace,
 } from "@/app/api/v1/workspaces/[workspaceId]/route";
 import { emailOutbox } from "@/infrastructure/database/providers/postgres/schema";
-import type { Container } from "@/server/container";
+import { resetEnvCache } from "@/server/config/env";
+import { setContainerForTests, type Container } from "@/server/container";
 import { call, cookieFrom, createTestContainer, uniqueEmail } from "@/test/harness";
 import { createWorkspaceAs, signUpUser } from "@/test/fixtures";
 import { desc, eq } from "drizzle-orm";
@@ -142,5 +143,31 @@ describe("workspaces", () => {
       body: { name: "Again", version: 1 },
     });
     expect(stale.status).toBe(409);
+  });
+});
+
+describe("trusted proxy client IP", () => {
+  it("sign-in limit cannot be bypassed by rotating X-Forwarded-For", async () => {
+    const previous = process.env.TRUSTED_PROXY_HOPS;
+    process.env.TRUSTED_PROXY_HOPS = "1";
+    resetEnvCache();
+    const local = await createTestContainer();
+    try {
+      let last = 0;
+      for (let i = 0; i < 11; i++) {
+        const res = await call(signIn, {
+          body: { email: uniqueEmail(), password: "wrong-password-1" },
+          headers: { "x-forwarded-for": `10.0.0.${i + 1}, 203.0.113.9` },
+        });
+        last = res.status;
+      }
+      expect(last).toBe(429);
+    } finally {
+      if (previous === undefined) delete process.env.TRUSTED_PROXY_HOPS;
+      else process.env.TRUSTED_PROXY_HOPS = previous;
+      resetEnvCache();
+      await local.close();
+      setContainerForTests(c);
+    }
   });
 });

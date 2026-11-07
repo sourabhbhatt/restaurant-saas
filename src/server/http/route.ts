@@ -7,6 +7,7 @@ import { hashToken } from "@/domain/shared/tokens";
 
 import type { RequestMeta, UserActor } from "../context";
 import { getContainer, type Container } from "../container";
+import { clientIpFrom } from "./client-ip";
 import { toErrorResponse } from "./errors";
 import { readCookie, SESSION_COOKIE } from "./cookies";
 
@@ -70,12 +71,6 @@ export type HandlerResult =
 type RouteContext = { params?: Promise<Record<string, string | string[] | undefined> | undefined> };
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-
-function clientIp(req: Request): string | null {
-  const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim() || null;
-  return req.headers.get("x-real-ip");
-}
 
 function json(
   status: number,
@@ -168,7 +163,7 @@ export function route<
       c = await getContainer();
       const meta: RequestMeta = {
         requestId,
-        ip: clientIp(req),
+        ip: clientIpFrom(req.headers, c.env.TRUSTED_PROXY_HOPS),
         userAgent: req.headers.get("user-agent"),
       };
       if (MUTATING.has(req.method) && !config.skipOriginCheck) assertSameOrigin(req, c.env.APP_URL);

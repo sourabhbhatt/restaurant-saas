@@ -24,6 +24,7 @@ const schema = z.object({
 
   /** 32+ char secret used to derive encryption keys (QR token encryption). */
   APP_SECRET: z.string().min(32).default("dev-only-insecure-secret-change-me-0123456789"),
+  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   COOKIE_SECURE: booleanish.optional(),
 
@@ -71,6 +72,9 @@ export function getEnv(): ServerEnv {
   if (env.NODE_ENV === "production") {
     if (env.APP_SECRET.startsWith("dev-only"))
       throw new Error("APP_SECRET must be set in production");
+    // The schema default (0) would hide a forgotten setting, so check the raw value.
+    if (!process.env.TRUSTED_PROXY_HOPS)
+      throw new Error("TRUSTED_PROXY_HOPS must be set in production");
     if (env.ENABLE_TEST_HOOKS) throw new Error("ENABLE_TEST_HOOKS must be false in production");
   }
   cached = env;

@@ -38,7 +38,8 @@ export default defineConfig({
             "src/{domain,server,infrastructure,contracts}/**/*.test.ts",
             "tests/integration/**/*.test.ts",
           ],
-          env: { NODE_ENV: "test", APP_URL: "http://localhost:3000" },
+          // Fixtures give each user its own client IP through a one-entry X-Forwarded-For.
+          env: { NODE_ENV: "test", APP_URL: "http://localhost:3000", TRUSTED_PROXY_HOPS: "1" },
           testTimeout: 30_000,
           hookTimeout: 60_000,
         },
