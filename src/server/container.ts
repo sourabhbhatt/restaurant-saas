@@ -157,22 +157,21 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
     (env.DATABASE_PROVIDER === "pglite"
       ? await connectPglite(env.PGLITE_DATA_DIR)
       : await connectPostgres(env.DATABASE_URL, env.DATABASE_POOL_MAX));
-  if (options.migrate) await runMigrations(handle, env.DATABASE_PROVIDER);
-  else if (
-    !options.database &&
-    env.DATABASE_PROVIDER === "pglite" &&
-    isPersistentPgliteDir(env.PGLITE_DATA_DIR)
-  ) {
-    const pending = await pendingMigrations(handle);
-    if (pending.length > 0) {
-      await handle.close();
-      throw new Error(
-        `Pending migrations for ${env.PGLITE_DATA_DIR}: ${pending.join(", ")}. Run pnpm db:snapshot then pnpm db:migrate.`,
-      );
-    }
-  }
   let realtime: RealtimeBus | undefined;
   try {
+    if (options.migrate) await runMigrations(handle, env.DATABASE_PROVIDER);
+    else if (
+      !options.database &&
+      env.DATABASE_PROVIDER === "pglite" &&
+      isPersistentPgliteDir(env.PGLITE_DATA_DIR)
+    ) {
+      const pending = await pendingMigrations(handle);
+      if (pending.length > 0) {
+        throw new Error(
+          `Pending migrations for ${env.PGLITE_DATA_DIR}: ${pending.join(", ")}. Run pnpm db:snapshot then pnpm db:migrate.`,
+        );
+      }
+    }
     const db = handle.db;
     if (options.syncSystemData !== false) await ensureSystemData(db);
 
@@ -214,11 +213,12 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
       },
     };
   } catch (error) {
-    try {
-      await realtime?.close?.();
-    } finally {
-      if (ownsHandle) await handle.close();
-    }
+    // Cleanup failures are logged so the original build error is what surfaces.
+    await realtime
+      ?.close?.()
+      .catch((e: unknown) => logger.error("container_cleanup_failed", { e }));
+    if (ownsHandle)
+      await handle.close().catch((e: unknown) => logger.error("container_cleanup_failed", { e }));
     throw error;
   }
 }
