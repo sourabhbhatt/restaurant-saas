@@ -40,7 +40,7 @@ import type { ObjectStorage } from "@/infrastructure/storage/interfaces/object-s
 import { createLocalStorage } from "@/infrastructure/storage/providers/local-storage";
 
 import { createAccessService, type AccessService } from "./authz/access-service";
-import { getEnv, type ServerEnv } from "./config/env";
+import { getEnv, tenantRole, type ServerEnv } from "./config/env";
 import type { Clock, ErrorReporter, Logger } from "./ports/observability";
 import {
   createEntitlementService,
@@ -148,6 +148,7 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
     }
   }
   const db = handle.db;
+  if (tenantRole(env) === null) logger.warn("tenant_role_disabled");
   if (options.syncSystemData !== false) await ensureSystemData(db);
 
   const entitlements = createEntitlementService({ repo: entitlementRepository(db), clock });

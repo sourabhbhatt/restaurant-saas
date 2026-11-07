@@ -2,6 +2,13 @@ import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
 
+import {
+  TenantContextError,
+  type DbContext,
+} from "@/infrastructure/database/interfaces/transaction";
+
+export { TenantContextError, type DbContext };
+
 /**
  * Request-scoped identity for the database layer. The tenant transaction
  * runner copies it into `app.workspace_id` / `app.user_id`, which the
@@ -9,18 +16,6 @@ import { AsyncLocalStorage } from "node:async_hooks";
  * service after it has verified an ACTIVE membership (or by an explicit
  * token lookup on guest paths), never from client input directly.
  */
-export interface DbContext {
-  workspaceId: string | null;
-  userId: string | null;
-}
-
-export class TenantContextError extends Error {
-  constructor(message: "TENANT_CONTEXT_MISSING" | "TENANT_CONTEXT_CONFLICT") {
-    super(message);
-    this.name = "TenantContextError";
-  }
-}
-
 const storage = new AsyncLocalStorage<DbContext>();
 
 export function runWithDbContext<T>(fn: () => Promise<T>): Promise<T> {

@@ -19,6 +19,14 @@ const schema = z.object({
     .string()
     .default("postgres://restaurantos:restaurantos@localhost:5432/restaurantos_dev"),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+  /**
+   * Role tenant transactions switch into so row-level security applies.
+   * `none` disables the switch: emergency rollback only, logged at startup.
+   */
+  DATABASE_TENANT_ROLE: z
+    .string()
+    .regex(/^[a-z_][a-z0-9_]*$/)
+    .default("ros_tenant"),
   /** PGlite data dir; empty = in-memory. */
   PGLITE_DATA_DIR: z.string().optional(),
 
@@ -88,4 +96,9 @@ export function resetEnvCache(): void {
 
 export function cookieSecure(env: ServerEnv = getEnv()): boolean {
   return env.COOKIE_SECURE ?? env.APP_URL.startsWith("https://");
+}
+
+/** The tenant runner's role, or null when disabled with `DATABASE_TENANT_ROLE=none`. */
+export function tenantRole(env: ServerEnv): string | null {
+  return env.DATABASE_TENANT_ROLE === "none" ? null : env.DATABASE_TENANT_ROLE;
 }

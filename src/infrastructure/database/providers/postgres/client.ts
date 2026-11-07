@@ -1,9 +1,15 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
+import { sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-import { UniqueViolationError, type TransactionRunner } from "../../interfaces/transaction";
+import {
+  TenantContextError,
+  UniqueViolationError,
+  type DbContext,
+  type TransactionRunner,
+} from "../../interfaces/transaction";
 import * as schema from "./schema";
 
 export type Schema = typeof schema;
@@ -65,7 +71,11 @@ export function mapDatabaseError(error: unknown): unknown {
   return error;
 }
 
-export function createTransactionRunner<R>(
+/**
+ * Runs as the connection user (the table owner), which bypasses the
+ * non-forced row-level security policies. Only allow-listed system paths use it.
+ */
+export function createSystemRunner<R>(
   db: Executor,
   build: (executor: Executor) => R,
 ): TransactionRunner<R> {
@@ -85,4 +95,47 @@ export function createTransactionRunner<R>(
       }
     },
   };
+}
+
+/** @deprecated Use createSystemRunner or createTenantRunner. */
+export const createTransactionRunner = createSystemRunner;
+
+export interface TenantRunnerOptions {
+  /** Role to switch into for each transaction; null disables the switch (emergency rollback). */
+  role: string | null;
+  context: () => DbContext | null;
+}
+
+const ROLE_NAME = /^[a-z_][a-z0-9_]*$/;
+
+/**
+ * Every `run` and `read` is a transaction that switches into the tenant role
+ * and publishes the request context to the row-level security policies.
+ * `SET LOCAL` / `set_config(..., true)` end with the transaction, so nothing
+ * leaks to the next user of a pooled connection. No context fails closed.
+ */
+export function createTenantRunner<R>(
+  db: Executor,
+  build: (executor: Executor) => R,
+  options: TenantRunnerOptions,
+): TransactionRunner<R> {
+  const { role } = options;
+  if (role !== null && !ROLE_NAME.test(role)) throw new Error(`Invalid tenant role: ${role}`);
+  async function scoped<T>(work: (repos: R) => Promise<T>): Promise<T> {
+    const ctx = options.context();
+    if (!ctx || (ctx.workspaceId === null && ctx.userId === null))
+      throw new TenantContextError("TENANT_CONTEXT_MISSING");
+    try {
+      return await db.transaction(async (tx) => {
+        if (role) await tx.execute(sql.raw(`set local role ${role}`));
+        await tx.execute(
+          sql`select set_config('app.workspace_id', ${ctx.workspaceId ?? ""}, true), set_config('app.user_id', ${ctx.userId ?? ""}, true)`,
+        );
+        return work(build(tx as unknown as Executor));
+      });
+    } catch (error) {
+      throw mapDatabaseError(error);
+    }
+  }
+  return { run: scoped, read: scoped };
 }

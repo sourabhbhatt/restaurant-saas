@@ -21,3 +21,20 @@ export class UniqueViolationError extends Error {
     this.name = "UniqueViolationError";
   }
 }
+
+/**
+ * Request identity the tenant runner hands to the database (row-level
+ * security reads it). Bound per request by the server layer.
+ */
+export interface DbContext {
+  workspaceId: string | null;
+  userId: string | null;
+}
+
+/** Thrown when tenant data is touched without, or with conflicting, request context. */
+export class TenantContextError extends Error {
+  constructor(message: "TENANT_CONTEXT_MISSING" | "TENANT_CONTEXT_CONFLICT") {
+    super(message);
+    this.name = "TenantContextError";
+  }
+}

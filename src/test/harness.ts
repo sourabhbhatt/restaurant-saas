@@ -15,6 +15,8 @@ export async function createTestContainer(): Promise<Container> {
   Object.assign(process.env, { NODE_ENV: "test" });
   process.env.DATABASE_PROVIDER = "pglite";
   process.env.ENABLE_TEST_HOOKS = "true";
+  // Tests always run with the tenant role switch (row-level security) on.
+  delete process.env.DATABASE_TENANT_ROLE;
   resetEnvCache();
   const handle = await connectPglite();
   await runMigrations(handle, "pglite");
