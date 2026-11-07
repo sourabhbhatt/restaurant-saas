@@ -5,6 +5,7 @@
  * Implementations live in src/infrastructure/database/providers/postgres.
  */
 import type {
+  BillingCycle,
   PlanLimits,
   FeatureKey,
   SubscriptionRecord,
@@ -148,11 +149,31 @@ export interface PlanRow {
   features: FeatureKey[];
 }
 
-export interface SubscriptionContext {
-  workspaceStatus: WorkspaceStatus;
+export interface OrganizationBillingRef {
+  id: string;
+  status: "ACTIVE" | "SUSPENDED";
+  /** Super Admin per-organization workspace limit (wins over plan and fair use). */
+  maxWorkspacesOverride: number | null;
+}
+
+/** The organization's subscription: shared by every workspace in it (spec section 7.1). */
+export interface OrganizationSubscriptionContext {
+  organization: OrganizationBillingRef;
   subscription:
-    (SubscriptionRecord & { id: string; planId: string; trialStartsAt: Date | null }) | null;
+    | (SubscriptionRecord & {
+        id: string;
+        planId: string;
+        billingCycle: BillingCycle;
+        trialStartsAt: Date | null;
+      })
+    | null;
   plan: PlanRow | null;
+}
+
+export interface SubscriptionContext extends Omit<OrganizationSubscriptionContext, "organization"> {
+  workspaceStatus: WorkspaceStatus;
+  /** Null only for a workspace not yet backfilled; its subscription is then read by workspace. */
+  organization: OrganizationBillingRef | null;
   overrides: { key: string; value: unknown }[];
 }
 
@@ -166,7 +187,11 @@ export interface WorkspaceUsage {
 }
 
 export interface EntitlementRepository {
+  /** The workspace's status and overrides plus its organization's subscription. */
   loadSubscriptionContext(workspaceId: string): Promise<SubscriptionContext | null>;
+  loadOrganizationSubscriptionContext(
+    organizationId: string,
+  ): Promise<OrganizationSubscriptionContext | null>;
   loadPlatformSettingRows(): Promise<{ key: string; value: unknown }[]>;
   countUsage(workspaceId: string): Promise<WorkspaceUsage>;
 }

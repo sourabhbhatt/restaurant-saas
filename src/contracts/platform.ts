@@ -461,6 +461,25 @@ export interface EntitlementOverrideDto {
   updatedAt: string;
 }
 
+/** The billing owner of a workspace, as Super Admin sees it. */
+export interface AdminOrganizationDto {
+  id: string;
+  name: string;
+  /** Super Admin workspace limit for this organization; null = plan rules apply. */
+  maxWorkspacesOverride: number | null;
+  workspaceCount: number;
+}
+
+export const organizationLimitOverrideSchema = z.object({
+  maxWorkspacesOverride: z
+    .number({ error: "Enter a number of workspaces" })
+    .int("Whole numbers only")
+    .min(0, "Use 0 or more")
+    .max(1000)
+    .nullable(),
+});
+export type OrganizationLimitOverrideInput = z.infer<typeof organizationLimitOverrideSchema>;
+
 export interface AdminWorkspaceDetailDto {
   workspace: {
     id: string;
@@ -473,6 +492,8 @@ export interface AdminWorkspaceDetailDto {
     businessEmail: string | null;
     createdAt: string;
   };
+  /** Null only for a workspace not yet backfilled into an organization. */
+  organization: AdminOrganizationDto | null;
   members: {
     membershipId: string;
     userId: string;

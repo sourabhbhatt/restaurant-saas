@@ -9,6 +9,7 @@ import { nextUpgradeStatus } from "@/domain/subscriptions/upgrade-request";
 import type {
   ActivateSubscriptionInput,
   AdminAuditQuery,
+  AdminOrganizationDto,
   AdminPlanDto,
   AdminSettingsDto,
   AdminWorkspaceDetailDto,
@@ -21,6 +22,7 @@ import type {
   CreateSupportRequestInput,
   CurrentSubscriptionDto,
   EntitlementOverrideInput,
+  OrganizationLimitOverrideInput,
   Paginated,
   PlanInput,
   PublicAnnouncementDto,
@@ -727,22 +729,33 @@ export function createPlatformService(deps: PlatformServiceDeps) {
       const detail = await tx.read(async (r) => {
         const ws = await r.platform.findWorkspace(workspaceId);
         if (!ws) throw notFound("Workspace");
-        const [members, restaurants, overrides, sub, history, plans] = await Promise.all([
-          r.platform.listMembers(workspaceId),
-          r.platform.listRestaurantTree(workspaceId),
-          r.platform.listOverrides(workspaceId),
-          r.platform.findCurrentSubscription(workspaceId),
-          r.platform.listSubscriptionEvents(workspaceId, 100),
-          r.platform.listPlans(),
-        ]);
-        return { ws, members, restaurants, overrides, sub, history, plans };
+        const [members, restaurants, overrides, sub, history, plans, organization] =
+          await Promise.all([
+            r.platform.listMembers(workspaceId),
+            r.platform.listRestaurantTree(workspaceId),
+            r.platform.listOverrides(workspaceId),
+            r.platform.findCurrentSubscription(workspaceId),
+            r.platform.listSubscriptionEvents(workspaceId, 100),
+            r.platform.listPlans(),
+            r.platform.findOrganizationOfWorkspace(workspaceId),
+          ]);
+        return { ws, members, restaurants, overrides, sub, history, plans, organization };
       });
       const [ent, usage] = await Promise.all([
         entitlements.getWorkspaceEntitlements(workspaceId),
         entitlements.getUsage(workspaceId),
       ]);
+      const { organizationId: _organizationId, ...workspace } = detail.ws;
       return {
-        workspace: { ...detail.ws, createdAt: detail.ws.createdAt.toISOString() },
+        workspace: { ...workspace, createdAt: detail.ws.createdAt.toISOString() },
+        organization: detail.organization
+          ? {
+              id: detail.organization.id,
+              name: detail.organization.name,
+              maxWorkspacesOverride: detail.organization.maxWorkspacesOverride,
+              workspaceCount: detail.organization.workspaceCount,
+            }
+          : null,
         members: detail.members.map((m) => ({ ...m, joinedAt: m.joinedAt.toISOString() })),
         restaurants: detail.restaurants,
         usage,
@@ -804,6 +817,38 @@ export function createPlatformService(deps: PlatformServiceDeps) {
         }
       });
       await deliver(outbox);
+    },
+
+    /** Super Admin per-organization workspace limit (spec section 7.2: the override wins). */
+    async setOrganizationLimitOverride(
+      admin: UserActor,
+      organizationId: string,
+      input: OrganizationLimitOverrideInput,
+      meta: RequestMeta,
+    ): Promise<AdminOrganizationDto> {
+      assertAdmin(admin);
+      return tx.run(async (r) => {
+        const before = await r.platform.findOrganization(organizationId);
+        if (!before) throw notFound("Organization");
+        const after = await r.platform.setOrganizationMaxWorkspacesOverride(
+          organizationId,
+          input.maxWorkspacesOverride,
+        );
+        if (!after) throw notFound("Organization");
+        await recordAudit(
+          r.audit,
+          adminActor(admin, meta),
+          "organization.limit_override_changed",
+          { workspaceId: null, targetType: "organization", targetId: organizationId },
+          { from: before.maxWorkspacesOverride, to: after.maxWorkspacesOverride },
+        );
+        return {
+          id: after.id,
+          name: after.name,
+          maxWorkspacesOverride: after.maxWorkspacesOverride,
+          workspaceCount: after.workspaceCount,
+        };
+      });
     },
 
     /**

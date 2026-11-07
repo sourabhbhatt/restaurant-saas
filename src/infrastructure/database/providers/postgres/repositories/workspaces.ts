@@ -5,6 +5,8 @@ import type { WorkspaceRepository } from "@/server/modules/workspaces/ports";
 
 import type { Executor } from "../client";
 import {
+  organizationMembers,
+  organizations,
   roles,
   subscriptionEvents,
   subscriptionPlans,
@@ -16,6 +18,7 @@ import {
 function toDto(row: typeof workspaces.$inferSelect): WorkspaceDto {
   return {
     id: row.id,
+    organizationId: row.organizationId,
     name: row.name,
     slug: row.slug,
     status: row.status,
@@ -96,10 +99,21 @@ export function workspaceRepository(db: Executor): WorkspaceRepository {
         .limit(1);
       return row ?? null;
     },
+    async insertOrganization(input) {
+      const [row] = await db
+        .insert(organizations)
+        .values({ name: input.name, createdBy: input.createdBy })
+        .returning({ id: organizations.id });
+      return row!;
+    },
+    async insertOrganizationMember(input) {
+      await db.insert(organizationMembers).values(input);
+    },
     async insertSubscription(input) {
       const [sub] = await db
         .insert(subscriptions)
         .values({
+          organizationId: input.organizationId,
           workspaceId: input.workspaceId,
           planId: input.planId,
           status: input.status,

@@ -30,7 +30,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   activateSubscriptionSchema,
   extendTrialSchema,
+  organizationLimitOverrideSchema,
   subscriptionReasonSchema,
+  type AdminOrganizationDto,
 } from "@/contracts/platform";
 import { BILLING_CYCLES } from "@/domain/subscriptions/entitlements";
 import { api, applyFieldErrors, errorMessage } from "@/lib/api-client";
@@ -341,4 +343,61 @@ export type ReasonActionKind = "SUSPENDED" | "DEACTIVATED" | "ACTIVE" | "cancel"
 
 export function useReasonActionState() {
   return useState<ReasonActionKind | null>(null);
+}
+
+type OrganizationLimitForm = z.infer<typeof organizationLimitOverrideSchema>;
+
+/** Per-organization workspace limit override (blank = the plan's rules apply). */
+export function OrganizationLimitForm({
+  workspaceId,
+  organization,
+}: {
+  workspaceId: string;
+  organization: AdminOrganizationDto;
+}) {
+  const action = useWorkspaceAction(workspaceId, (body: OrganizationLimitForm) =>
+    api.patch<AdminOrganizationDto>(`/admin/organizations/${organization.id}`, body),
+  );
+  const form = useForm<OrganizationLimitForm>({
+    resolver: zodResolver(organizationLimitOverrideSchema),
+    values: { maxWorkspacesOverride: organization.maxWorkspacesOverride },
+  });
+  const onSubmit = form.handleSubmit(async (values) => {
+    try {
+      await action.mutateAsync(values);
+      toast.success(
+        values.maxWorkspacesOverride === null
+          ? "Workspace limit override removed"
+          : `Workspace limit set to ${values.maxWorkspacesOverride}`,
+      );
+    } catch (error) {
+      if (applyFieldErrors(error, form.setError, ["maxWorkspacesOverride"])) return;
+      toast.error(errorMessage(error));
+    }
+  });
+  return (
+    <form className="flex flex-wrap items-end gap-3" onSubmit={onSubmit} noValidate>
+      <FormField
+        label="Max workspaces override"
+        description="Blank: plan rules apply (trial, monthly and grace allow 1)."
+        error={form.formState.errors.maxWorkspacesOverride?.message}
+        className="min-w-56"
+      >
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={1000}
+          placeholder="Plan rules"
+          {...form.register("maxWorkspacesOverride", {
+            setValueAs: (v: unknown) => (v === "" || v === null ? null : Number(v)),
+          })}
+        />
+      </FormField>
+      <Button type="submit" variant="outline" disabled={action.isPending}>
+        {action.isPending && <Spinner decorative />}
+        Save limit
+      </Button>
+    </form>
+  );
 }

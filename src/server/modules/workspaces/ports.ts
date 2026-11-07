@@ -4,6 +4,7 @@ import type { AuditRepository } from "@/server/ports/core-repositories";
 export type { OnboardingProgress };
 
 export interface CreateWorkspaceRecord {
+  organizationId: string;
   name: string;
   slug: string;
   country: string;
@@ -32,7 +33,15 @@ export interface WorkspaceRepository {
     invitedBy?: string | null;
   }): Promise<string>;
   findPlanByKey(key: string): Promise<{ id: string; key: string } | null>;
+  insertOrganization(input: { name: string; createdBy: string }): Promise<{ id: string }>;
+  insertOrganizationMember(input: {
+    organizationId: string;
+    userId: string;
+    role: "OWNER" | "BILLING_ADMIN";
+  }): Promise<void>;
+  /** The organization's subscription; `workspaceId` is dual-written as its first workspace. */
   insertSubscription(input: {
+    organizationId: string;
     workspaceId: string;
     planId: string;
     status: "TRIALING" | "ACTIVE";

@@ -15,6 +15,7 @@ import { useAdminWorkspace } from "./queries";
 import {
   ActivateSubscriptionDialog,
   ExtendTrialDialog,
+  OrganizationLimitForm,
   ReasonConfirmDialog,
   useReasonActionState,
   useReasonActions,
@@ -103,6 +104,21 @@ export function AdminWorkspaceDetailPage() {
         description={`${d.workspace.slug} · created ${date(d.workspace.createdAt)}`}
         actions={<WorkspaceStatusBadge status={d.workspace.status} />}
       />
+      {d.organization && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Organization</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 text-sm">
+            <p>
+              <strong>{d.organization.name}</strong> · {d.organization.workspaceCount}{" "}
+              {d.organization.workspaceCount === 1 ? "workspace" : "workspaces"} share this
+              subscription.
+            </p>
+            <OrganizationLimitForm workspaceId={workspaceId} organization={d.organization} />
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Subscription</CardTitle>

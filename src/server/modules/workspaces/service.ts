@@ -33,6 +33,8 @@ export interface WorkspaceServiceDeps {
       | "findSystemRoleId"
       | "insertMembership"
       | "findPlanByKey"
+      | "insertOrganization"
+      | "insertOrganizationMember"
       | "insertSubscription"
     >;
     audit: WorkspaceRepos["audit"];
@@ -49,7 +51,8 @@ export function createWorkspaceService({
 }: WorkspaceServiceDeps) {
   return {
     /**
-     * Create a workspace owned by the actor and start its free trial. The trial
+     * Create an organization (the billing owner) with its first workspace,
+     * owned by the actor, and start the organization's free trial. The trial
      * plan and length come from platform settings (Super Admin), never code.
      */
     async create(
@@ -65,7 +68,21 @@ export function createWorkspaceService({
           if (i > 20) throw conflict("Could not allocate a workspace URL; try another name");
           slug = `${base}-${Math.random().toString(36).slice(2, 7)}`;
         }
-        const ws = await r.workspaces.insert({ ...input, slug, createdBy: actor.userId });
+        const org = await r.workspaces.insertOrganization({
+          name: input.name,
+          createdBy: actor.userId,
+        });
+        await r.workspaces.insertOrganizationMember({
+          organizationId: org.id,
+          userId: actor.userId,
+          role: "OWNER",
+        });
+        const ws = await r.workspaces.insert({
+          ...input,
+          organizationId: org.id,
+          slug,
+          createdBy: actor.userId,
+        });
         const ownerRole = await r.workspaces.findSystemRoleId("workspace_owner");
         await r.workspaces.insertMembership({
           workspaceId: ws.id,
@@ -78,6 +95,7 @@ export function createWorkspaceService({
           throw new DomainError("CONFLICT", "No trial plan is configured. Contact support.");
         const now = clock.now();
         await r.workspaces.insertSubscription({
+          organizationId: org.id,
           workspaceId: ws.id,
           planId: plan.id,
           planKey: plan.key,
@@ -95,7 +113,7 @@ export function createWorkspaceService({
             targetType: "workspace",
             targetId: ws.id,
           },
-          { trialDays: settings.trialDays, planKey: plan.key },
+          { organizationId: org.id, trialDays: settings.trialDays, planKey: plan.key },
         );
         return ws;
       });

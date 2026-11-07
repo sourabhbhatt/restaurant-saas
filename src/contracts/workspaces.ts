@@ -68,6 +68,8 @@ export interface OnboardingProgress {
 
 export interface WorkspaceDto {
   id: string;
+  /** Billing owner (spec section 7.1); null only for a row not yet backfilled. */
+  organizationId: string | null;
   name: string;
   slug: string;
   status: string;

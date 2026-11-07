@@ -116,6 +116,14 @@ Ownership column = the module (`src/server/modules/<m>`) that implements it.
 
 | `/public/plans` (GET) · `/public/announcements` (GET) · `/workspaces/:id/subscription` (GET overview + history) · `/workspaces/:id/support` (GET/POST) · `/workspaces/:id/audit` (GET) · `/admin/*` (Super Admin: overview, workspaces, plans, subscriptions, settings, announcements, support, audit) · `/jobs/subscriptions` (POST, `Authorization: Bearer CRON_SECRET`) · `/test/clock` (POST, only with `ENABLE_TEST_HOOKS`) |
 
+## Organizations (platform module)
+
+Billing is owned by the organization (spec section 7.1): one subscription per organization, shared by every workspace in it. Super Admin subscription actions under `/admin/workspaces/:workspaceId/subscription/*` act on that workspace's organization.
+
+| Method | Path                                   | Notes                                                                                                                                                                                                                             |
+| ------ | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PATCH  | `/admin/organizations/:organizationId` | `{ maxWorkspacesOverride: number \| null }` → `AdminOrganizationDto`. Per-organization workspace limit that wins over the plan and fair use (null = plan rules). Platform role; audited as `organization.limit_override_changed`. |
+
 ## Notifications & offline (notifications module)
 
 | `/notifications` (GET list, unread count) · `/notifications/read` (POST ids or all) · `/notifications/preferences` (GET/PUT) · `/push/subscriptions` (POST/DELETE) · `/sync/ping` (GET connectivity probe) |

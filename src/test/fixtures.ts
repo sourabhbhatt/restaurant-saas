@@ -10,6 +10,7 @@ import {
   roleAssignments,
   roles,
   workspaceMemberships,
+  workspaces,
 } from "@/infrastructure/database/providers/postgres/schema";
 import { POST as signUp } from "@/app/api/v1/auth/signup/route";
 import { POST as createWorkspace } from "@/app/api/v1/workspaces/route";
@@ -49,8 +50,49 @@ export async function createWorkspaceAs(
 
 export type { Container };
 
+/** The billing organization of a workspace (null only for pre-backfill rows). */
+export async function organizationOf(c: Container, workspaceId: string): Promise<string> {
+  const [row] = await c.db
+    .select({ organizationId: workspaces.organizationId })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+  if (!row?.organizationId) throw new Error(`workspace ${workspaceId} has no organization`);
+  return row.organizationId;
+}
+
 // ------------------------------------------------------------------
 // Direct-insert fixtures for module tests (bypass APIs owned by other modules).
+
+/**
+ * A further workspace inside an existing organization, owned by `userId`.
+ * Adds no subscription: the organization's subscription covers it.
+ */
+export async function addWorkspaceToOrganization(
+  c: Container,
+  input: { organizationId: string; userId: string; name: string },
+): Promise<{ id: string; name: string }> {
+  const [ownerRole] = await c.db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(and(isNull(roles.workspaceId), eq(roles.key, "workspace_owner")))
+    .limit(1);
+  const [ws] = await c.db
+    .insert(workspaces)
+    .values({
+      organizationId: input.organizationId,
+      name: input.name,
+      slug: `${input.name.toLowerCase().replace(/\W+/g, "-")}-${Date.now().toString(36)}`,
+      createdBy: input.userId,
+    })
+    .returning({ id: workspaces.id, name: workspaces.name });
+  await c.db.insert(workspaceMemberships).values({
+    workspaceId: ws!.id,
+    userId: input.userId,
+    roleId: ownerRole!.id,
+  });
+  return ws!;
+}
 
 export async function insertRestaurantWithBranch(
   c: Container,

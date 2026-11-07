@@ -11,7 +11,12 @@ import {
   type OperationKind,
 } from "@/domain/subscriptions/entitlements";
 
-import type { EntitlementRepository, WorkspaceUsage } from "../ports/core-repositories";
+import type {
+  EntitlementRepository,
+  OrganizationSubscriptionContext,
+  SubscriptionContext,
+  WorkspaceUsage,
+} from "../ports/core-repositories";
 import type { Clock } from "../ports/observability";
 
 const LIMIT_TO_USAGE: Record<LimitKey, keyof WorkspaceUsage> = {
@@ -25,8 +30,14 @@ const LIMIT_TO_USAGE: Record<LimitKey, keyof WorkspaceUsage> = {
 
 export interface EntitlementService {
   getPlatformSettings(): Promise<PlatformSettings>;
-  /** The single source of truth for what a workspace may do right now. */
+  /**
+   * The single source of truth for what a workspace may do right now: its
+   * organization's entitlements, narrowed by the workspace's own status and
+   * Super Admin overrides.
+   */
   getWorkspaceEntitlements(workspaceId: string): Promise<Entitlements>;
+  /** The organization's subscription phase and plan, shared by all its workspaces. */
+  getOrganizationEntitlements(organizationId: string): Promise<Entitlements>;
   getUsage(workspaceId: string): Promise<WorkspaceUsage>;
   assertOperation(workspaceId: string, kind: OperationKind): Promise<Entitlements>;
   assertFeature(workspaceId: string, feature: FeatureKey): Promise<void>;
@@ -41,22 +52,42 @@ export function createEntitlementService(deps: {
   const { repo, clock } = deps;
   const settings = async () => mergePlatformSettings(await repo.loadPlatformSettingRows());
 
-  const get = async (workspaceId: string) => {
-    const [ctx, s] = await Promise.all([repo.loadSubscriptionContext(workspaceId), settings()]);
-    if (!ctx) throw notFound("Workspace");
+  const resolve = (
+    ctx: OrganizationSubscriptionContext | SubscriptionContext,
+    s: PlatformSettings,
+  ) => {
+    const workspaceStatus = "workspaceStatus" in ctx ? ctx.workspaceStatus : "ACTIVE";
     return resolveEntitlements({
-      workspaceStatus: ctx.workspaceStatus,
+      // A suspended organization suspends every workspace in it.
+      workspaceStatus:
+        workspaceStatus === "ACTIVE" && ctx.organization?.status === "SUSPENDED"
+          ? "SUSPENDED"
+          : workspaceStatus,
       subscription: ctx.subscription,
       plan: ctx.plan,
-      overrides: ctx.overrides,
+      overrides: "overrides" in ctx ? ctx.overrides : [],
       policy: { graceDays: s.graceDays, restrictedMode: s.restrictedMode },
       now: clock.now(),
     });
   };
 
+  const get = async (workspaceId: string) => {
+    const [ctx, s] = await Promise.all([repo.loadSubscriptionContext(workspaceId), settings()]);
+    if (!ctx) throw notFound("Workspace");
+    return resolve(ctx, s);
+  };
+
   return {
     getPlatformSettings: settings,
     getWorkspaceEntitlements: get,
+    async getOrganizationEntitlements(organizationId) {
+      const [ctx, s] = await Promise.all([
+        repo.loadOrganizationSubscriptionContext(organizationId),
+        settings(),
+      ]);
+      if (!ctx) throw notFound("Organization");
+      return resolve(ctx, s);
+    },
     getUsage: (workspaceId) => repo.countUsage(workspaceId),
     async assertOperation(workspaceId, kind) {
       const ent = await get(workspaceId);

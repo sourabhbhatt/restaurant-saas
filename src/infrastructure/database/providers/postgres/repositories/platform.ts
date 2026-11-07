@@ -30,6 +30,7 @@ import type {
   PlatformRepository,
   SubscriptionRow,
   SupportFilter,
+  WorkspaceRecord,
 } from "@/server/modules/platform/ports";
 
 import type { Executor } from "../client";
@@ -38,6 +39,7 @@ import {
   auditLogs,
   branches,
   notificationPreferences,
+  organizations,
   platformSettings,
   restaurants,
   roles,
@@ -85,6 +87,7 @@ function toSubscriptionRow(
 ): SubscriptionRow {
   return {
     id: sub.id,
+    organizationId: sub.organizationId,
     workspaceId: sub.workspaceId,
     planId: sub.planId,
     planKey: plan.key,
@@ -113,6 +116,21 @@ function toAnnouncement(row: typeof announcements.$inferSelect): AnnouncementDto
     isActive: row.isActive,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toWorkspaceRecord(w: typeof workspaces.$inferSelect): WorkspaceRecord {
+  return {
+    id: w.id,
+    organizationId: w.organizationId,
+    name: w.name,
+    slug: w.slug,
+    status: w.status,
+    statusReason: w.statusReason,
+    country: w.country,
+    defaultCurrency: w.defaultCurrency,
+    businessEmail: w.businessEmail,
+    createdAt: w.createdAt,
   };
 }
 
@@ -177,6 +195,59 @@ export function platformRepository(db: Executor): PlatformRepository {
       .where(eq(subscriptions.isCurrent, true))
       .groupBy(subscriptions.planId);
     return new Map(rows.map((r) => [r.planId, r.n]));
+  }
+
+  /**
+   * The subscription rows of a workspace's billing owner: its organization, or
+   * the workspace itself for a row not yet backfilled (spec section 9.2, switch).
+   */
+  async function ownedBy(workspaceId: string): Promise<SQL> {
+    const [ws] = await db
+      .select({ organizationId: workspaces.organizationId })
+      .from(workspaces)
+      .where(eq(workspaces.id, workspaceId))
+      .limit(1);
+    return ws?.organizationId
+      ? eq(subscriptions.organizationId, ws.organizationId)
+      : eq(subscriptions.workspaceId, workspaceId);
+  }
+
+  /** Dual-write target for `subscriptions.workspace_id`: the organization's first workspace. */
+  async function billingOwner(
+    workspaceId: string,
+  ): Promise<{ organizationId: string | null; workspaceId: string }> {
+    const [ws] = await db
+      .select({ organizationId: workspaces.organizationId })
+      .from(workspaces)
+      .where(eq(workspaces.id, workspaceId))
+      .limit(1);
+    if (!ws?.organizationId) return { organizationId: null, workspaceId };
+    const [first] = await db
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(eq(workspaces.organizationId, ws.organizationId))
+      .orderBy(asc(workspaces.createdAt), asc(workspaces.id))
+      .limit(1);
+    return { organizationId: ws.organizationId, workspaceId: first?.id ?? workspaceId };
+  }
+
+  async function organizationRecord(where: SQL) {
+    const [row] = await db
+      .select({
+        id: organizations.id,
+        name: organizations.name,
+        status: organizations.status,
+        maxWorkspacesOverride: organizations.maxWorkspacesOverride,
+      })
+      .from(organizations)
+      .where(where)
+      .limit(1);
+    if (!row) return null;
+    const [n] = await db
+      .select({ n: count() })
+      .from(workspaces)
+      .where(and(eq(workspaces.organizationId, row.id), isNull(workspaces.deletedAt)));
+    return { ...row, workspaceCount: n?.n ?? 0 };
   }
 
   return {
@@ -351,7 +422,7 @@ export function platformRepository(db: Executor): PlatformRepository {
         .select({ sub: subscriptions, key: subscriptionPlans.key, name: subscriptionPlans.name })
         .from(subscriptions)
         .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId))
-        .where(and(eq(subscriptions.workspaceId, workspaceId), eq(subscriptions.isCurrent, true)))
+        .where(and(await ownedBy(workspaceId), eq(subscriptions.isCurrent, true)))
         .limit(1);
       return row ? toSubscriptionRow(row.sub, row) : null;
     },
@@ -359,13 +430,15 @@ export function platformRepository(db: Executor): PlatformRepository {
       await db
         .update(subscriptions)
         .set({ isCurrent: false })
-        .where(and(eq(subscriptions.workspaceId, workspaceId), eq(subscriptions.isCurrent, true)));
+        .where(and(await ownedBy(workspaceId), eq(subscriptions.isCurrent, true)));
     },
     async insertSubscription(input) {
+      const owner = await billingOwner(input.workspaceId);
       const [row] = await db
         .insert(subscriptions)
         .values({
-          workspaceId: input.workspaceId,
+          organizationId: owner.organizationId,
+          workspaceId: owner.workspaceId,
           planId: input.planId,
           status: input.status,
           billingCycle: input.billingCycle,
@@ -391,9 +464,7 @@ export function platformRepository(db: Executor): PlatformRepository {
       await db
         .update(subscriptions)
         .set(set)
-        .where(
-          and(eq(subscriptions.id, subscriptionId), eq(subscriptions.workspaceId, workspaceId)),
-        );
+        .where(and(eq(subscriptions.id, subscriptionId), await ownedBy(workspaceId)));
     },
     async compareAndSetReminders(subscriptionId, expected, next) {
       const rows = await db
@@ -421,11 +492,22 @@ export function platformRepository(db: Executor): PlatformRepository {
       });
     },
     async listSubscriptionEvents(workspaceId, limit) {
+      // The workspace's own events plus those of its organization's subscriptions,
+      // which may have been recorded against a sibling workspace.
+      const orgSubscriptions = db
+        .select({ id: subscriptions.id })
+        .from(subscriptions)
+        .where(await ownedBy(workspaceId));
       const rows = await db
         .select({ e: subscriptionEvents, actorName: users.name })
         .from(subscriptionEvents)
         .leftJoin(users, eq(users.id, subscriptionEvents.actorUserId))
-        .where(eq(subscriptionEvents.workspaceId, workspaceId))
+        .where(
+          or(
+            eq(subscriptionEvents.workspaceId, workspaceId),
+            inArray(subscriptionEvents.subscriptionId, orgSubscriptions),
+          ),
+        )
         .orderBy(desc(subscriptionEvents.createdAt))
         .limit(limit);
       return rows.map(({ e, actorName }) => ({
@@ -488,11 +570,25 @@ export function platformRepository(db: Executor): PlatformRepository {
       const ids = ws.map((w) => w.id);
 
       const [subs, rCounts, bCounts, uCounts, owners, overrides] = await Promise.all([
+        // Each workspace's organization subscription (a legacy row by workspace until backfilled).
         db
-          .select({ sub: subscriptions, plan: subscriptionPlans })
-          .from(subscriptions)
+          .select({ wsId: workspaces.id, sub: subscriptions, plan: subscriptionPlans })
+          .from(workspaces)
+          .innerJoin(
+            subscriptions,
+            and(
+              eq(subscriptions.isCurrent, true),
+              or(
+                eq(subscriptions.organizationId, workspaces.organizationId),
+                and(
+                  isNull(workspaces.organizationId),
+                  eq(subscriptions.workspaceId, workspaces.id),
+                ),
+              ),
+            ),
+          )
           .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId))
-          .where(and(inArray(subscriptions.workspaceId, ids), eq(subscriptions.isCurrent, true))),
+          .where(inArray(workspaces.id, ids)),
         db
           .select({ id: restaurants.workspaceId, n: count() })
           .from(restaurants)
@@ -541,7 +637,7 @@ export function platformRepository(db: Executor): PlatformRepository {
       const uc = toMap(uCounts);
       const ownerBy = new Map<string, string>();
       for (const o of owners) if (!ownerBy.has(o.id)) ownerBy.set(o.id, o.email);
-      const subBy = new Map(subs.map((s) => [s.sub.workspaceId, s]));
+      const subBy = new Map(subs.map((s) => [s.wsId, s]));
 
       return ws.map((w): AdminWorkspaceBaseRow => {
         const s = subBy.get(w.id);
@@ -579,19 +675,7 @@ export function platformRepository(db: Executor): PlatformRepository {
         .from(workspaces)
         .where(and(eq(workspaces.id, workspaceId), isNull(workspaces.deletedAt)))
         .limit(1);
-      return w
-        ? {
-            id: w.id,
-            name: w.name,
-            slug: w.slug,
-            status: w.status,
-            statusReason: w.statusReason,
-            country: w.country,
-            defaultCurrency: w.defaultCurrency,
-            businessEmail: w.businessEmail,
-            createdAt: w.createdAt,
-          }
-        : null;
+      return w ? toWorkspaceRecord(w) : null;
     },
     async setWorkspaceStatus(workspaceId, status, reason) {
       const [w] = await db
@@ -599,19 +683,28 @@ export function platformRepository(db: Executor): PlatformRepository {
         .set({ status, statusReason: reason, version: sql`${workspaces.version} + 1` })
         .where(and(eq(workspaces.id, workspaceId), isNull(workspaces.deletedAt)))
         .returning();
-      return w
-        ? {
-            id: w.id,
-            name: w.name,
-            slug: w.slug,
-            status: w.status,
-            statusReason: w.statusReason,
-            country: w.country,
-            defaultCurrency: w.defaultCurrency,
-            businessEmail: w.businessEmail,
-            createdAt: w.createdAt,
-          }
+      return w ? toWorkspaceRecord(w) : null;
+    },
+    async findOrganization(organizationId) {
+      return organizationRecord(eq(organizations.id, organizationId));
+    },
+    async findOrganizationOfWorkspace(workspaceId) {
+      const [ws] = await db
+        .select({ organizationId: workspaces.organizationId })
+        .from(workspaces)
+        .where(eq(workspaces.id, workspaceId))
+        .limit(1);
+      return ws?.organizationId
+        ? organizationRecord(eq(organizations.id, ws.organizationId))
         : null;
+    },
+    async setOrganizationMaxWorkspacesOverride(organizationId, value) {
+      const rows = await db
+        .update(organizations)
+        .set({ maxWorkspacesOverride: value })
+        .where(eq(organizations.id, organizationId))
+        .returning({ id: organizations.id });
+      return rows.length ? organizationRecord(eq(organizations.id, organizationId)) : null;
     },
     async listMembers(workspaceId) {
       return db

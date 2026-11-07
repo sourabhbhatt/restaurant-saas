@@ -27,6 +27,9 @@ import type { AuditRepository } from "@/server/ports/core-repositories";
 /** Current subscription with its plan, dates as Date. */
 export interface SubscriptionRow {
   id: string;
+  /** The billing owner; null only for a row not yet backfilled. */
+  organizationId: string | null;
+  /** Legacy column, dual-written: the organization's first workspace. */
   workspaceId: string;
   planId: string;
   planKey: string;
@@ -66,6 +69,7 @@ export interface AdminWorkspaceBaseRow {
 
 export interface WorkspaceRecord {
   id: string;
+  organizationId: string | null;
   name: string;
   slug: string;
   status: WorkspaceStatus;
@@ -74,6 +78,14 @@ export interface WorkspaceRecord {
   defaultCurrency: string;
   businessEmail: string | null;
   createdAt: Date;
+}
+
+export interface OrganizationRecord {
+  id: string;
+  name: string;
+  status: "ACTIVE" | "SUSPENDED";
+  maxWorkspacesOverride: number | null;
+  workspaceCount: number;
 }
 
 export interface WorkspaceMemberRow {
@@ -215,10 +227,11 @@ export interface PlatformRepository extends UpgradeRepository {
   updateAnnouncement(id: string, input: AnnouncementInput): Promise<AnnouncementDto | null>;
   deleteAnnouncement(id: string): Promise<boolean>;
 
-  // subscriptions
+  // subscriptions: every method resolves the workspace to its organization, the billing owner
   findCurrentSubscription(workspaceId: string): Promise<SubscriptionRow | null>;
   /** Marks the current subscription non-current (call before inserting a new one). */
   retireCurrentSubscription(workspaceId: string): Promise<void>;
+  /** Inserts the organization's subscription; `workspace_id` is dual-written as its first workspace. */
   insertSubscription(input: {
     workspaceId: string;
     planId: string;
@@ -272,6 +285,12 @@ export interface PlatformRepository extends UpgradeRepository {
     status: WorkspaceStatus,
     reason: string,
   ): Promise<WorkspaceRecord | null>;
+  findOrganization(organizationId: string): Promise<OrganizationRecord | null>;
+  findOrganizationOfWorkspace(workspaceId: string): Promise<OrganizationRecord | null>;
+  setOrganizationMaxWorkspacesOverride(
+    organizationId: string,
+    value: number | null,
+  ): Promise<OrganizationRecord | null>;
   listMembers(workspaceId: string): Promise<WorkspaceMemberRow[]>;
   listRestaurantTree(workspaceId: string): Promise<RestaurantTreeRow[]>;
   listOverrides(workspaceId: string): Promise<EntitlementOverrideDto[]>;

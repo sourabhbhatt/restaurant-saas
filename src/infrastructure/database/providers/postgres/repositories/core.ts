@@ -21,6 +21,7 @@ import {
   emailOutbox,
   idempotencyRecords,
   menuItems,
+  organizations,
   platformSettings,
   rateLimitBuckets,
   restaurants,
@@ -311,48 +312,81 @@ export function auditRepository(db: Executor): AuditRepository {
 }
 
 export function entitlementRepository(db: Executor): EntitlementRepository {
+  /** The current subscription of a billing owner (organization, or a legacy workspace). */
+  async function currentSubscription(owner: { organizationId: string } | { workspaceId: string }) {
+    const [row] = await db
+      .select({ sub: subscriptions, plan: subscriptionPlans })
+      .from(subscriptions)
+      .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId))
+      .where(
+        and(
+          "organizationId" in owner
+            ? eq(subscriptions.organizationId, owner.organizationId)
+            : eq(subscriptions.workspaceId, owner.workspaceId),
+          eq(subscriptions.isCurrent, true),
+        ),
+      )
+      .limit(1);
+    return {
+      subscription: row
+        ? {
+            id: row.sub.id,
+            planId: row.sub.planId,
+            status: row.sub.status,
+            billingCycle: row.sub.billingCycle,
+            trialStartsAt: row.sub.trialStartsAt,
+            trialEndsAt: row.sub.trialEndsAt,
+            currentPeriodEnd: row.sub.currentPeriodEnd,
+            cancelledAt: row.sub.cancelledAt,
+          }
+        : null,
+      plan: row
+        ? {
+            id: row.plan.id,
+            key: row.plan.key,
+            name: row.plan.name,
+            limits: row.plan.limits,
+            features: row.plan.features,
+          }
+        : null,
+    };
+  }
+
+  async function organizationRef(organizationId: string) {
+    const [org] = await db
+      .select({
+        id: organizations.id,
+        status: organizations.status,
+        maxWorkspacesOverride: organizations.maxWorkspacesOverride,
+      })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+    return org ?? null;
+  }
+
   return {
     async loadSubscriptionContext(workspaceId) {
       const [ws] = await db
-        .select({ status: workspaces.status })
+        .select({ status: workspaces.status, organizationId: workspaces.organizationId })
         .from(workspaces)
         .where(eq(workspaces.id, workspaceId))
         .limit(1);
       if (!ws) return null;
-      const [row] = await db
-        .select({ sub: subscriptions, plan: subscriptionPlans })
-        .from(subscriptions)
-        .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId))
-        .where(and(eq(subscriptions.workspaceId, workspaceId), eq(subscriptions.isCurrent, true)))
-        .limit(1);
+      const organization = ws.organizationId ? await organizationRef(ws.organizationId) : null;
+      const current = await currentSubscription(
+        organization ? { organizationId: organization.id } : { workspaceId },
+      );
       const overrides = await db
         .select({ key: workspaceEntitlements.key, value: workspaceEntitlements.value })
         .from(workspaceEntitlements)
         .where(eq(workspaceEntitlements.workspaceId, workspaceId));
-      return {
-        workspaceStatus: ws.status,
-        subscription: row
-          ? {
-              id: row.sub.id,
-              planId: row.sub.planId,
-              status: row.sub.status,
-              trialStartsAt: row.sub.trialStartsAt,
-              trialEndsAt: row.sub.trialEndsAt,
-              currentPeriodEnd: row.sub.currentPeriodEnd,
-              cancelledAt: row.sub.cancelledAt,
-            }
-          : null,
-        plan: row
-          ? {
-              id: row.plan.id,
-              key: row.plan.key,
-              name: row.plan.name,
-              limits: row.plan.limits,
-              features: row.plan.features,
-            }
-          : null,
-        overrides,
-      };
+      return { workspaceStatus: ws.status, organization, ...current, overrides };
+    },
+    async loadOrganizationSubscriptionContext(organizationId) {
+      const organization = await organizationRef(organizationId);
+      if (!organization) return null;
+      return { organization, ...(await currentSubscription({ organizationId })) };
     },
     async loadPlatformSettingRows() {
       return db
