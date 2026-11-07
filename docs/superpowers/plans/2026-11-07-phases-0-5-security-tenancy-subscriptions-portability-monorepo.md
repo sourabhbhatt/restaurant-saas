@@ -721,8 +721,8 @@
 **Interfaces:**
 
 - `pnpm db:dump --out <file>`:
-  - postgres → `pg_dump --format=custom --no-owner --no-acl "$DATABASE_URL"`;
-  - pglite → `pgDump({ pg })` from `@electric-sql/pglite-tools`, writing plain SQL;
+  - postgres → `pg_dump --format=custom --no-owner "$DATABASE_URL"` (ACLs kept: the tenant grants and policies are restored from the dump, never by re-applying migration SQL);
+  - pglite → `pgDump({ pg, args: ["--no-owner"] })` from `@electric-sql/pglite-tools`, writing plain SQL with the dump's `ALTER DEFAULT PRIVILEGES FOR ROLE <owner>` statements rewritten without `FOR ROLE`, so they bind to whoever restores;
   - writes `<file>.manifest.json` with `countRows`.
 - `pnpm db:restore --in <file> --target-url <url>`:
   - refuses (exit 2) unless the target has zero tables in `public`, so it never overwrites;

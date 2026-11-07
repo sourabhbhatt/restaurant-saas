@@ -17,9 +17,12 @@ import {
   dumpPgliteSql,
   dumpPgliteDir,
   NonEmptyTargetError,
+  rebindDefaultPrivileges,
   resolvePostgresUrl,
   spawnFromFile,
   spawnToFile,
+  splitRestoreToc,
+  TenantRoleAdminError,
   TenantRolesError,
   type DumpPgliteDeps,
 } from "@/infrastructure/database/providers/postgres/db-tools";
@@ -123,20 +126,194 @@ describe("db tools", () => {
   });
 
   it("refuses to restore when tenant roles are missing and cannot be created", async () => {
+    const ok = { grantsNeeded: [], canGrantTenant: true };
     await expect(
-      assertTenantRolesCreatable(async () => ({ missing: ["ros_runtime"], canCreateRoles: false })),
+      assertTenantRolesCreatable(async () => ({
+        missing: ["ros_runtime"],
+        canCreateRoles: false,
+        ...ok,
+      })),
     ).rejects.toThrow(
       "Create roles ros_tenant/ros_runtime (and GRANT ros_tenant TO ros_runtime) as an admin first, or restore with a user that has CREATEROLE.",
     );
     await expect(
-      assertTenantRolesCreatable(async () => ({ missing: ["ros_tenant"], canCreateRoles: false })),
+      assertTenantRolesCreatable(async () => ({
+        missing: ["ros_tenant"],
+        canCreateRoles: false,
+        ...ok,
+      })),
     ).rejects.toBeInstanceOf(TenantRolesError);
     await expect(
-      assertTenantRolesCreatable(async () => ({ missing: ["ros_tenant"], canCreateRoles: true })),
+      assertTenantRolesCreatable(async () => ({
+        missing: ["ros_tenant"],
+        canCreateRoles: true,
+        ...ok,
+      })),
     ).resolves.toBeUndefined();
     await expect(
-      assertTenantRolesCreatable(async () => ({ missing: [], canCreateRoles: false })),
+      assertTenantRolesCreatable(async () => ({ missing: [], canCreateRoles: false, ...ok })),
     ).resolves.toBeUndefined();
+  });
+
+  it("refuses to restore when the roles exist but the user cannot grant ros_tenant membership", async () => {
+    // Roles pre-created by someone else: the guarded GRANTs would fail mid-transaction.
+    const status = {
+      missing: [],
+      canCreateRoles: true,
+      grantsNeeded: ["ros_tenant TO ros_runtime", "ros_tenant TO restorer"],
+      canGrantTenant: false,
+    };
+    const failure = assertTenantRolesCreatable(async () => status);
+    await expect(failure).rejects.toBeInstanceOf(TenantRoleAdminError);
+    await expect(failure).rejects.toThrow(
+      'Role ros_tenant exists but the restoring user lacks the ADMIN option on it, so "GRANT ros_tenant TO ros_runtime", "GRANT ros_tenant TO restorer" would fail. As an admin run: GRANT ros_tenant TO ros_runtime; GRANT ros_tenant TO restorer; (or GRANT ros_tenant TO <restoring user> WITH ADMIN OPTION).',
+    );
+    // Nothing to grant: no ADMIN needed.
+    await expect(
+      assertTenantRolesCreatable(async () => ({ ...status, grantsNeeded: [] })),
+    ).resolves.toBeUndefined();
+    // ros_tenant itself is missing: creating it confers ADMIN, so the grants will work.
+    await expect(
+      assertTenantRolesCreatable(async () => ({ ...status, missing: ["ros_tenant"] })),
+    ).resolves.toBeUndefined();
+    // Superuser or ADMIN holder.
+    await expect(
+      assertTenantRolesCreatable(async () => ({ ...status, canGrantTenant: true })),
+    ).resolves.toBeUndefined();
+  });
+
+  describe("rebindDefaultPrivileges", () => {
+    const trigger =
+      "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,USAGE ON SEQUENCES TO ros_tenant;";
+
+    it("drops FOR ROLE <dump owner> from ALTER DEFAULT PRIVILEGES statements at line start", () => {
+      const out = rebindDefaultPrivileges(
+        [
+          trigger,
+          'ALTER DEFAULT PRIVILEGES FOR ROLE "Mixed-Case" IN SCHEMA public GRANT SELECT ON TABLES TO ros_runtime;',
+          "ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT SELECT ON TABLES TO ros_tenant;",
+          "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ros_tenant;",
+          "GRANT SELECT ON TABLE public.users TO ros_tenant;",
+        ].join("\n"),
+      );
+      expect(out).toBe(
+        [
+          "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,USAGE ON SEQUENCES TO ros_tenant;",
+          "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ros_runtime;",
+          "ALTER DEFAULT PRIVILEGES GRANT SELECT ON TABLES TO ros_tenant;",
+          "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ros_tenant;",
+          "GRANT SELECT ON TABLE public.users TO ros_tenant;",
+        ].join("\n"),
+      );
+    });
+
+    it("never touches COPY data, even a row that is exactly the statement", () => {
+      const dump = [
+        "COPY public.notes (body) FROM stdin;",
+        trigger,
+        `  ${trigger}`,
+        "\\.",
+        "",
+        trigger,
+        "COPY public.other (body) FROM stdin;",
+        trigger,
+        "\\.",
+      ].join("\n");
+      const out = rebindDefaultPrivileges(dump);
+      const lines = out.split("\n");
+      expect(lines[1]).toBe(trigger);
+      expect(lines[2]).toBe(`  ${trigger}`);
+      expect(lines[5]).toBe(
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,USAGE ON SEQUENCES TO ros_tenant;",
+      );
+      expect(lines[7]).toBe(trigger);
+      expect(out.endsWith("\\.")).toBe(true);
+    });
+
+    it("keeps CRLF line endings and a trailing newline intact", () => {
+      expect(rebindDefaultPrivileges(`${trigger}\r\n`)).toBe(
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,USAGE ON SEQUENCES TO ros_tenant;\r\n",
+      );
+      expect(rebindDefaultPrivileges("")).toBe("");
+    });
+  });
+
+  describe("splitRestoreToc", () => {
+    const toc = [
+      ";",
+      "; Archive created at 2026-11-07 14:58:58 UTC",
+      ";     Format: CUSTOM",
+      ";",
+      "; Selected TOC Entries:",
+      ";",
+      "217; 1259 16400 TABLE public users postgres",
+      "4394; 0 0 ACL public TABLE addon_groups postgres",
+      "2268; 826 18203 DEFAULT ACL public DEFAULT PRIVILEGES FOR SEQUENCES postgres",
+      "2267; 826 18202 DEFAULT ACL public DEFAULT PRIVILEGES FOR TABLES postgres",
+      "",
+    ].join("\n");
+
+    it("comments DEFAULT ACL entries out of the main list and keeps them in the replay list", () => {
+      const split = splitRestoreToc(toc);
+      expect(split.defaultAcl).toEqual([
+        "2268; 826 18203 DEFAULT ACL public DEFAULT PRIVILEGES FOR SEQUENCES postgres",
+        "2267; 826 18202 DEFAULT ACL public DEFAULT PRIVILEGES FOR TABLES postgres",
+      ]);
+      expect(split.main).toContain("217; 1259 16400 TABLE public users postgres\n");
+      expect(split.main).toContain("4394; 0 0 ACL public TABLE addon_groups postgres\n");
+      expect(split.main).toContain(";2268; 826 18203 DEFAULT ACL public");
+      expect(split.main).toContain(";2267; 826 18202 DEFAULT ACL public");
+      expect(split.main).not.toMatch(/^2267;/m);
+      expect(split.replay).toBe(
+        "2268; 826 18203 DEFAULT ACL public DEFAULT PRIVILEGES FOR SEQUENCES postgres\n2267; 826 18202 DEFAULT ACL public DEFAULT PRIVILEGES FOR TABLES postgres\n",
+      );
+    });
+
+    it("reports a dump without default privileges", () => {
+      const split = splitRestoreToc("217; 1259 16400 TABLE public users postgres\n");
+      expect(split.defaultAcl).toEqual([]);
+      expect(split.replay).toBe("");
+      expect(split.main).toBe("217; 1259 16400 TABLE public users postgres\n");
+    });
+  });
+
+  it("a PGlite dump has no owner statements and its default privileges bind to the restoring user", async () => {
+    const src = await migrated();
+    const trigger =
+      "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT,INSERT,DELETE,UPDATE ON TABLES TO ros_tenant;";
+    // A text-first table so the row is a whole COPY line that starts with the statement.
+    await src.db.execute(sql`create table f3_copy_probe (note text not null)`);
+    await src.db.execute(sql`insert into f3_copy_probe (note) values (${trigger})`);
+    const dump = await dumpPgliteSql(src.pglite!);
+
+    expect(dump).not.toMatch(/OWNER TO/);
+    // The only "FOR ROLE postgres" left is the data row (the trigger is the exact dump statement).
+    expect(dump.match(/FOR ROLE postgres/g)).toHaveLength(1);
+    expect(dump).toMatch(
+      /^ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,INSERT,DELETE,UPDATE ON TABLES TO ros_tenant;$/m,
+    );
+    expect(dump).toMatch(
+      /^ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,USAGE ON SEQUENCES TO ros_runtime;$/m,
+    );
+    expect(dump.split(trigger).length - 1).toBe(1); // the data row, nothing else
+
+    const dest = await connectPglite();
+    handles.push(dest);
+    await dest.pglite!.exec(dump);
+    await dest.pglite!.exec("set search_path to public");
+    const q = async <T>(query: ReturnType<typeof sql>) =>
+      ((await dest.db.execute(query)) as unknown as { rows: T[] }).rows;
+    expect(await q<{ note: string }>(sql`select note from f3_copy_probe`)).toEqual([
+      { note: trigger },
+    ]);
+    const before = await securityState(src.db);
+    expect(await securityState(dest.db)).toEqual(before);
+    // Default privileges are now bound to whoever restored (here PGlite's postgres).
+    expect(
+      await q<{ role: string; n: number }>(
+        sql`select defaclrole::regrole::text as role, count(*)::int as n from pg_default_acl group by 1`,
+      ),
+    ).toEqual([{ role: "postgres", n: 2 }]);
   });
 
   it("treats an existing drizzle schema as a non-empty target", async () => {
