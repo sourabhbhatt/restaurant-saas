@@ -290,7 +290,7 @@ export function limitLabel(key: LimitKey): string {
   return labels[key];
 }
 
-/** Reminder days relative to trial start (configurable; defaults 7, 15, 25). */
+/** Reminder days relative to trial start (configurable; defaults 7, 12, 14). */
 export function dueTrialReminders(
   trialStartsAt: Date,
   reminderDays: readonly number[],

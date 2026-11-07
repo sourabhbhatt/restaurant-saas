@@ -1,4 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
+import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { GET as getAnnouncements } from "@/app/api/v1/admin/announcements/route";
@@ -286,7 +287,7 @@ describe("admin workspace directory and audit", () => {
     const row = res.body.data!.items.find((w) => w.id === ws.id)!;
     expect(row).toMatchObject({ phase: "TRIAL", planKey: "pro", ownerEmail: o.email });
     expect(row.counts.users).toBe(1);
-    expect(row.trialDaysRemaining).toBe(30);
+    expect(row.trialDaysRemaining).toBe(DEFAULT_PLATFORM_SETTINGS.trialDays);
 
     const none = await call<Paginated<AdminWorkspaceRowDto>>(adminWorkspaces, {
       cookie: admin.cookie,

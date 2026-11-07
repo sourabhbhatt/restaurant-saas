@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { DEFAULT_PLATFORM_SETTINGS } from "@/domain/platform/settings";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -375,8 +376,8 @@ describe("trial expiry with the test clock", () => {
       });
     expect((await patch(owner.cookie, "Clockwork Curry House")).status).toBe(200);
 
-    setClockDays(c, 31);
-    // The original session (30-day TTL) has expired at +31 days, as in production.
+    setClockDays(c, DEFAULT_PLATFORM_SETTINGS.trialDays + 1);
+    // The original session (30-day TTL) is replaced, as in production.
     const cookie31 = await freshCookie(c, owner.userId);
     const grace = await entitlementsOf(ws.id, cookie31);
     expect(grace.phase).toBe("GRACE");
@@ -399,7 +400,7 @@ describe("trial expiry with the test clock", () => {
     );
     expect(() => scope.require("restaurant.create")).toThrow(/Upgrade/);
 
-    setClockDays(c, 38);
+    setClockDays(c, DEFAULT_PLATFORM_SETTINGS.trialDays + DEFAULT_PLATFORM_SETTINGS.graceDays + 1);
     const cookie38 = await freshCookie(c, owner.userId);
     const restricted = await entitlementsOf(ws.id, cookie38);
     expect(restricted.phase).toBe("RESTRICTED");

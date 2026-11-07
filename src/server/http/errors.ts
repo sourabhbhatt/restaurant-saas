@@ -19,6 +19,8 @@ export const STATUS_BY_CODE: Record<DomainErrorCode, number> = {
   IDEMPOTENCY_MISMATCH: 422,
   QR_INVALID: 404,
   PAYMENT_REJECTED: 422,
+  TRIAL_ALREADY_USED: 409,
+  MAINTENANCE: 503,
 };
 
 export interface ApiErrorBody {

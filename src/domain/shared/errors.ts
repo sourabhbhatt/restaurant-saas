@@ -18,6 +18,8 @@ export type DomainErrorCode =
   | "IDEMPOTENCY_MISMATCH"
   | "QR_INVALID"
   | "PAYMENT_REJECTED"
+  | "TRIAL_ALREADY_USED"
+  | "MAINTENANCE"
   | "BAD_REQUEST";
 
 export type FieldErrors = Record<string, string[]>;

@@ -39,6 +39,8 @@ function Form({
               ...rest,
               trialDays: Number(s.trialDays),
               graceDays: Number(s.graceDays),
+              fairUseMaxWorkspaces: Number(s.fairUseMaxWorkspaces),
+              workspaceCreatesPerDay: Number(s.workspaceCreatesPerDay),
               trialReminderDays: reminders
                 .split(",")
                 .map((x) => Number(x.trim()))
@@ -59,6 +61,27 @@ function Form({
               inputMode="numeric"
               value={s.graceDays}
               onChange={(e) => setS({ ...s, graceDays: e.target.value as unknown as number })}
+            />
+          </FormField>
+          <FormField label="Fair-use workspace cap" error={err("fairUseMaxWorkspaces")}>
+            <Input
+              inputMode="numeric"
+              value={s.fairUseMaxWorkspaces}
+              onChange={(e) =>
+                setS({ ...s, fairUseMaxWorkspaces: e.target.value as unknown as number })
+              }
+            />
+          </FormField>
+          <FormField
+            label="New workspaces per day (per owner)"
+            error={err("workspaceCreatesPerDay")}
+          >
+            <Input
+              inputMode="numeric"
+              value={s.workspaceCreatesPerDay}
+              onChange={(e) =>
+                setS({ ...s, workspaceCreatesPerDay: e.target.value as unknown as number })
+              }
             />
           </FormField>
           <FormField label="Trial plan" error={err("trialPlanKey")}>
@@ -118,6 +141,14 @@ function Form({
               checked={s.signupsEnabled}
               onCheckedChange={(v) => setS({ ...s, signupsEnabled: v })}
               aria-label="Allow new sign-ups"
+            />
+          </label>
+          <label className="flex items-center justify-between gap-4 sm:col-span-2">
+            <span className="text-sm font-medium">Maintenance mode</span>
+            <Switch
+              checked={s.maintenanceMode}
+              onCheckedChange={(v) => setS({ ...s, maintenanceMode: v })}
+              aria-label="Maintenance mode"
             />
           </label>
           <div className="sm:col-span-2">
