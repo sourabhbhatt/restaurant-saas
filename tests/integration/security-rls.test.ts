@@ -103,6 +103,60 @@ describe("row-level security schema", () => {
     }
   });
 
+  it("tenant policies check the bound workspace on read and write; own rows are read-only", async () => {
+    const policies = await rows<{
+      tablename: string;
+      policyname: string;
+      cmd: string;
+      qual: string | null;
+      with_check: string | null;
+    }>(
+      c.db,
+      sql`select tablename, policyname, cmd, qual, with_check from pg_policies
+          where schemaname = 'public' and 'ros_tenant' = any(roles)`,
+    );
+    const ws = "(workspace_id = app_current_workspace())";
+    for (const table of TENANT_TABLES) {
+      const isolation = policies.find(
+        (p) => p.tablename === table && p.policyname === "tenant_isolation",
+      );
+      expect(isolation, table).toMatchObject({ cmd: "ALL", qual: ws, with_check: ws });
+    }
+    const extras = policies
+      .filter((p) => p.policyname !== "tenant_isolation")
+      .map((p) => ({
+        table: p.tablename,
+        name: p.policyname,
+        cmd: p.cmd,
+        qual: p.qual,
+        check: p.with_check,
+      }))
+      .sort((x, y) => x.table.localeCompare(y.table));
+    expect(extras).toEqual([
+      {
+        table: "notifications",
+        name: "tenant_own_rows",
+        cmd: "SELECT",
+        qual: "(user_id = app_current_user())",
+        check: null,
+      },
+      {
+        table: "roles",
+        name: "tenant_system_roles",
+        cmd: "SELECT",
+        qual: "(workspace_id IS NULL)",
+        check: null,
+      },
+      {
+        table: "workspace_memberships",
+        name: "tenant_own_rows",
+        cmd: "SELECT",
+        qual: "(user_id = app_current_user())",
+        check: null,
+      },
+    ]);
+  });
+
   it("the fixtures put rows for both workspaces in every tenant table", async () => {
     for (const table of TENANT_TABLES) {
       expect(await n(c.db, countIn(table, a.workspaceId)), `${table} A`).toBeGreaterThan(0);
@@ -193,6 +247,139 @@ describe("tenant isolation", () => {
       ),
     );
     expect(stranger).toBe(0);
+  });
+
+  it("own rows in another workspace can be read but not deleted or moved", async () => {
+    const u = a.staff.userId;
+    await c.db.execute(
+      sql`insert into notifications (user_id, workspace_id, type, title) values (${u}, ${b.workspaceId}, 'test', 'B note')`,
+    );
+    const ctx = { workspaceId: a.workspaceId, userId: u };
+    for (const table of ["workspace_memberships", "notifications"]) {
+      const t = sql.identifier(table);
+      const seen = await asTenant(ctx, (e) =>
+        n(
+          e,
+          sql`select count(*)::int as n from ${t} where user_id = ${u} and workspace_id = ${b.workspaceId}`,
+        ),
+      );
+      expect(seen, `${table} select`).toBeGreaterThan(0);
+      const deleted = await asTenant(ctx, (e) =>
+        rows(
+          e,
+          sql`delete from ${t} where user_id = ${u} and workspace_id = ${b.workspaceId} returning id`,
+        ),
+      );
+      expect(deleted, `${table} delete`).toEqual([]);
+      const moved = await asTenant(ctx, (e) =>
+        rows(
+          e,
+          sql`update ${t} set workspace_id = ${a.workspaceId} where user_id = ${u} and workspace_id = ${b.workspaceId} returning id`,
+        ),
+      ).catch((error: unknown) => pgCode(error));
+      expect(
+        moved === "42501" || (Array.isArray(moved) && moved.length === 0),
+        `${table} update`,
+      ).toBe(true);
+      expect(
+        await n(
+          c.db,
+          sql`select count(*)::int as n from ${t} where user_id = ${u} and workspace_id = ${b.workspaceId}`,
+        ),
+      ).toBe(seen);
+    }
+  });
+
+  it("users exposes only id, name and email to tenant transactions", async () => {
+    const ctx = { workspaceId: a.workspaceId, userId: a.owner.userId };
+    const visible = await asTenant(ctx, (e) =>
+      rows<{ email: string }>(
+        e,
+        sql`select id, name, email from users where id = ${a.owner.userId}`,
+      ),
+    );
+    expect(visible).toHaveLength(1);
+    for (const column of ["password_hash", "platform_role", "disabled_at", "email_verified_at"]) {
+      expect(
+        await codeOf(
+          asTenant(ctx, (e) => e.execute(sql`select ${sql.identifier(column)} from users limit 1`)),
+        ),
+        column,
+      ).toBe("42501");
+    }
+    expect(await codeOf(asTenant(ctx, (e) => e.execute(sql`select * from users limit 1`)))).toBe(
+      "42501",
+    );
+    expect(
+      await codeOf(
+        asTenant(ctx, (e) =>
+          e.execute(
+            sql`update users set platform_role = 'SUPER_ADMIN' where id = ${a.owner.userId}`,
+          ),
+        ),
+      ),
+    ).toBe("42501");
+    expect(
+      await codeOf(asTenant(ctx, (e) => e.execute(sql`update users set name = 'x' where false`))),
+    ).toBe("42501");
+    expect(await codeOf(asTenant(ctx, (e) => e.execute(sql`delete from users where false`)))).toBe(
+      "42501",
+    );
+    expect(
+      await codeOf(asTenant(ctx, (e) => e.execute(sql`insert into users default values`))),
+    ).toBe("42501");
+  });
+
+  it("platform-global tables are read-only in tenant context", async () => {
+    const ctx = { workspaceId: a.workspaceId, userId: a.owner.userId };
+    for (const table of [
+      "permissions",
+      "subscription_plans",
+      "platform_settings",
+      "announcements",
+    ]) {
+      const t = sql.identifier(table);
+      const [first] = await rows<{ column_name: string }>(
+        c.db,
+        sql`select column_name from information_schema.columns
+            where table_schema = 'public' and table_name = ${table} order by ordinal_position limit 1`,
+      );
+      const col = sql.identifier(first!.column_name);
+      expect(
+        await codeOf(asTenant(ctx, (e) => e.execute(sql`select count(*) from ${t}`))),
+        `${table} select`,
+      ).toBe("no error");
+      expect(
+        await codeOf(asTenant(ctx, (e) => e.execute(sql`insert into ${t} default values`))),
+        `${table} insert`,
+      ).toBe("42501");
+      expect(
+        await codeOf(
+          asTenant(ctx, (e) => e.execute(sql`update ${t} set ${col} = ${col} where false`)),
+        ),
+        `${table} update`,
+      ).toBe("42501");
+      expect(
+        await codeOf(asTenant(ctx, (e) => e.execute(sql`delete from ${t} where false`))),
+        `${table} delete`,
+      ).toBe("42501");
+    }
+  });
+
+  it("credential and request-plumbing tables are not selectable by ros_tenant", async () => {
+    for (const table of [
+      "sessions",
+      "auth_tokens",
+      "rate_limit_buckets",
+      "idempotency_records",
+      "email_outbox",
+    ]) {
+      const [row] = await rows<{ ok: boolean }>(
+        c.db,
+        sql`select has_table_privilege('ros_tenant', ${table}, 'SELECT') as ok`,
+      );
+      expect(row!.ok, table).toBe(false);
+    }
   });
 
   it("system roles are readable in tenant context, not writable", async () => {

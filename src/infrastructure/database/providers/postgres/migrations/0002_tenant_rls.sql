@@ -37,6 +37,15 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO ro
 -- Credentials and request plumbing are never visible to tenant transactions.
 REVOKE ALL ON sessions, auth_tokens, rate_limit_buckets, idempotency_records, email_outbox FROM ros_tenant;
 --> statement-breakpoint
+-- Tenant code reads only who a user is; credentials and platform role stay out of reach.
+-- (A column revoke alone is a no-op while a table-level grant remains, hence REVOKE ALL first.)
+REVOKE ALL ON users FROM ros_tenant;
+--> statement-breakpoint
+GRANT SELECT (id, name, email) ON users TO ros_tenant;
+--> statement-breakpoint
+-- Platform-global reference data is managed by Super Admin (system runner) only.
+REVOKE INSERT, UPDATE, DELETE ON permissions, subscription_plans, platform_settings, announcements FROM ros_tenant;
+--> statement-breakpoint
 ALTER TABLE "addon_groups" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 DROP POLICY IF EXISTS tenant_isolation ON "addon_groups";
@@ -210,12 +219,18 @@ ALTER TABLE "notifications" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON "notifications";
 --> statement-breakpoint
 CREATE POLICY tenant_isolation ON "notifications" FOR ALL TO ros_tenant
-  USING (workspace_id = app_current_workspace() OR user_id = app_current_user())
+  USING (workspace_id = app_current_workspace())
   WITH CHECK (workspace_id = app_current_workspace());
 --> statement-breakpoint
 DROP POLICY IF EXISTS runtime_access ON "notifications";
 --> statement-breakpoint
 CREATE POLICY runtime_access ON "notifications" FOR ALL TO ros_runtime USING (true) WITH CHECK (true);
+--> statement-breakpoint
+-- A user's own rows in other workspaces are readable (switcher, notification center), never writable.
+DROP POLICY IF EXISTS tenant_own_rows ON "notifications";
+--> statement-breakpoint
+CREATE POLICY tenant_own_rows ON "notifications" FOR SELECT TO ros_tenant
+  USING (user_id = app_current_user());
 --> statement-breakpoint
 ALTER TABLE "order_item_addons" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
@@ -455,9 +470,15 @@ ALTER TABLE "workspace_memberships" ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON "workspace_memberships";
 --> statement-breakpoint
 CREATE POLICY tenant_isolation ON "workspace_memberships" FOR ALL TO ros_tenant
-  USING (workspace_id = app_current_workspace() OR user_id = app_current_user())
+  USING (workspace_id = app_current_workspace())
   WITH CHECK (workspace_id = app_current_workspace());
 --> statement-breakpoint
 DROP POLICY IF EXISTS runtime_access ON "workspace_memberships";
 --> statement-breakpoint
 CREATE POLICY runtime_access ON "workspace_memberships" FOR ALL TO ros_runtime USING (true) WITH CHECK (true);
+--> statement-breakpoint
+-- A user's own rows in other workspaces are readable (switcher, notification center), never writable.
+DROP POLICY IF EXISTS tenant_own_rows ON "workspace_memberships";
+--> statement-breakpoint
+CREATE POLICY tenant_own_rows ON "workspace_memberships" FOR SELECT TO ros_tenant
+  USING (user_id = app_current_user());

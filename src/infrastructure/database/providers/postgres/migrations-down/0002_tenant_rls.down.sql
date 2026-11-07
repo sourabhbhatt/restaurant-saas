@@ -43,6 +43,7 @@ DROP POLICY IF EXISTS runtime_access ON "menus";
 ALTER TABLE "menus" DISABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON "notifications";
 DROP POLICY IF EXISTS runtime_access ON "notifications";
+DROP POLICY IF EXISTS tenant_own_rows ON "notifications";
 ALTER TABLE "notifications" DISABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON "order_item_addons";
 DROP POLICY IF EXISTS runtime_access ON "order_item_addons";
@@ -104,6 +105,9 @@ DROP POLICY IF EXISTS runtime_access ON "workspace_entitlements";
 ALTER TABLE "workspace_entitlements" DISABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON "workspace_memberships";
 DROP POLICY IF EXISTS runtime_access ON "workspace_memberships";
+DROP POLICY IF EXISTS tenant_own_rows ON "workspace_memberships";
 ALTER TABLE "workspace_memberships" DISABLE ROW LEVEL SECURITY;
+-- Restore the table-level grants that 0002 narrowed.
+GRANT SELECT, INSERT, UPDATE, DELETE ON users, permissions, subscription_plans, platform_settings, announcements TO ros_tenant;
 DROP FUNCTION IF EXISTS app_current_workspace();
 DROP FUNCTION IF EXISTS app_current_user();
