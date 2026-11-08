@@ -93,7 +93,7 @@ for app in console ops admin; do
 done
 
 echo "== smoke"
-for u in "$API_URL/api/v1/health/ready" "$CONSOLE_URL/healthz" "$OPS_URL/healthz" "$ADMIN_URL/healthz"; do
+for u in "$API_URL/api/v1/health/ready" "$CONSOLE_URL/health" "$OPS_URL/health" "$ADMIN_URL/health"; do
   printf '%-75s ' "$u"; curl -s -o /dev/null -w '%{http_code}\n' "$u"
 done
 echo "console $CONSOLE_URL"; echo "ops     $OPS_URL"; echo "admin   $ADMIN_URL"; echo "api     $API_URL"

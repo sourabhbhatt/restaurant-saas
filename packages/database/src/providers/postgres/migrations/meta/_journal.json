@@ -50,6 +50,13 @@
       "when": 1794072762300,
       "tag": "0006_workspace_and_user_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794116383559,
+      "tag": "0007_runtime_reads_migration_journal",
+      "breakpoints": true
     }
   ]
 }
