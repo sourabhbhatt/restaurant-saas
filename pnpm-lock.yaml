@@ -6,6 +6,7 @@ settings:
 
 overrides:
   browserslist: 4.29.5
+  zod: 4.6.7
 
 importers:
 
@@ -166,7 +167,7 @@ importers:
         specifier: 0.0.1
         version: 0.0.1
       zod:
-        specifier: ^4.6.7
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@electric-sql/pglite':
@@ -236,7 +237,7 @@ importers:
         specifier: 2.0.8
         version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       zod:
-        specifier: ^4.6.7
+        specifier: 4.6.7
         version: 4.6.7
       zustand:
         specifier: ^5.0.16
@@ -315,7 +316,7 @@ importers:
         specifier: 2.0.8
         version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       zod:
-        specifier: ^4.6.7
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@ros/tooling':
@@ -392,7 +393,7 @@ importers:
         specifier: 0.0.1
         version: 0.0.1
       zod:
-        specifier: ^4.6.7
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@ros/tooling':
@@ -408,7 +409,7 @@ importers:
         specifier: workspace:*
         version: link:../domain
       zod:
-        specifier: ^4.6.7
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@ros/tooling':
@@ -452,7 +453,7 @@ importers:
   packages/domain:
     dependencies:
       zod:
-        specifier: ^4.6.7
+        specifier: 4.6.7
         version: 4.6.7
     devDependencies:
       '@ros/tooling':
@@ -559,7 +560,7 @@ importers:
         specifier: 2.0.8
         version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       zod:
-        specifier: ^4.6.7
+        specifier: 4.6.7
         version: 4.6.7
       zustand:
         specifier: ^5.0.16
@@ -1339,7 +1340,7 @@ packages:
       valibot: '>=0.31.0 || ^1.0.0-beta.4 || ^1.0.0-rc'
       vest: '>=6.0.0'
       yup: ^1.0.0
-      zod: ^3.25.0 || ^4.0.0
+      zod: 4.6.7
     peerDependenciesMeta:
       '@standard-schema/spec':
         optional: true
@@ -5244,10 +5245,7 @@ packages:
     resolution: {integrity: sha512-Q6/nZLe6jxuU80qb/4uJ4t5v2VEZ44lzQjPDhYJNztRQ4wyWc6VF3D3Kb/fAuPetZQnhS3hnajCf9CsWesghLQ==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      zod: ^3.25.0 || ^4.0.0
-
-  zod@4.6.5:
-    resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
+      zod: 4.6.7
 
   zod@4.6.7:
     resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
@@ -6928,7 +6926,7 @@ snapshots:
       pretty-bytes: 6.1.1
       source-map: 0.8.0
       type-fest: 5.10.0
-      zod: 4.6.5
+      zod: 4.6.7
     optionalDependencies:
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -6946,7 +6944,7 @@ snapshots:
       react: 19.3.0
       semver: 7.8.5
       serwist: 9.5.13(browserslist@4.29.5)(typescript@5.9.3)
-      zod: 4.6.5
+      zod: 4.6.7
     optionalDependencies:
       esbuild: 0.28.2
       typescript: 5.9.3
@@ -9820,8 +9818,6 @@ snapshots:
   zod-validation-error@4.0.2(zod@4.6.7):
     dependencies:
       zod: 4.6.7
-
-  zod@4.6.5: {}
 
   zod@4.6.7: {}
 

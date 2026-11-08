@@ -1,0 +1,233 @@
+name: Deploy staging
+
+# Push to `staging` (or run manually on `staging`) → every CI check → deploy the
+# changed apps to Cloud Run staging → smoke test.
+# Cost rules: this workflow never starts Cloud SQL. When staging is stopped (or
+# outside its testing window) the checks still run and the deploy is skipped
+# with a "pending" summary; start staging (infra/gcp/staging.sh start) and run
+# this workflow manually to deploy. Images are built on GitHub's runners with
+# the GitHub Actions cache (no Cloud Build).
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: "Apps to deploy (space separated, default: those changed since the deployed version)"
+        required: false
+        default: ""
+
+# One staging deploy at a time; a newer push waits instead of cancelling a rollout.
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  REGION: asia-south1
+  GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+  GCP_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+    with:
+      full: true
+    permissions:
+      contents: read
+
+  gate:
+    needs: checks
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging'
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      deploy: ${{ steps.decide.outputs.deploy }}
+      apps: ${{ steps.decide.outputs.apps }}
+      matrix: ${{ steps.decide.outputs.matrix }}
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - name: Deploy identity configured?
+        id: cfg
+        env:
+          WIF: ${{ vars.GCP_WIF_PROVIDER }}
+          SA: ${{ vars.GCP_DEPLOYER_SA }}
+        run: |
+          if [ -n "$WIF" ] && [ -n "$SA" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "### Staging deploy skipped: run infra/gcp/setup-ci-identity.sh and set the GCP_* repository variables" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.ok == 'true'
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        if: steps.cfg.outputs.ok == 'true'
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+        if: steps.cfg.outputs.ok == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.cfg.outputs.ok == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.cfg.outputs.ok == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        if: steps.cfg.outputs.ok == 'true'
+      - name: Staging running? Which apps changed since the deployed version?
+        id: decide
+        if: steps.cfg.outputs.ok == 'true'
+        env:
+          REQUESTED: ${{ github.event.inputs.apps }}
+        run: |
+          set -euo pipefail
+          tag="$(git rev-parse --short=7 HEAD)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          policy="$(gcloud sql instances describe ros-pg18 --project "$GCP_PROJECT" --format='value(settings.activationPolicy)')"
+          until="$(gcloud sql instances describe ros-pg18 --project "$GCP_PROJECT" --format='value(settings.userLabels.staging-until)')"
+          now="$(date +%s)"
+          if [ "$policy" != "ALWAYS" ] || ! [[ "$until" =~ ^[0-9]+$ ]] || [ "$until" -le "$now" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Staging deploy pending"
+              echo "Checks passed for \`$tag\`, but staging is stopped or outside its testing window"
+              echo "(Cloud SQL policy: \`$policy\`). CI never starts the database."
+              echo
+              echo "To deploy: \`infra/gcp/staging.sh start 2\`, then run **Deploy staging** manually on \`staging\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          apps=""
+          if [ -n "${REQUESTED:-}" ]; then
+            apps="$REQUESTED"
+          else
+            for app in api console ops admin; do
+              deployed="$(gcloud run services describe "ros-$app-staging" --project "$GCP_PROJECT" --region "$REGION" --format=json 2>/dev/null \
+                | jq -r '.spec.template.spec.containers[0].env[]? | select(.name == "APP_VERSION") | .value' || true)"
+              if [ -z "$deployed" ] || ! git cat-file -e "$deployed^{commit}" 2>/dev/null; then
+                apps="$apps $app"; continue
+              fi
+              if TURBO_SCM_BASE="$deployed" pnpm exec turbo ls --affected --output=json \
+                | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>process.exit(JSON.parse(d).packages.items.some(p=>p.name==="@ros/'"$app"'")?0:1))'; then
+                apps="$apps $app"
+              elif ! git diff --quiet "$deployed" HEAD -- infra/docker pnpm-lock.yaml pnpm-workspace.yaml; then
+                apps="$apps $app"
+              fi
+            done
+          fi
+          apps="$(echo $apps | xargs)"
+          if [ -z "$apps" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "### Nothing to deploy: every app already runs code equivalent to \`$tag\`" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          images="$apps"; [[ " $apps " == *" api "* ]] && images="$images migrate"
+          matrix="$(printf '%s\n' $images | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.stringify({image:d.trim().split("\n")})))')"
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
+          echo "apps=$apps" >> "$GITHUB_OUTPUT"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "### Deploying \`$tag\`: $apps (testing window until $(date -u -d "@$until" '+%H:%M UTC'))" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: gate
+    if: needs.gate.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJson(needs.gate.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+          token_format: access_token
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and push ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/next-app.Dockerfile
+          target: ${{ matrix.image == 'migrate' && 'migrate' || 'runner' }}
+          build-args: APP=${{ matrix.image == 'migrate' && 'api' || matrix.image }}
+          tags: ${{ env.REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/ros/${{ matrix.image }}:${{ needs.gate.outputs.tag }}
+          push: true
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+
+  deploy:
+    needs: [gate, build]
+    if: needs.gate.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://ros-console-staging-${{ vars.GCP_PROJECT_NUMBER }}.asia-south1.run.app
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Deploy ${{ needs.gate.outputs.apps }}
+        env:
+          TAG: ${{ needs.gate.outputs.tag }}
+          APPS: ${{ needs.gate.outputs.apps }}
+          PROJECT: ${{ vars.GCP_PROJECT }}
+          PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
+          CI_DEPLOY: "1"
+        run: infra/gcp/deploy.sh
+
+  smoke:
+    needs: [gate, deploy]
+    if: needs.gate.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Staging smoke test (passwords from Secret Manager, masked)
+        run: |
+          set -euo pipefail
+          # Mask each value in this shell (a mask printed inside $(...) never reaches the runner).
+          for pair in OWNER:owner STAFF:staff ADMIN:admin; do
+            v="$(gcloud secrets versions access latest --secret="ros-staging-seed-${pair#*:}-password" --project "$GCP_PROJECT")"
+            echo "::add-mask::$v"
+            export "STAGING_${pair%%:*}_PASSWORD=$v"
+          done
+          unset v
+          u() { echo "https://ros-$1-staging-$GCP_PROJECT_NUMBER.$REGION.run.app"; }
+          pnpm smoke:staging --console "$(u console)" --ops "$(u ops)" --admin "$(u admin)" --api "$(u api)" \
+            | tee smoke.txt
+          { echo '### Staging smoke'; echo '```'; cat smoke.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

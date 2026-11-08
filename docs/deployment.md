@@ -27,12 +27,12 @@ Health endpoints: `/api/v1/health` (liveness, reports `APP_VERSION`), `/api/v1/h
 
 ## Docker compose
 
-`infra/compose/docker-compose.yml` is the local parity stack and the VPS exit target: `postgres:18`, `minio/minio`, a one-shot `minio-init` (creates the bucket), a one-shot `migrate` (as the database owner), a one-shot `roles` (gives `ros_runtime` a login via `init-roles.sql`), then `api`, `console`, `ops`, `admin` (none published) behind a `caddy` edge that publishes :3000 (console), :3001 (ops) and :3002 (admin) and overwrites `X-Forwarded-For` with the real client address (`infra/compose/Caddyfile`; for a VPS put your hostnames there and Caddy provisions TLS).
+`infra/compose/docker-compose.yml` is the local parity stack and the VPS exit target: `postgres:18`, MinIO (`bitnamilegacy/minio`, which creates the bucket itself), a one-shot `migrate` (as the database owner), a one-shot `roles` (gives `ros_runtime` a login via `init-roles.sql`), then `api`, `console`, `ops`, `admin` (none published) behind a `caddy` edge that publishes :3000 (console), :3001 (ops) and :3002 (admin) and overwrites `X-Forwarded-For` with the real client address (`infra/compose/Caddyfile`; for a VPS put your hostnames there and Caddy provisions TLS).
 
 ```bash
 cp infra/compose/.env.compose.example infra/compose/.env.compose   # replace every placeholder
 docker compose -f infra/compose/docker-compose.yml --env-file infra/compose/.env.compose up -d --build
-docker compose -f infra/compose/docker-compose.yml ps     # migrate, roles, minio-init exited 0; the rest healthy
+docker compose -f infra/compose/docker-compose.yml ps     # migrate and roles exited 0; the rest healthy
 pnpm smoke --base-url http://localhost:3000
 ```
 

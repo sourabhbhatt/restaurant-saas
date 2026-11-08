@@ -1,0 +1,50 @@
+name: Deploy production (manual, approval required)
+
+# Never runs automatically: only `workflow_dispatch` from `main`, and the job
+# waits in the `production` environment until a required reviewer approves it.
+# Production must live in its own GCP project with its own Workload Identity
+# provider, deployer and secrets (vars PROD_*); the staging project, provider
+# and secrets are refused. Until production is provisioned this fails closed.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag (git short sha) already verified on staging"
+        required: true
+      confirm:
+        description: 'Type "deploy production" to confirm'
+        required: true
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Guard rails
+        env:
+          CONFIRM: ${{ github.event.inputs.confirm }}
+          PROD_PROJECT: ${{ vars.PROD_GCP_PROJECT }}
+          PROD_WIF: ${{ vars.PROD_GCP_WIF_PROVIDER }}
+          STAGING_PROJECT: ${{ vars.GCP_PROJECT }}
+        run: |
+          set -euo pipefail
+          [ "$GITHUB_REF" = "refs/heads/main" ] || { echo "::error::Production deploys only from main (got $GITHUB_REF)"; exit 1; }
+          [ "$CONFIRM" = "deploy production" ] || { echo "::error::Confirmation text does not match"; exit 1; }
+          [ -n "$PROD_PROJECT" ] && [ -n "$PROD_WIF" ] || { echo "::error::Production is not provisioned (PROD_GCP_PROJECT / PROD_GCP_WIF_PROVIDER unset)"; exit 1; }
+          [ "$PROD_PROJECT" != "$STAGING_PROJECT" ] || { echo "::error::Production must not use the staging project"; exit 1; }
+          case "$PROD_WIF" in *"/projects/${STAGING_PROJECT}/"*|*"workloadIdentityPools/github/providers/github-oidc") echo "::error::Staging identity provider refused"; exit 1;; esac
+      - name: Not implemented yet
+        run: |
+          echo "::error::Production deployment steps are added when the production project exists (design §11)."
+          exit 1

@@ -19,7 +19,10 @@ TAG="${TAG:?set TAG to the image tag (git short sha)}"
 INSTANCE="${INSTANCE:-ros-pg18}"
 CONN="$PROJECT:$REGION:$INSTANCE"
 REPO="$REGION-docker.pkg.dev/$PROJECT/ros"
-NUM="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')"
+NUM="${PROJECT_NUMBER:-$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')}"
+# CI may not change IAM: services keep their existing public-invoker policy.
+PUBLIC_FLAG="--allow-unauthenticated"
+[ "${CI_DEPLOY:-}" = "1" ] && PUBLIC_FLAG=""
 svc() { echo "ros-$1-$ENVIRONMENT"; }
 url() { echo "https://$(svc "$1")-$NUM.$REGION.run.app"; }
 has_secret() { gcloud secrets versions list "$1" --project="$PROJECT" --filter=state=ENABLED --format='value(name)' 2>/dev/null | grep -q .; }
@@ -76,7 +79,7 @@ gcloud run deploy "$(svc api)" --project="$PROJECT" --region="$REGION" \
   --labels="env=$ENVIRONMENT,app=api" \
   --port=3000 --cpu=1 --memory=512Mi --concurrency=80 \
   --min-instances=0 --max-instances=3 --timeout=3600 \
-  --allow-unauthenticated --quiet
+  $PUBLIC_FLAG --quiet
 fi
 
 for app in console ops admin; do
@@ -89,7 +92,7 @@ for app in console ops admin; do
     --labels="env=$ENVIRONMENT,app=$app" \
     --port=3000 --cpu=1 --memory=512Mi --concurrency=80 \
     --min-instances=0 --max-instances=2 --timeout=3600 \
-    --allow-unauthenticated --quiet
+    $PUBLIC_FLAG --quiet
 done
 
 echo "== smoke"

@@ -4,6 +4,14 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Staging deploys call this workflow first (deploy-staging.yml); a push to
+  # staging therefore runs CI once, inside the deploy pipeline.
+  workflow_call:
+    inputs:
+      full:
+        description: Run every package instead of only the affected ones
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -13,6 +21,8 @@ env:
   NEXT_TELEMETRY_DISABLED: "1"
   # Base commit for "affected" filters: the PR base, or the previous commit on main.
   TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+  # Full runs: deploy pipelines, and pushes whose base is unknown (a new branch).
+  CI_FULL: ${{ inputs.full == true || github.event.before == '0000000000000000000000000000000000000000' }}
 
 jobs:
   # Only the packages and apps changed since the base (and their dependents) run.
@@ -28,8 +38,15 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Affected apps and packages
-        run: pnpm exec turbo run typecheck lint test build --filter="...[${TURBO_SCM_BASE}]"
+      - name: Typecheck, lint, unit + integration tests, build
+        env:
+          TRUSTED_PROXY_HOPS: "1"
+        run: |
+          if [ "$CI_FULL" = "true" ]; then
+            pnpm exec turbo run typecheck lint test build
+          else
+            pnpm exec turbo run typecheck lint test build --filter="...[${TURBO_SCM_BASE}]"
+          fi
       - name: Root files
         run: |
           pnpm exec tsc --noEmit -p tsconfig.json
@@ -93,13 +110,15 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Start MinIO
+        # MinIO no longer publishes community images on Docker Hub; the frozen
+        # Bitnami build creates the test bucket itself.
         run: |
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=minio -e MINIO_ROOT_PASSWORD=minio-dev-secret \
-            minio/minio server /data
-          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:9000/minio/health/live && break; sleep 1; done
-          docker run --rm --network host --entrypoint /bin/sh minio/mc -c \
-            "mc alias set local http://127.0.0.1:9000 minio minio-dev-secret && mc mb --ignore-existing local/ros-test"
+            -e MINIO_DEFAULT_BUCKETS=ros-test \
+            bitnamilegacy/minio:2025.5.24
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:9000/minio/health/live && break; sleep 1; done
+          for i in $(seq 1 30); do docker exec minio mc ls local/ros-test >/dev/null 2>&1 && break; sleep 1; done
       - name: S3 object storage contract
         run: pnpm --filter @ros/adapters exec vitest run src/storage/providers/s3-storage.test.ts
 
@@ -125,9 +144,35 @@ jobs:
       - run: pnpm audit --prod --audit-level=high
 
   # One image per app, built (never pushed) only when that app's turbo graph changed.
+  # Production builds of api, console and ops with a seeded embedded database:
+  # app shell, service worker, offline queue and the money-never-offline rules.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: verify
+    if: ${{ inputs.full == true || github.event_name == 'push' }}
+    env:
+      DATABASE_PROVIDER: pglite
+      PGLITE_DATA_DIR: ${{ github.workspace }}/.e2e-pglite
+      APP_SECRET: ci-e2e-only-secret-not-for-production-0123456789
+      TRUSTED_PROXY_HOPS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: touch .env.local
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm db:migrate && pnpm db:seed
+      - run: pnpm test:e2e
+
+  # Build-only image check for pull requests; deploys build and push their own.
   images:
     runs-on: ubuntu-latest
     needs: verify
+    if: ${{ inputs.full != true }}
     strategy:
       fail-fast: false
       matrix:
