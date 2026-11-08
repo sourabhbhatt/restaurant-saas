@@ -34,5 +34,5 @@ describe("snapshotPglite", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 120_000); // migrates and opens PGlite twice: slow on 2-core CI runners
 });
