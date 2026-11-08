@@ -2,10 +2,14 @@
  * Demo data for local development. Idempotent (skips if the demo owner exists).
  * Usage: pnpm db:seed          (refuses to run when NODE_ENV=production)
  *
- * Logins (development only — change or delete before any shared deployment):
+ * Local logins (PGlite or a localhost Postgres):
  *   admin@restaurantos.local   / ChangeMe-Admin-2026   (Super Admin)
  *   owner@demo.local           / Demo-Owner-2026       (Workspace Owner)
  *   manager|waiter|kitchen|cashier@demo.local / Demo-Staff-2026 (Indiranagar branch)
+ *
+ * Any other database (staging) needs SEED_ADMIN_PASSWORD, SEED_OWNER_PASSWORD
+ * and SEED_STAFF_PASSWORD (12+ characters, not the published defaults): the
+ * defaults above are in the README, so they must never work on a public URL.
  */
 import { and, eq, isNull } from "drizzle-orm";
 
@@ -102,23 +106,55 @@ const MENU: Record<string, { name: string; price: number; veg: boolean; prep: nu
   ],
 };
 
+const DEFAULT_PASSWORDS = {
+  admin: "ChangeMe-Admin-2026",
+  owner: "Demo-Owner-2026",
+  staff: "Demo-Staff-2026",
+} as const;
+
+/** Local databases may use the published passwords; anything else must set its own. */
+function seedPasswords(isLocal: boolean): Record<keyof typeof DEFAULT_PASSWORDS, string> {
+  const fromEnv = {
+    admin: process.env.SEED_ADMIN_PASSWORD,
+    owner: process.env.SEED_OWNER_PASSWORD,
+    staff: process.env.SEED_STAFF_PASSWORD,
+  };
+  if (isLocal)
+    return {
+      admin: fromEnv.admin || DEFAULT_PASSWORDS.admin,
+      owner: fromEnv.owner || DEFAULT_PASSWORDS.owner,
+      staff: fromEnv.staff || DEFAULT_PASSWORDS.staff,
+    };
+  for (const key of Object.keys(DEFAULT_PASSWORDS) as (keyof typeof DEFAULT_PASSWORDS)[]) {
+    const value = fromEnv[key];
+    if (!value || value.length < 12 || value === DEFAULT_PASSWORDS[key])
+      throw new Error(
+        `Seeding a non-local database needs SEED_${key.toUpperCase()}_PASSWORD (12+ characters, not the published default)`,
+      );
+  }
+  return fromEnv as Record<keyof typeof DEFAULT_PASSWORDS, string>;
+}
+
 async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("Refusing to seed in production");
   const provider = process.env.DATABASE_PROVIDER === "pglite" ? "pglite" : "postgres";
+  const url =
+    process.env.DATABASE_URL ??
+    "postgres://restaurantos:restaurantos@localhost:5432/restaurantos_dev";
+  const isLocal =
+    provider === "pglite" ||
+    /^postgres(ql)?:\/\/[^@]*@(localhost|127\.0\.0\.1|postgres)[:/]/.test(url);
+  const passwords = seedPasswords(isLocal);
   const handle =
     provider === "pglite"
       ? await connectPglite(process.env.PGLITE_DATA_DIR)
-      : await connectPostgres(
-          process.env.DATABASE_URL ??
-            "postgres://restaurantos:restaurantos@localhost:5432/restaurantos_dev",
-          2,
-        );
+      : await connectPostgres(url, 2);
   const db = handle.db;
   try {
     await runMigrations(handle, provider);
     await ensureSystemData(db);
 
-    await user(db, "admin@restaurantos.local", "Platform Admin", "ChangeMe-Admin-2026", true);
+    await user(db, "admin@restaurantos.local", "Platform Admin", passwords.admin, true);
     if (
       await db
         .select()
@@ -129,7 +165,7 @@ async function main() {
       console.log("Demo data already present. Nothing to do.");
       return;
     }
-    const ownerId = await user(db, "owner@demo.local", "Demo Owner", "Demo-Owner-2026");
+    const ownerId = await user(db, "owner@demo.local", "Demo Owner", passwords.owner);
 
     const [ws] = await db
       .insert(workspaces)
@@ -290,7 +326,7 @@ async function main() {
       }
       if (branchName === "Indiranagar") {
         for (const [email, name, role] of staff) {
-          const uid = await user(db, email, name, "Demo-Staff-2026");
+          const uid = await user(db, email, name, passwords.staff);
           const [m] = await db
             .insert(workspaceMemberships)
             .values({ workspaceId, userId: uid, roleId: await roleId(db, "workspace_member") })
@@ -308,7 +344,9 @@ async function main() {
     }
     console.log("\nSeeded. Sample customer QR links:\n" + qrLinks.join("\n"));
     console.log(
-      "\nLogins: owner@demo.local / Demo-Owner-2026 · staff (manager|waiter|kitchen|cashier)@demo.local / Demo-Staff-2026 · admin@restaurantos.local / ChangeMe-Admin-2026",
+      isLocal
+        ? `\nLogins: owner@demo.local / ${passwords.owner} · staff (manager|waiter|kitchen|cashier)@demo.local / ${passwords.staff} · admin@restaurantos.local / ${passwords.admin}`
+        : "\nLogins: owner@demo.local, (manager|waiter|kitchen|cashier)@demo.local, admin@restaurantos.local — passwords from SEED_*_PASSWORD (not printed).",
     );
   } finally {
     await handle.close();
