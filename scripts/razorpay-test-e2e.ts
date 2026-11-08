@@ -4,7 +4,7 @@
  * synthesised here and signed with the webhook secret the API runs with.
  *
  * Usage:
- *   pnpm razorpay:test-e2e --api <base url> --email <owner email> --password <pw>
+ *   pnpm razorpay:test-e2e --api <api url> --app <console url> --email <owner email> --password <pw>
  *       [--plan pro] [--cycle MONTHLY|ANNUAL] [--i-know-this-is-staging]
  * Env: RAZORPAY_KEY_ID (must start with rzp_test_), RAZORPAY_WEBHOOK_SECRET.
  *
@@ -123,6 +123,7 @@ function main() {
   const { values } = parseArgs({
     options: {
       api: { type: "string" },
+      app: { type: "string" },
       email: { type: "string" },
       password: { type: "string" },
       plan: { type: "string" },
@@ -131,11 +132,14 @@ function main() {
     },
   });
   const api = values.api?.replace(/\/$/, "");
+  // Signed-in calls go through a frontend (its proxy is the only origin the API
+  // accepts cookie writes from); webhooks go straight to the API, like Razorpay's.
+  const app = (values.app ?? values.api)?.replace(/\/$/, "");
   const email = values.email;
   const password = values.password;
   if (!api || !email || !password) {
     fail(
-      "Usage: pnpm razorpay:test-e2e --api <base url> --email <owner email> --password <pw> " +
+      "Usage: pnpm razorpay:test-e2e --api <api url> [--app <console url>] --email <owner email> --password <pw> " +
         "[--plan pro] [--cycle MONTHLY|ANNUAL] [--i-know-this-is-staging]",
     );
   }
@@ -149,8 +153,10 @@ function main() {
   const cycle = (values.cycle ?? "").toUpperCase();
   if (cycle && cycle !== "MONTHLY" && cycle !== "ANNUAL") fail("--cycle must be MONTHLY or ANNUAL");
 
+  assertSafeTarget(app!, values["i-know-this-is-staging"] ?? false);
   return run({
     api,
+    app: app!,
     email,
     password,
     keyId,
@@ -162,6 +168,7 @@ function main() {
 
 interface Options {
   api: string;
+  app: string;
   email: string;
   password: string;
   keyId: string;
@@ -177,7 +184,7 @@ interface StepResult {
 }
 
 async function run(opts: Options): Promise<number> {
-  const origin = new URL(opts.api).origin;
+  const origin = new URL(opts.app).origin;
   const jar = new Jar();
   const results: StepResult[] = [];
   let aborted = false;
@@ -187,7 +194,7 @@ async function run(opts: Options): Promise<number> {
     if (jar.header()) headers.cookie = jar.header();
     if (body !== undefined) headers["content-type"] = "application/json";
     if (method !== "GET") headers.origin = origin;
-    const res = await fetch(`${opts.api}${path}`, {
+    const res = await fetch(`${opts.app}${path}`, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -370,6 +377,31 @@ async function run(opts: Options): Promise<number> {
     );
     assertEqual("plan", overview.subscription?.planKey ?? null, before?.planKey ?? null);
     return [null, "failed_recorded, subscription unchanged"];
+  });
+
+  await step("a captured payment of the wrong amount never activates", async () => {
+    const res = await webhook({
+      entity: "event",
+      event: "order.paid",
+      contains: ["payment"],
+      payload: {
+        payment: {
+          entity: {
+            ...paymentEntity(session!, `pay_e2e${token()}`, { status: "captured" }),
+            amount: session!.amountMinor - 100,
+          },
+        },
+      },
+      created_at: Math.floor(Date.now() / 1000),
+    });
+    assertEqual("status", res.status, 200);
+    assertEqual("outcome", res.outcome, "mismatch");
+    const overview = await call<SubscriptionOverview>(
+      "GET",
+      `/api/v1/workspaces/${ctx!.workspaceId}/subscription`,
+    );
+    assertEqual("subscription id", overview.subscription?.id ?? null, ctx!.before?.id ?? null);
+    return [null, "mismatch, subscription unchanged"];
   });
 
   const paidEventId = `evt_e2e_${token()}`;

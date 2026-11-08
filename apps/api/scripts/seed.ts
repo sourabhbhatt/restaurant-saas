@@ -31,6 +31,8 @@ import {
   menuItems,
   menuVariants,
   menus,
+  organizationMembers,
+  organizations,
   restaurantSettings,
   restaurants,
   roleAssignments,
@@ -169,9 +171,17 @@ async function main() {
     }
     const ownerId = await user(db, "owner@demo.local", "Demo Owner", passwords.owner);
 
+    // Organizations own billing (migration 0003): one per workspace, the owner as OWNER.
+    const [org] = await db
+      .insert(organizations)
+      .values({ name: "Demo Hospitality Group", createdBy: ownerId })
+      .returning({ id: organizations.id });
+    const organizationId = org!.id;
+    await db.insert(organizationMembers).values({ organizationId, userId: ownerId, role: "OWNER" });
     const [ws] = await db
       .insert(workspaces)
       .values({
+        organizationId,
         name: "Demo Hospitality Group",
         slug: `demo-hospitality-${Date.now().toString(36)}`,
         createdBy: ownerId,
@@ -196,10 +206,11 @@ async function main() {
     const now = new Date();
     await db.insert(subscriptions).values({
       workspaceId,
+      organizationId,
       planId: plan!.id,
       status: "TRIALING",
       trialStartsAt: now,
-      trialEndsAt: addDays(now, 30),
+      trialEndsAt: addDays(now, 15),
     });
 
     const [rest] = await db
