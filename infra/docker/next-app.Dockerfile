@@ -36,6 +36,9 @@ ENV CI=1
 RUN pnpm turbo run build --filter=@ros/${APP}
 # Only the API ships the migration journal (frontends are pruned without the
 # database package); stage it at a fixed path so the runner COPY always works.
+# Frontends bundle their service worker after `next build` (.next/sw-prebuilt).
+RUN mkdir -p /sw-prebuilt \
+    && if [ -d apps/${APP}/.next/sw-prebuilt ]; then cp -r apps/${APP}/.next/sw-prebuilt/. /sw-prebuilt/; fi
 RUN mkdir -p /migrations \
     && if [ -d packages/database/src/providers/postgres/migrations ]; then \
          cp -r packages/database/src/providers/postgres/migrations/. /migrations/; \
@@ -72,6 +75,7 @@ COPY --from=builder --chown=app:app /app/apps/${APP}/public ./apps/${APP}/public
 # /api/v1/health/ready reads the migration journal through MIGRATIONS_DIR,
 # which resolves next to the database package's client module.
 COPY --from=builder --chown=app:app /migrations ./packages/database/src/providers/postgres/migrations
+COPY --from=builder --chown=app:app /sw-prebuilt ./apps/${APP}/.next/sw-prebuilt
 # Liveness path: the API has no /healthz page.
 RUN if [ "${APP}" = "api" ]; then echo "/api/v1/health" > /app/.healthcheck; else echo "/healthz" > /app/.healthcheck; fi \
     && chown app:app /app/.healthcheck
