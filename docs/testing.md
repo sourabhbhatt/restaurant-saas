@@ -13,7 +13,7 @@
 | `apps/ops`             | jsdom                        | 1          | waiter table drawer                                                                                   |
 | `apps/api`             | node, PGlite                 | 32         | API integration suites (`tests/integration/`, 30) and container wiring (`src/composition`, 2)         |
 
-Plus `pnpm test:codemod` (node:test, the import codemod) and the Playwright specs in `tests/e2e/`.
+Plus `pnpm test:codemod` (node:test, the import codemod), the Playwright specs in `tests/e2e/`, and two HTTP-only scripts against a running API: `pnpm smoke` (order to bill) and `pnpm razorpay:test-e2e` (Razorpay test-mode checkout and signed webhooks; see [deployment](deployment.md#test-mode-checks)).
 
 **Integration tests** (`apps/api/tests/integration`) call the real route handlers against an embedded PostgreSQL 18 (PGlite) with every migration applied (`apps/api/src/test/harness.ts`: `createTestContainer`, `call`, `cookieFrom`). Nothing in the business path is mocked. They run with the tenant role switch on, so row-level security applies to every tenant query. Fixtures: `apps/api/src/test/fixtures*.ts`. The harness passes `undefined` params to static routes exactly like Next.js, and sets `TRUSTED_PROXY_HOPS=1` so each fixture user gets its own client IP.
 

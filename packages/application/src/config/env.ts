@@ -93,7 +93,7 @@ const fields = z.object({
 
   /** `none` keeps the manual upgrade-request flow only; `razorpay` adds online checkout. */
   PAYMENT_PROVIDER: z.enum(["none", "razorpay"]).default("none"),
-  /** The only Razorpay value ever sent to the browser. */
+  /** The only Razorpay value ever sent to the browser. Must be a test-mode key (`rzp_test_...`). */
   RAZORPAY_KEY_ID: z.string().min(1).optional(),
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
@@ -130,6 +130,10 @@ export function getEnv(): ServerEnv {
       ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET"] as const
     ).filter((key) => !env[key]);
     if (missing.length) throw new Error(`PAYMENT_PROVIDER=razorpay requires ${missing.join(", ")}`);
+    // Owner's rule: this deployment never takes live payments. There is no override flag.
+    if (!env.RAZORPAY_KEY_ID!.startsWith("rzp_test_")) {
+      throw new Error("Live Razorpay keys are not allowed: use a rzp_test_ key (test mode only)");
+    }
   }
   if (env.NODE_ENV === "production") {
     if (env.APP_SECRET.startsWith("dev-only"))

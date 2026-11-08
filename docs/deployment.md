@@ -66,15 +66,37 @@ The target in the [platform design](superpowers/specs/2026-11-07-platform-split-
 
 Online subscription payments are off until `PAYMENT_PROVIDER=razorpay` is set. Until then the Subscription page offers the manual upgrade request only, and a Super Admin activates plans by hand. Prepaid periods use Razorpay **Orders** plus Standard Checkout: one order per period, activated once the payment is captured. Automatic recurring renewal (Razorpay Subscriptions) is not part of this.
 
-1. **Keys.** In the Razorpay dashboard open _Account & Settings → API Keys_. Generate **test mode** keys first (`rzp_test_...`); switch to live keys only after the end-to-end check below. Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in the server environment (never in the client or in git).
+**Test mode only.** This deployment never takes live payments. The API refuses to start with a live key: with `PAYMENT_PROVIDER=razorpay`, `RAZORPAY_KEY_ID` must start with `rzp_test_`, and anything else fails `getEnv()` with "Live Razorpay keys are not allowed: use a rzp_test_ key (test mode only)". There is no override flag; staging and every other environment run the Razorpay test dashboard.
+
+1. **Keys.** In the Razorpay dashboard switch to **Test mode** and open _Account & Settings → API Keys_. Generate test keys (`rzp_test_...`). Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in the server environment (never in the client or in git).
 2. **Webhook.** _Account & Settings → Webhooks → Add new webhook_:
    - URL: `https://<public API host>/api/v1/webhooks/razorpay`, on the API itself, not through a frontend (the frontend proxy drops the `X-Razorpay-Signature` header). The route needs no cookie and is exempt from the same-origin check and maintenance mode.
    - Secret: choose a long random string and put the same value in `RAZORPAY_WEBHOOK_SECRET`.
-   - Active events: `order.paid` and `payment.captured`. Other events are acknowledged and ignored.
-     Webhooks are configured per mode: create one with the test keys and again when going live.
-3. Set `PAYMENT_PROVIDER=razorpay` and restart. Startup fails if any of the three variables is missing.
-4. **Test-mode check.** Sign in as an organization owner, open _Subscription → Upgrade_, choose a plan and billing cycle and press **Pay with Razorpay**. Pay with a Razorpay test card (for example `4111 1111 1111 1111`, any future expiry, any CVV; for a failing card use `4000 0000 0000 0002` or the "Failure" option in test Checkout). The plan is activated by the verify call that follows a successful payment, or by the webhook — whichever arrives first; the other is a no-op. Confirm the Subscription page shows the plan ACTIVE with the new period end, the history shows "Payment received", and the audit log holds `subscription.paid`. In the dashboard's _Webhooks_ page, every delivery should show 2xx; a 401 means the webhook secret differs between the dashboard and `RAZORPAY_WEBHOOK_SECRET`.
-5. **Amounts.** The price charged is always the plan's `monthlyPrice` / `annualPrice` from the database (minor units, INR), never a client value. A payment whose amount differs from the stored order is never activated; it is audited as `payment.amount_mismatch` for a Super Admin to settle by hand.
+   - Active events: `order.paid`, `payment.captured` and `payment.failed`. Other events are acknowledged and ignored. Webhooks are configured per mode: create it in the test-mode dashboard.
+3. Set `PAYMENT_PROVIDER=razorpay` and restart. Startup fails if any of the three variables is missing or the key id is not a test key.
+4. **Amounts.** The price charged is always the plan's `monthlyPrice` / `annualPrice` from the database (minor units, INR), never a client value. A payment whose amount differs from the stored order is never activated; it is audited as `payment.amount_mismatch` for a Super Admin to settle by hand. A paid event whose payment is not `captured` is ignored (never activates); a `payment.failed` is audited as `payment.failed` with Razorpay's error code and the order stays open so the customer can retry on it.
+
+### Test-mode checks
+
+Two checks, one automated and one by hand. Run both after any change to the payments module, the webhook route or the Razorpay configuration.
+
+**Automated: `pnpm razorpay:test-e2e`.** A script over the public HTTP API, no browser. The API creates a real Razorpay test order; the webhook deliveries are synthesised by the script and signed with the webhook secret, so this needs the same `RAZORPAY_WEBHOOK_SECRET` the API runs with.
+
+```sh
+RAZORPAY_KEY_ID=rzp_test_xxx RAZORPAY_WEBHOOK_SECRET=... \
+  pnpm razorpay:test-e2e --api https://api.staging.example.com --email owner@example.com --password '...'
+# Locally, against `pnpm dev` started with PAYMENT_PROVIDER=razorpay and the test keys in .env.local:
+RAZORPAY_KEY_ID=rzp_test_xxx RAZORPAY_WEBHOOK_SECRET=... \
+  pnpm razorpay:test-e2e --api http://localhost:3000 --email owner@demo.local --password 'Demo-Owner-2026'
+```
+
+The user must be an organization OWNER or BILLING_ADMIN. Optional: `--plan <key>` and `--cycle MONTHLY|ANNUAL` (default `pro`/`MONTHLY`, or the current plan and cycle while a paid period still runs, since a different one is refused with 409). The script refuses to run unless `RAZORPAY_KEY_ID` starts with `rzp_test_` and the API host is `localhost` or contains `staging`; `--i-know-this-is-staging` overrides the host check only, never the key check. It asserts, in order: sign-in; the checkout amount equals the plan price from `/public/plans`; a webhook with a wrong signature is 401; a signed `payment.failed` answers `failed_recorded` and leaves the subscription unchanged; a signed `order.paid` (status `captured`, the order's amount, a synthetic `pay_` id) answers `activated` and the subscription is ACTIVE on the plan; replaying the same event id is `duplicate`; a new event id for the same order is `already_paid`; exactly one ACTIVE current subscription with one `paid` event for the order. It prints a PASS/FAIL table and exits 1 on any failure. Note that it activates a real paid period for that organization (with no money moved): use a staging or demo organization.
+
+**Manual: Checkout itself.** The hosted Checkout form and the verify call cannot be driven without a browser. Sign in to the console as an organization owner, open _Subscription → Upgrade_, choose a plan and billing cycle and press **Pay with Razorpay**. Pay with a Razorpay test card, `4111 1111 1111 1111`, any future expiry, any CVV, and the OTP the test bank page shows (Razorpay's test docs list the current values); or with test UPI: `success@razorpay` succeeds, `failure@razorpay` fails. Verify:
+
+- Success: the button shows "Confirming payment…", then "plan activated"; the Subscription page shows the plan ACTIVE with the new period end and "Payment received" in the history; the audit log holds `payment.checkout_created` and `subscription.paid`; `payment_orders` has the order PAID with the `pay_` id. Activation comes from the verify call or the webhook, whichever arrives first; the other is a no-op (`already_paid`).
+- Failure: Checkout shows the error and stays open for a retry on the same order; the console only toasts the error, the subscription is unchanged and nothing shows as active; the audit log holds `payment.failed` with the error code once the webhook arrives. Retrying with a working card then activates the same order.
+- In the Razorpay dashboard's _Webhooks_ page every delivery shows 2xx; a 401 means the webhook secret differs between the dashboard and `RAZORPAY_WEBHOOK_SECRET`.
 
 ## Backups and recovery
 

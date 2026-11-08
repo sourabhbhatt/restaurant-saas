@@ -67,12 +67,33 @@ describe("PAYMENT_PROVIDER", () => {
     );
   });
 
-  it("razorpay with every secret starts", () => {
+  it("razorpay with every secret and a test key starts", () => {
     process.env.PAYMENT_PROVIDER = "razorpay";
     process.env.RAZORPAY_KEY_ID = "rzp_test_key";
     process.env.RAZORPAY_KEY_SECRET = "s";
     process.env.RAZORPAY_WEBHOOK_SECRET = "w";
     resetEnvCache();
     expect(getEnv().PAYMENT_PROVIDER).toBe("razorpay");
+    expect(getEnv().RAZORPAY_KEY_ID).toBe("rzp_test_key");
+  });
+
+  it.each(["rzp_live_key", "live_key", "RZP_TEST_upper"])(
+    "refuses a key id that is not a test key (%s), with no override",
+    (keyId) => {
+      process.env.PAYMENT_PROVIDER = "razorpay";
+      process.env.RAZORPAY_KEY_ID = keyId;
+      process.env.RAZORPAY_KEY_SECRET = "s";
+      process.env.RAZORPAY_WEBHOOK_SECRET = "w";
+      resetEnvCache();
+      expect(() => getEnv()).toThrow(
+        "Live Razorpay keys are not allowed: use a rzp_test_ key (test mode only)",
+      );
+    },
+  );
+
+  it("a live key is ignored while the provider is none", () => {
+    process.env.RAZORPAY_KEY_ID = "rzp_live_key";
+    resetEnvCache();
+    expect(getEnv().PAYMENT_PROVIDER).toBe("none");
   });
 });

@@ -58,7 +58,19 @@ export interface CheckoutVerifyDto {
   currentPeriodEnd: string | null;
 }
 
+/**
+ * `failed_recorded`: a `payment.failed` for an open order was audited; the order stays
+ * CREATED so the customer can retry. `ignored`: an event type we do not act on, or a
+ * paid event whose payment is not `captured`.
+ */
 export interface WebhookResultDto {
   received: true;
-  outcome: "activated" | "duplicate" | "ignored" | "already_paid" | "mismatch" | "unknown_order";
+  outcome:
+    | "activated"
+    | "duplicate"
+    | "ignored"
+    | "already_paid"
+    | "mismatch"
+    | "unknown_order"
+    | "failed_recorded";
 }
