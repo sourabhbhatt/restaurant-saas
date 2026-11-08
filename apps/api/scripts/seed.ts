@@ -141,9 +141,11 @@ async function main() {
   const url =
     process.env.DATABASE_URL ??
     "postgres://restaurantos:restaurantos@localhost:5432/restaurantos_dev";
+  // A Cloud SQL Auth Proxy also listens on 127.0.0.1: SEED_REMOTE=1 marks such a target as shared.
   const isLocal =
-    provider === "pglite" ||
-    /^postgres(ql)?:\/\/[^@]*@(localhost|127\.0\.0\.1|postgres)[:/]/.test(url);
+    process.env.SEED_REMOTE !== "1" &&
+    (provider === "pglite" ||
+      /^postgres(ql)?:\/\/[^@]*@(localhost|127\.0\.0\.1|postgres)[:/]/.test(url));
   const passwords = seedPasswords(isLocal);
   const handle =
     provider === "pglite"
@@ -344,7 +346,10 @@ async function main() {
     }
     console.log("\nSeeded. Sample customer QR links:\n" + qrLinks.join("\n"));
     console.log(
-      isLocal
+      isLocal &&
+        !process.env.SEED_ADMIN_PASSWORD &&
+        !process.env.SEED_OWNER_PASSWORD &&
+        !process.env.SEED_STAFF_PASSWORD
         ? `\nLogins: owner@demo.local / ${passwords.owner} · staff (manager|waiter|kitchen|cashier)@demo.local / ${passwords.staff} · admin@restaurantos.local / ${passwords.admin}`
         : "\nLogins: owner@demo.local, (manager|waiter|kitchen|cashier)@demo.local, admin@restaurantos.local — passwords from SEED_*_PASSWORD (not printed).",
     );
