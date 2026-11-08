@@ -328,7 +328,8 @@ async function main() {
     );
   });
   await check("kitchen", "stale version is a 409 conflict (offline queue contract)", async () => {
-    const r = await waiter.req("POST", `/api/v1/orders/${orderId}/transition`, {
+    // The owner holds every permission, so the version check is what answers.
+    const r = await owner.req("POST", `/api/v1/orders/${orderId}/transition`, {
       action: "cancel",
       expectedVersion: 1,
     });
