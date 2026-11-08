@@ -3,6 +3,6 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["tests/e2e/**/*.ts", "*.ts", "*.mts"],
+  "include": ["tests/e2e/**/*.ts", "scripts/**/*.ts", "*.ts", "*.mts"],
   "exclude": ["node_modules", "apps", "packages", ".worktrees"]
 }

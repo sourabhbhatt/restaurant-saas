@@ -34,6 +34,10 @@ export interface PaymentServiceDeps {
 
 /** Webhook events that confirm money reached us; everything else is acknowledged and ignored. */
 const PAID_EVENTS = new Set(["order.paid", "payment.captured"]);
+/** A failed attempt: audited, but the order stays open because Razorpay lets the customer retry on it. */
+const FAILED_EVENT = "payment.failed";
+/** Every event type that names one of our orders and so takes the order lock. */
+const ORDER_EVENTS = new Set([...PAID_EVENTS, FAILED_EVENT]);
 
 interface WebhookPayment {
   paymentId: string | null;
@@ -41,6 +45,10 @@ interface WebhookPayment {
   amountMinor: number | null;
   currency: string | null;
   status: string | null;
+  /** Present on `payment.failed` only; Razorpay's own wording, safe to audit. */
+  errorCode: string | null;
+  errorDescription: string | null;
+  errorReason: string | null;
 }
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -64,7 +72,7 @@ const str = (v: unknown): string | null => (typeof v === "string" && v ? v : nul
 const int = (v: unknown): number | null =>
   typeof v === "number" && Number.isInteger(v) ? v : null;
 
-/** The payment entity of an `order.paid` / `payment.captured` event, defensively read. */
+/** The payment entity of an `order.paid` / `payment.captured` / `payment.failed` event, defensively read. */
 export function readWebhookPayment(payload: unknown): WebhookPayment {
   const root = (payload ?? {}) as { payload?: { payment?: { entity?: Record<string, unknown> } } };
   const p = root.payload?.payment?.entity ?? {};
@@ -74,6 +82,9 @@ export function readWebhookPayment(payload: unknown): WebhookPayment {
     amountMinor: int(p.amount),
     currency: str(p.currency),
     status: str(p.status),
+    errorCode: str(p.error_code),
+    errorDescription: str(p.error_description),
+    errorReason: str(p.error_reason),
   };
 }
 
@@ -224,6 +235,43 @@ export function createPaymentService({
       source,
       expectedAmountMinor: order.amountMinor,
       receivedAmountMinor: seen.amountMinor,
+    });
+  }
+
+  /**
+   * A `payment.failed` for an open order: audited for support, with the order
+   * left CREATED so the customer's retry on the same order can still activate.
+   */
+  async function auditFailure(
+    r: PaymentRepos,
+    order: PaymentOrderRow,
+    actor: AuditActor,
+    payment: WebhookPayment,
+  ): Promise<void> {
+    const ws = await r.payments.findBillingWorkspace(order.organizationId);
+    await recordAudit(
+      r.audit,
+      actor,
+      "payment.failed",
+      { workspaceId: ws?.id ?? null, targetType: "payment_order", targetId: order.id },
+      {
+        organizationId: order.organizationId,
+        providerOrderId: order.providerOrderId,
+        providerPaymentId: payment.paymentId,
+        planKey: order.planKey,
+        billingCycle: order.billingCycle,
+        amountMinor: payment.amountMinor,
+        currency: payment.currency,
+        errorCode: payment.errorCode,
+        errorDescription: payment.errorDescription,
+        errorReason: payment.errorReason,
+      },
+    );
+    logger.info("payment_failed", {
+      paymentOrderId: order.id,
+      providerPaymentId: payment.paymentId,
+      errorCode: payment.errorCode,
+      errorReason: payment.errorReason,
     });
   }
 
@@ -424,8 +472,10 @@ export function createPaymentService({
       const actor: AuditActor = { type: "SYSTEM", userId: null, requestId: meta.requestId };
 
       const outcome = await tx.run(async (r): Promise<WebhookResultDto["outcome"]> => {
+        // The order row is locked FOR UPDATE before the event is recorded, so a webhook
+        // and the verify endpoint (or two deliveries) serialise on one order.
         const order =
-          PAID_EVENTS.has(type) && payment.orderId
+          ORDER_EVENTS.has(type) && payment.orderId
             ? await r.payments.lockOrder(gw.name, payment.orderId)
             : null;
         const fresh = await r.payments.insertEvent({
@@ -436,9 +486,23 @@ export function createPaymentService({
           payloadHash,
         });
         if (!fresh) return "duplicate";
-        if (!PAID_EVENTS.has(type)) return "ignored";
+        if (!ORDER_EVENTS.has(type)) return "ignored";
         if (!order) return "unknown_order";
         if (order.status === "PAID") return "already_paid";
+        if (type === FAILED_EVENT) {
+          await auditFailure(r, order, actor, payment);
+          return "failed_recorded";
+        }
+        // order.paid carries the payment entity too; only a captured payment is money in hand.
+        if (payment.status !== "captured") {
+          logger.info("payment_webhook_not_captured", {
+            type,
+            paymentOrderId: order.id,
+            paymentStatus: payment.status,
+            requestId: meta.requestId,
+          });
+          return "ignored";
+        }
         if (!payment.paymentId || !amountMatches(order, payment)) {
           await auditMismatch(r, order, actor, payment, "webhook");
           return "mismatch";

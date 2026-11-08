@@ -76,7 +76,13 @@ async function createCheckout(
 
 function paidEvent(
   session: CheckoutSessionDto,
-  over: Partial<{ amount: number; currency: string; event: string; paymentId: string }> = {},
+  over: Partial<{
+    amount: number;
+    currency: string;
+    event: string;
+    paymentId: string;
+    status: string;
+  }> = {},
 ) {
   return {
     entity: "event",
@@ -89,7 +95,7 @@ function paidEvent(
           entity: "payment",
           amount: over.amount ?? session.amountMinor,
           currency: over.currency ?? session.currency,
-          status: "captured",
+          status: over.status ?? "captured",
           order_id: session.orderId,
         },
       },
@@ -97,6 +103,64 @@ function paidEvent(
     },
     created_at: 1_800_000_000,
   };
+}
+
+/** Razorpay's `payment.failed` delivery: the payment entity carries the error, the order stays open. */
+function failedEvent(
+  session: CheckoutSessionDto,
+  paymentId = `pay_fail${session.orderId.slice(-6)}`,
+) {
+  return {
+    entity: "event",
+    event: "payment.failed",
+    contains: ["payment"],
+    payload: {
+      payment: {
+        entity: {
+          id: paymentId,
+          entity: "payment",
+          amount: session.amountMinor,
+          currency: session.currency,
+          status: "failed",
+          order_id: session.orderId,
+          error_code: "BAD_REQUEST_ERROR",
+          error_description: "Payment failed due to incorrect OTP",
+          error_source: "customer",
+          error_step: "payment_authentication",
+          error_reason: "payment_failed",
+        },
+      },
+    },
+    created_at: 1_800_000_000,
+  };
+}
+
+async function auditRows(action: string, targetId: string) {
+  return c.db
+    .select({ id: auditLogs.id, workspaceId: auditLogs.workspaceId, metadata: auditLogs.metadata })
+    .from(auditLogs)
+    .where(and(eq(auditLogs.action, action), eq(auditLogs.targetId, targetId)));
+}
+
+async function subscriptionRows(organizationId: string) {
+  return c.db
+    .select({
+      id: subscriptions.id,
+      status: subscriptions.status,
+      isCurrent: subscriptions.isCurrent,
+    })
+    .from(subscriptions)
+    .where(eq(subscriptions.organizationId, organizationId));
+}
+
+async function paidEventsFor(providerOrderId: string) {
+  const rows = await c.db
+    .select({ type: subscriptionEvents.type, metadata: subscriptionEvents.metadata })
+    .from(subscriptionEvents)
+    .where(eq(subscriptionEvents.type, "paid"));
+  return rows.filter(
+    (r) => (r.metadata as { providerOrderId?: string } | null)?.providerOrderId === providerOrderId,
+  );
 }
 
 let eventSeq = 0;
@@ -377,6 +441,186 @@ describe("webhook", () => {
       { params: Promise.resolve(undefined) },
     );
     expect(malformed.status).toBe(400);
+  });
+});
+
+describe("payment.failed webhook", () => {
+  it("is recorded once with the provider error, leaves the order open, and a later paid event activates", async () => {
+    const { owner, organizationId } = await orgOwner("Failed");
+    const session = await createCheckout(owner, organizationId);
+    const before = await currentSubscription(organizationId);
+    expect(before.status).toBe("TRIALING");
+    const subsBefore = await subscriptionRows(organizationId);
+
+    const failed = await postWebhook(failedEvent(session), { eventId: "evt_failed_1" });
+    expect(failed.status).toBe(200);
+    expect(failed.body.data).toEqual({ received: true, outcome: "failed_recorded" });
+
+    // The order is still payable: Razorpay lets the customer retry on the same order.
+    expect((await orderRow(session.orderId)).status).toBe("CREATED");
+    expect(await currentSubscription(organizationId)).toEqual(before);
+    expect(await subscriptionRows(organizationId)).toEqual(subsBefore);
+
+    const audits = await auditRows("payment.failed", session.paymentOrderId);
+    expect(audits).toHaveLength(1);
+    expect(audits[0]!.workspaceId).not.toBeNull();
+    expect(audits[0]!.metadata).toMatchObject({
+      organizationId,
+      providerOrderId: session.orderId,
+      providerPaymentId: `pay_fail${session.orderId.slice(-6)}`,
+      errorCode: "BAD_REQUEST_ERROR",
+      errorDescription: "Payment failed due to incorrect OTP",
+      errorReason: "payment_failed",
+    });
+
+    // Replay of the same delivery: duplicate, no second audit row.
+    const replay = await postWebhook(failedEvent(session), { eventId: "evt_failed_1" });
+    expect(replay.status).toBe(200);
+    expect(replay.body.data!.outcome).toBe("duplicate");
+    expect(await auditRows("payment.failed", session.paymentOrderId)).toHaveLength(1);
+    const stored = await c.db
+      .select({ eventId: paymentEvents.eventId, type: paymentEvents.type })
+      .from(paymentEvents)
+      .where(eq(paymentEvents.organizationId, organizationId));
+    expect(stored).toEqual([{ eventId: "evt_failed_1", type: "payment.failed" }]);
+
+    // The customer retries and succeeds on the same order.
+    const paid = await postWebhook(paidEvent(session, { paymentId: "pay_retry_ok" }), {
+      eventId: "evt_failed_2",
+    });
+    expect(paid.status).toBe(200);
+    expect(paid.body.data!.outcome).toBe("activated");
+    const sub = await currentSubscription(organizationId);
+    expect(sub).toMatchObject({ status: "ACTIVE", planKey: "pro" });
+    expect(await orderRow(session.orderId)).toMatchObject({
+      status: "PAID",
+      providerPaymentId: "pay_retry_ok",
+    });
+
+    // A failure arriving after the order is paid changes nothing.
+    const late = await postWebhook(failedEvent(session, "pay_fail_late"), {
+      eventId: "evt_failed_3",
+    });
+    expect(late.body.data!.outcome).toBe("already_paid");
+    expect(await auditRows("payment.failed", session.paymentOrderId)).toHaveLength(1);
+    expect((await currentSubscription(organizationId)).id).toBe(sub.id);
+  });
+
+  it("a failure for an unknown order is acknowledged without an audit row", async () => {
+    const failedAudits = () =>
+      c.db
+        .select({ id: auditLogs.id })
+        .from(auditLogs)
+        .where(eq(auditLogs.action, "payment.failed"));
+    const before = (await failedAudits()).length;
+    const res = await postWebhook({
+      event: "payment.failed",
+      payload: {
+        payment: {
+          entity: { id: "pay_x", order_id: "order_missing", status: "failed", error_code: "X" },
+        },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data!.outcome).toBe("unknown_order");
+    expect((await failedAudits()).length).toBe(before);
+  });
+
+  it("a payment.failed with a forged signature is 401 and records nothing", async () => {
+    const { owner, organizationId } = await orgOwner("ForgedFail");
+    const session = await createCheckout(owner, organizationId);
+    const res = await postWebhook(failedEvent(session), {
+      signature: "0".repeat(64),
+      eventId: "evt_forged_fail",
+    });
+    expect(res.status).toBe(401);
+    expect(await auditRows("payment.failed", session.paymentOrderId)).toHaveLength(0);
+    expect(
+      await c.db.select().from(paymentEvents).where(eq(paymentEvents.eventId, "evt_forged_fail")),
+    ).toEqual([]);
+  });
+});
+
+describe("webhook payment status", () => {
+  it.each(["authorized", "created", "failed"])(
+    "order.paid whose payment is %s is ignored and never activates",
+    async (status) => {
+      const { owner, organizationId } = await orgOwner(`Status ${status}`);
+      const session = await createCheckout(owner, organizationId);
+      const res = await postWebhook(paidEvent(session, { status }));
+      expect(res.status).toBe(200);
+      expect(res.body.data!.outcome).toBe("ignored");
+      expect((await orderRow(session.orderId)).status).toBe("CREATED");
+      expect((await currentSubscription(organizationId)).status).toBe("TRIALING");
+      expect(await auditCount("payment.amount_mismatch", session.paymentOrderId)).toBe(0);
+      expect(await paidEventsFor(session.orderId)).toHaveLength(0);
+    },
+  );
+
+  it("a payment entity without a status is not treated as captured", async () => {
+    const { owner, organizationId } = await orgOwner("NoStatus");
+    const session = await createCheckout(owner, organizationId);
+    const body = paidEvent(session) as {
+      payload: { payment: { entity: Record<string, unknown> } };
+    };
+    delete body.payload.payment.entity.status;
+    const res = await postWebhook(body);
+    expect(res.body.data!.outcome).toBe("ignored");
+    expect((await orderRow(session.orderId)).status).toBe("CREATED");
+    expect((await currentSubscription(organizationId)).status).toBe("TRIALING");
+  });
+});
+
+describe("duplicate prevention across webhook and verify", () => {
+  it("webhook then verify: one subscription row, one paid event", async () => {
+    const { owner, organizationId } = await orgOwner("HookThenVerify");
+    const session = await createCheckout(owner, organizationId);
+    const paymentId = fake.capture(session.orderId);
+    const subsBefore = await subscriptionRows(organizationId);
+
+    const hook = await postWebhook(paidEvent(session, { paymentId }));
+    expect(hook.body.data!.outcome).toBe("activated");
+    const captured = await postWebhook(
+      paidEvent(session, { paymentId, event: "payment.captured" }),
+    );
+    expect(captured.body.data!.outcome).toBe("already_paid");
+    const verified = await verifyAs(owner, organizationId, session, paymentId);
+    expect(verified.status).toBe(200);
+    expect(verified.body.data!.status).toBe("ACTIVE");
+    expect(verified.body.data!.order.status).toBe("PAID");
+
+    const subs = await subscriptionRows(organizationId);
+    expect(subs).toHaveLength(subsBefore.length + 1);
+    expect(subs.filter((s) => s.isCurrent)).toHaveLength(1);
+    expect(subs.filter((s) => s.status === "ACTIVE")).toHaveLength(1);
+    expect(await paidEventsFor(session.orderId)).toHaveLength(1);
+    expect(
+      await auditCount("subscription.paid", (await currentSubscription(organizationId)).id),
+    ).toBe(1);
+  });
+
+  it("verify then webhooks: one subscription row, one paid event", async () => {
+    const { owner, organizationId } = await orgOwner("VerifyThenHook");
+    const session = await createCheckout(owner, organizationId);
+    const paymentId = fake.capture(session.orderId);
+    const subsBefore = await subscriptionRows(organizationId);
+
+    const verified = await verifyAs(owner, organizationId, session, paymentId);
+    expect(verified.body.data!.status).toBe("ACTIVE");
+    const hook = await postWebhook(paidEvent(session, { paymentId }));
+    expect(hook.body.data!.outcome).toBe("already_paid");
+    const captured = await postWebhook(
+      paidEvent(session, { paymentId, event: "payment.captured" }),
+    );
+    expect(captured.body.data!.outcome).toBe("already_paid");
+    const again = await verifyAs(owner, organizationId, session, paymentId);
+    expect(again.body.data!.status).toBe("ACTIVE");
+
+    const subs = await subscriptionRows(organizationId);
+    expect(subs).toHaveLength(subsBefore.length + 1);
+    expect(subs.filter((s) => s.isCurrent)).toHaveLength(1);
+    expect(subs.filter((s) => s.status === "ACTIVE")).toHaveLength(1);
+    expect(await paidEventsFor(session.orderId)).toHaveLength(1);
   });
 });
 
