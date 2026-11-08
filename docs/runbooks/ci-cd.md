@@ -20,6 +20,8 @@ Promote by pull request: feature → `staging` (tested on staging) → `main`.
 4. **deploy**: `infra/gcp/deploy.sh` for those apps (API first: on-demand Cloud SQL backup, migrate job). Cloud Run stays at `min-instances=0`.
 5. **smoke**: `pnpm smoke:staging` against the four public URLs; passwords come from Secret Manager and are masked.
 
+Health checks: the frontends answer `/health`; the API answers `/api/v1/health` (Cloud Run reserves paths ending in `z`).
+
 One staging deploy runs at a time (`concurrency: staging-deploy`); a newer push waits.
 
 **Deploy by hand** after starting staging: Actions → Deploy staging → Run workflow on `staging` (optionally list apps, e.g. `api`).
