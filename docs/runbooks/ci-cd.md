@@ -35,6 +35,8 @@ Manual only. Requires: run from `main`, the confirmation text, approval in the `
 - Pool `github`, provider `github-oidc`: only tokens from `sourabhbhatt/restaurant-saas` on `refs/heads/staging`, never pull-request events. Forks and feature branches cannot reach Google Cloud.
 - `ros-deployer`: Cloud Run developer; actAs the three runtime accounts; Artifact Registry writer on `ros`; custom role `rosDeployerSql` (read the instance, create backups; **cannot start, stop or modify Cloud SQL**); Secret Manager metadata for the Razorpay/Resend staging secrets (no values) and read access to the three staging seed passwords for smoke tests.
 
+Configured on 2026-11-08 (`ros-deployer` created, four variables set).
+
 Repository variables (not secrets): `GCP_PROJECT`, `GCP_PROJECT_NUMBER`, `GCP_WIF_PROVIDER`, `GCP_DEPLOYER_SA`. Environments: `staging` (branch `staging` only), `production` (branch `main` only, required reviewer).
 
 ## Cost
