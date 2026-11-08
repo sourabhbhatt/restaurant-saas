@@ -115,9 +115,12 @@ cmd_status() {
   gc sql backups list --instance="$INSTANCE" --limit=3 \
     --format="value(windowStartTime.date('%Y-%m-%d %H:%M'),type,status)" | sed 's/^/    /'
   echo "Cloud Run (all scale to zero):"
-  gc run services list --region="$REGION" \
-    --format="table[no-heading](metadata.name,spec.template.metadata.annotations['autoscaling.knative.dev/minScale'],spec.template.metadata.annotations['autoscaling.knative.dev/maxScale'],status.url)" 2>/dev/null \
-    | awk '{printf "  %-22s min=%s max=%s %s\n", $1, ($2==""?"0":$2), $3, $4}' || true
+  local svc mn mx
+  for svc in $(gc run services list --region="$REGION" --format="value(metadata.name)" 2>/dev/null); do
+    mn="$(gc run services describe "$svc" --region="$REGION" --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/minScale'])")"
+    mx="$(gc run services describe "$svc" --region="$REGION" --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/maxScale'])")"
+    printf '  %-22s min=%s max=%s\n' "$svc" "${mn:-0}" "${mx:-default}"
+  done
   printf 'Guard: '
   gc scheduler jobs describe "$GUARD_JOB" --location="$REGION" --format="value(state,schedule)" 2>/dev/null || echo "not installed (run install-guard)"
   echo "Cost rates (INR, Mumbai list): running ₹${RATE_RUNNING_HOUR}/h (≈₹96/day); stopped ₹${RATE_IP_STOPPED_HOUR}/h IP + ₹${STORAGE_MONTH}/mo storage (≈₹34/day)"
