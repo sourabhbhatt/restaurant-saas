@@ -49,6 +49,8 @@ The API runs with `DATABASE_URL` as `ros_runtime`, `DATABASE_TENANT_ROLE=ros_ten
 7. Schedule `POST <API URL>/api/v1/jobs/subscriptions` daily with `Authorization: Bearer $CRON_SECRET`, sent to the API directly (the frontends' proxy does not forward `Authorization`) (trial reminders and expiry notices; access is computed from dates, so a missed run changes nothing).
 8. Optional: online payments, see [Razorpay setup](#razorpay-setup).
 
+Day-to-day staging control (start, stop, costs): [runbooks/staging-gcp.md](runbooks/staging-gcp.md).
+
 ## Cloud Run notes
 
 The target in the [platform design](superpowers/specs/2026-11-07-platform-split-and-gcp-design.md) is Cloud Run (`asia-south1`) with Cloud SQL for PostgreSQL 18. Nothing in `infra/` provisions it yet; these are the settings the code needs:

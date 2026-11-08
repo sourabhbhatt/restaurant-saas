@@ -29,6 +29,10 @@ CONSOLE_URL="$(url console)"
 OPS_URL="$(url ops)"
 ADMIN_URL="$(url admin)"
 
+if [ "$(gcloud sql instances describe "$INSTANCE" --project="$PROJECT" --format='value(settings.activationPolicy)')" != "ALWAYS" ]; then
+  echo "Cloud SQL is stopped. Run: infra/gcp/staging.sh start   (then re-run this deploy)"; exit 1
+fi
+
 if want api; then
 echo "== on-demand backup before migrating"
 gcloud sql backups create --instance="$INSTANCE" --project="$PROJECT" \
