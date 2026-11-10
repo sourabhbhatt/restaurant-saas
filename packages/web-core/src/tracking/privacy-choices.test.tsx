@@ -16,6 +16,12 @@ vi.mock("../features/session/queries", () => ({
     ready: true,
   }),
   useSignOut: () => () => {},
+  // The menu's Help & support item reads the workspace's permissions; no workspace here.
+  useWorkspaceStructure: () => ({ data: undefined }),
+  permissionChecker: (permissions: readonly string[] | undefined) => {
+    const set = new Set(permissions ?? []);
+    return (permission: string) => set.has(permission);
+  },
 }));
 vi.mock("../features/workspaces/use-switch-workspace", () => ({
   useSwitchWorkspace: () => () => {},
