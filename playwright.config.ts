@@ -6,7 +6,13 @@ const { console: baseURL, ops, admin, api, external } = E2E_URLS;
 const port = (url: string) => new URL(url).port;
 
 /** Journeys run once, on the form factor their users have (guests and waiters: phones). */
-const DESKTOP_ONLY = [/owner-.*\.spec\.ts/, /operations\.spec\.ts/, /offline\.spec\.ts/];
+const DESKTOP_ONLY = [
+  /owner-.*\.spec\.ts/,
+  /admin\.spec\.ts/,
+  /subscription\.spec\.ts/,
+  /operations\.spec\.ts/,
+  /offline\.spec\.ts/,
+];
 const MOBILE_ONLY = [/guest\.spec\.ts/, /waiter\.spec\.ts/];
 
 const frontend = (pkg: string, url: string) => ({

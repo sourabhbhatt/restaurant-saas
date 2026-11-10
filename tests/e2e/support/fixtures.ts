@@ -39,6 +39,70 @@ export async function apiClient(
 export const uniqueSuffix = () =>
   `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
+export const NEW_ACCOUNT_PASSWORD = "E2e-Account-Pass-2026";
+
+export interface NewOwner {
+  /** Signed in as the owner (console proxy). */
+  api: APIRequestContext;
+  email: string;
+  workspaceId: string;
+  workspaceName: string;
+}
+
+/**
+ * A brand-new owner with an empty workspace (new workspaces start on the Pro
+ * trial), created over the API. Specs that change subscription or workspace
+ * status use one, so the shared demo workspace is never affected.
+ */
+export async function newOwner(label = "E2E Group"): Promise<NewOwner> {
+  const suffix = uniqueSuffix();
+  const api = await apiClient();
+  const email = `owner-${suffix}@e2e.test`;
+  await data(
+    await api.post("/api/v1/auth/signup", {
+      data: {
+        name: `E2E Owner ${suffix}`,
+        email,
+        password: NEW_ACCOUNT_PASSWORD,
+        acceptTerms: true,
+      },
+    }),
+  );
+  const workspaceName = `${label} ${suffix}`;
+  const ws = await data<{ id: string }>(
+    await api.post("/api/v1/workspaces", { data: { name: workspaceName } }),
+  );
+  return { api, email, workspaceId: ws.id, workspaceName };
+}
+
+/**
+ * The newest email to `to` in the API's outbox, read through the dev mailbox
+ * (test hooks, Super Admin only). Read on the API itself: the frontends'
+ * proxies hide /api/v1/dev unless they run with ENABLE_TEST_HOOKS too.
+ */
+export async function latestEmailTo(to: string): Promise<{ subject: string; text: string }> {
+  const admin = await playwrightRequest.newContext({
+    baseURL: E2E_URLS.api,
+    storageState: authFile("admin"),
+    extraHTTPHeaders: { "x-forwarded-for": uniqueIp() },
+  });
+  try {
+    let found: { to: string; subject: string; text: string } | undefined;
+    await expect
+      .poll(async () => {
+        const mails = await data<{ to: string; subject: string; text: string }[]>(
+          await admin.get("/api/v1/dev/mailbox"),
+        );
+        found = mails.find((m) => m.to.toLowerCase() === to.toLowerCase());
+        return Boolean(found);
+      })
+      .toBe(true);
+    return found!;
+  } finally {
+    await admin.dispose();
+  }
+}
+
 export interface MenuItemLite {
   id: string;
   name: string;
