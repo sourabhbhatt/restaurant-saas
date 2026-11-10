@@ -225,7 +225,14 @@ function ComparisonTable({ plans }: { plans: PublicPlan[] }) {
       <h2 id="compare-heading" className="text-center text-2xl font-semibold tracking-tight">
         Compare plans
       </h2>
-      <div className="overflow-x-auto rounded-2xl border bg-card">
+      {/* Scrolls sideways on phones: a named region keyboard users can focus and scroll.
+          Static (not measured) so it is right in the server-rendered HTML too. */}
+      <div
+        className="overflow-x-auto rounded-2xl border bg-card"
+        tabIndex={0}
+        role="region"
+        aria-label="Plan comparison table"
+      >
         <table className="w-full min-w-[40rem] text-sm">
           <caption className="sr-only">Plan limits and features</caption>
           <thead>

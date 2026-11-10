@@ -58,22 +58,17 @@ export function ContextSwitcher({
         <Skeleton className="mx-2 h-10" />
       ) : restaurants.length > 0 ? (
         <DropdownMenu>
-          <DropdownMenuTrigger
-            className="ml-4 flex items-center gap-2 rounded-lg border border-sidebar-border p-2 text-left hover:bg-sidebar-accent"
-            aria-label={
-              current
-                ? `Branch ${current.branch.name} of ${current.restaurant.name}. Switch branch`
-                : "Choose a branch"
-            }
-          >
+          <DropdownMenuTrigger className="ml-4 flex items-center gap-2 rounded-lg border border-sidebar-border p-2 text-left hover:bg-sidebar-accent">
             <Store className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             <span className="min-w-0 flex-1">
+              {/* Named by its visible text (WCAG 2.5.3) plus what it does. */}
               <span className="block truncate text-xs text-muted-foreground">
                 {current ? current.restaurant.name : "Restaurant & branch"}
-              </span>
+              </span>{" "}
               <span className="block truncate text-sm font-medium">
                 {current ? current.branch.name : "All branches"}
               </span>
+              <span className="sr-only">{current ? ". Switch branch" : ". Choose a branch"}</span>
             </span>
             <ChevronsUpDown className="size-4 text-muted-foreground" aria-hidden />
           </DropdownMenuTrigger>

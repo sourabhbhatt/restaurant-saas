@@ -40,7 +40,7 @@ export function HowItWorks() {
               </span>
               <span
                 aria-hidden="true"
-                className="text-4xl font-semibold tracking-tight text-muted-foreground/25"
+                className="text-4xl font-semibold tracking-tight text-muted-foreground/80"
               >
                 {String(i + 1).padStart(2, "0")}
               </span>

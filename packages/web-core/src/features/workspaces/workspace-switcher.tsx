@@ -35,15 +35,19 @@ export function WorkspaceSwitcher({
     <DropdownMenu>
       <DropdownMenuTrigger
         className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-sidebar-accent"
-        aria-label={`Workspace ${currentName}. Switch workspace`}
         title={currentName}
       >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
+        {/* Named by its visible text (WCAG 2.5.3): "Workspace <name>. Switch workspace". */}
+        <span
+          aria-hidden="true"
+          className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground"
+        >
           {currentName.slice(0, 1).toUpperCase()}
         </span>
         <span className="min-w-0 flex-1">
+          <span className="block text-xs text-muted-foreground">Workspace</span>{" "}
           <span className="block truncate text-sm font-semibold">{currentName}</span>
-          <span className="block text-xs text-muted-foreground">Workspace</span>
+          <span className="sr-only">. Switch workspace</span>
         </span>
         <ChevronsUpDown className="size-4 text-muted-foreground" aria-hidden />
       </DropdownMenuTrigger>
