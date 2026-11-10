@@ -370,7 +370,8 @@ function ItemCard({
               "relative z-10 h-11 min-w-24 rounded-full border-primary/40 bg-background font-semibold text-primary shadow-sm hover:bg-primary/5 hover:text-primary",
               item.imageUrl && "-mt-5",
             )}
-            aria-label={customizable ? `Add ${item.name}, choose options` : `Add ${item.name}`}
+            // Starts with the visible "Add" (WCAG 2.5.3).
+            aria-label={customizable ? `Add, customize ${item.name}` : `Add ${item.name}`}
           >
             <PlusIcon className="size-4" aria-hidden />
             Add

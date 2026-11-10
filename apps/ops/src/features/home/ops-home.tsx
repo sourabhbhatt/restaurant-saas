@@ -116,7 +116,7 @@ function Consoles() {
 /** Ops start page: the signed-in user's branches with their waiter, kitchen and cashier consoles. */
 export function OpsHome() {
   return (
-    <AuthGate>
+    <AuthGate offlineCapable>
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-6">
         <header className="flex items-center justify-between">
           <BrandLogo />

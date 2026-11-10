@@ -55,7 +55,8 @@ export function WaiterOrderCard({
           className="min-w-0 rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           onClick={() => onOpen?.(order.id)}
         >
-          <span className="sr-only">Open details of order </span>
+          {/* Name: "Open order N details: " + the visible text (WCAG 2.5.3). */}
+          <span className="sr-only">Open order {order.orderNumber} details: </span>
           <p className="text-lg leading-tight font-semibold">
             {order.tableName}
             <span className="ml-2 text-sm font-normal text-muted-foreground tabular-nums">

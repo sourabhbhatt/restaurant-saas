@@ -25,13 +25,18 @@ function useHydrated(): boolean {
   );
 }
 
+interface AuthGateProps {
+  children: ReactNode;
+  requirePlatformAdmin?: boolean;
+  /** Staff screens (waiter, kitchen, cashier) keep working offline after one sign-in. */
+  offlineCapable?: boolean;
+}
+
 function AuthGateInner({
   children,
   requirePlatformAdmin = false,
-}: {
-  children: ReactNode;
-  requirePlatformAdmin?: boolean;
-}) {
+  offlineCapable = false,
+}: AuthGateProps) {
   // Cached data (offline restore) can exist before hydration finishes; render the same
   // skeleton as the server until then so the first client render matches.
   const hydrated = useHydrated();
@@ -53,7 +58,11 @@ function AuthGateInner({
           headingLevel={1}
           icon={<WifiOff />}
           title="You're offline"
-          description="Connect once to sign in. After that, this device keeps working when the connection drops."
+          description={
+            offlineCapable
+              ? "Connect once to sign in. After that, this device keeps working when the connection drops."
+              : "Connect to the internet to continue."
+          }
           action={
             <Button variant="outline" onClick={() => void me.refetch()}>
               Try again
@@ -84,7 +93,7 @@ function AuthGateInner({
   return <>{children}</>;
 }
 
-export function AuthGate(props: { children: ReactNode; requirePlatformAdmin?: boolean }) {
+export function AuthGate(props: AuthGateProps) {
   // usePathname() needs a Suspense boundary under cacheComponents.
   return (
     <Suspense fallback={<PageSkeleton variant="detail" />}>
