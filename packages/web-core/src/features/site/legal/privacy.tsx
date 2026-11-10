@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { BRAND } from "../brand";
 import { LegalDocument, type LegalSection } from "./legal-document";
+import { LegalEntity, SupportEmail } from "../site-contact";
 
 const n = BRAND.name;
 
@@ -12,7 +13,7 @@ const SECTIONS: LegalSection[] = [
     body: (
       <>
         <p>
-          {n} is operated by {BRAND.legalEntity}, a company registered in {BRAND.jurisdiction} at
+          {n} is operated by <LegalEntity />, a company registered in {BRAND.jurisdiction} at
           [registered address] (&quot;we&quot;, &quot;us&quot;). This policy explains how we process
           personal data in line with the Digital Personal Data Protection Act, 2023, the Information
           Technology Act, 2000 and the rules made under them.
@@ -216,8 +217,8 @@ const SECTIONS: LegalSection[] = [
           </li>
           <li>
             <strong>Deletion on request:</strong> a workspace owner can ask us to delete the
-            workspace and its data at any time by emailing {BRAND.supportEmail}. We complete
-            deletion within [30] days of verifying the request.
+            workspace and its data at any time by emailing <SupportEmail />. We complete deletion
+            within [30] days of verifying the request.
           </li>
           <li>
             <strong>Inactive workspaces:</strong> if a workspace stays expired for more than [24]
@@ -251,7 +252,9 @@ const SECTIONS: LegalSection[] = [
           <li>nominate another person to exercise your rights in case of death or incapacity;</li>
           <li>raise a grievance with us, and then with the Data Protection Board of India.</li>
         </ul>
-        <p>Email {BRAND.supportEmail} to make a request. We respond within [30] days.</p>
+        <p>
+          Email <SupportEmail /> to make a request. We respond within [30] days.
+        </p>
       </>
     ),
   },
@@ -270,9 +273,9 @@ const SECTIONS: LegalSection[] = [
     title: "Grievance officer and contact",
     body: (
       <p>
-        Grievance Officer: [Name], [Designation], {BRAND.legalEntity}, [address]. Email:{" "}
-        {BRAND.supportEmail}. We acknowledge grievances within [48 hours] and aim to resolve them
-        within [30] days.
+        Grievance Officer: [Name], [Designation], <LegalEntity />, [address]. Email:{" "}
+        <SupportEmail />. We acknowledge grievances within [48 hours] and aim to resolve them within
+        [30] days.
       </p>
     ),
   },

@@ -123,10 +123,11 @@ export function SignUpForm() {
             <TriangleAlertIcon />
             <AlertTitle>Sign-up unavailable</AlertTitle>
             <AlertDescription>
-              {blocked} Please try again later or contact{" "}
-              <a href={`mailto:${BRAND.supportEmail}`} className="underline underline-offset-4">
-                {BRAND.supportEmail}
-              </a>
+              {/* The support address is a runtime server setting; the contact page shows it. */}
+              {blocked} Please try again later or{" "}
+              <Link href="/contact" className="underline underline-offset-4">
+                contact us
+              </Link>
               .
             </AlertDescription>
           </Alert>

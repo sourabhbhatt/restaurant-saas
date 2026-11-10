@@ -3,13 +3,49 @@
  * runs in every environment. Search indexing is opt-in: it is allowed only when
  * `SITE_INDEXABLE=true` AND `PUBLIC_SITE_URL` is an https origin on a host that
  * is not a development or platform-default host (localhost, IPs, *.run.app ...).
- * Everything else (local, CI, staging) is served with noindex.
+ * Everything else (local, CI, staging) is served with noindex. The support
+ * email and legal entity are runtime settings too (not NEXT_PUBLIC_*, which
+ * would be fixed when the image is built).
  */
 
 export interface SiteEnv {
   PUBLIC_SITE_URL?: string;
   SITE_INDEXABLE?: string;
   CONSOLE_URL?: string;
+  SITE_SUPPORT_EMAIL?: string;
+  SITE_LEGAL_ENTITY?: string;
+}
+
+/**
+ * PLACEHOLDERS, shown until SITE_SUPPORT_EMAIL and SITE_LEGAL_ENTITY are set.
+ * They are deliberately recognisable (`.example`, `[…]`) and never published in
+ * structured data.
+ */
+export const PLACEHOLDER_SUPPORT_EMAIL = "support@restaurantos.example";
+export const PLACEHOLDER_LEGAL_ENTITY = "[Your company legal name]";
+
+/** Template-style values ("[…]", *.example addresses) count as not set. */
+export function isPlaceholderValue(value: string): boolean {
+  return /^\[.*\]$/.test(value.trim()) || /\.example$/i.test(value.trim());
+}
+
+export interface SiteContact {
+  supportEmail: string;
+  supportEmailIsPlaceholder: boolean;
+  /** Shown in the legal templates and the Organization markup. */
+  legalEntity: string;
+  legalEntityIsPlaceholder: boolean;
+}
+
+function resolveContact(env: SiteEnv): SiteContact {
+  const supportEmail = env.SITE_SUPPORT_EMAIL?.trim() || PLACEHOLDER_SUPPORT_EMAIL;
+  const legalEntity = env.SITE_LEGAL_ENTITY?.trim() || PLACEHOLDER_LEGAL_ENTITY;
+  return {
+    supportEmail,
+    supportEmailIsPlaceholder: isPlaceholderValue(supportEmail),
+    legalEntity,
+    legalEntityIsPlaceholder: isPlaceholderValue(legalEntity),
+  };
 }
 
 export interface SiteConfig {
@@ -21,6 +57,8 @@ export interface SiteConfig {
   indexable: boolean;
   /** Why the site is (not) indexable; logged and shown in tests. */
   reason: string;
+  /** Support email and legal entity (placeholders until set). */
+  contact: SiteContact;
 }
 
 const LOCAL_ORIGIN = "http://localhost:3000";
@@ -144,7 +182,13 @@ export function resolveSiteConfig(env: SiteEnv): SiteConfig {
     reason = `${host} is a development, staging or platform-default host`;
   else reason = "production public site";
 
-  return { origin, host, indexable: reason === "production public site", reason };
+  return {
+    origin,
+    host,
+    indexable: reason === "production public site",
+    reason,
+    contact: resolveContact(env),
+  };
 }
 
 /** Process-wide, so the proxy and app bundles share one warning. */
@@ -181,6 +225,8 @@ export function getSiteConfig(): SiteConfig {
     PUBLIC_SITE_URL: process.env.PUBLIC_SITE_URL,
     SITE_INDEXABLE: process.env.SITE_INDEXABLE,
     CONSOLE_URL: process.env.CONSOLE_URL,
+    SITE_SUPPORT_EMAIL: process.env.SITE_SUPPORT_EMAIL,
+    SITE_LEGAL_ENTITY: process.env.SITE_LEGAL_ENTITY,
   };
   const config = resolveSiteConfig(env);
   warnOnceIfNotIndexable(env, config);

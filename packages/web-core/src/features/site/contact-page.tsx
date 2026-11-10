@@ -5,9 +5,10 @@ import { Button } from "@ros/ui/ui/button";
 
 import { BRAND } from "./brand";
 import { PageIntro, Section } from "./section";
+import { supportMailto, WithSiteContact } from "./site-contact";
 
 export function ContactPage() {
-  const subject = encodeURIComponent(`${BRAND.name} enquiry`);
+  const subject = `${BRAND.name} enquiry`;
   return (
     <>
       <PageIntro
@@ -29,18 +30,29 @@ export function ContactPage() {
                 inbox.
               </p>
             </div>
-            <a
-              href={`mailto:${BRAND.supportEmail}`}
-              className="w-fit text-lg font-semibold break-all text-primary underline-offset-4 hover:underline"
+            {/* The address is a runtime setting (SITE_SUPPORT_EMAIL), read per request. */}
+            <WithSiteContact
+              fallback={
+                <p className="text-lg font-semibold text-muted-foreground">Our email address</p>
+              }
             >
-              {BRAND.supportEmail}
-            </a>
-            <Button asChild className="w-fit">
-              <a href={`mailto:${BRAND.supportEmail}?subject=${subject}`}>
-                <MailIcon aria-hidden="true" />
-                Write an email
-              </a>
-            </Button>
+              {(contact) => (
+                <>
+                  <a
+                    href={supportMailto(contact)}
+                    className="w-fit text-lg font-semibold break-all text-primary underline-offset-4 hover:underline"
+                  >
+                    {contact.supportEmail}
+                  </a>
+                  <Button asChild className="w-fit">
+                    <a href={supportMailto(contact, subject)}>
+                      <MailIcon aria-hidden="true" />
+                      Write an email
+                    </a>
+                  </Button>
+                </>
+              )}
+            </WithSiteContact>
             <p className="text-xs text-muted-foreground">
               Helpful to include: your restaurant name, city, number of branches and what you&apos;d
               like to do.

@@ -319,6 +319,46 @@ test.describe("robots.txt, sitemap.xml and llms.txt", () => {
   });
 });
 
+test.describe("contact details come from the runtime settings", () => {
+  // SITE_SUPPORT_EMAIL / SITE_LEGAL_ENTITY as the console resolves them (placeholders if unset).
+  const contact = SITE.contact;
+  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  test("contact page, footer and legal pages show them", async ({ page }) => {
+    await page.goto("/contact");
+    const main = page.getByRole("main");
+    await expect(main.getByRole("link", { name: contact.supportEmail })).toHaveAttribute(
+      "href",
+      `mailto:${contact.supportEmail}`,
+    );
+    await expect(main.getByRole("link", { name: "Write an email" })).toHaveAttribute(
+      "href",
+      new RegExp(`^mailto:${escape(contact.supportEmail)}\\?subject=`),
+    );
+    await expect(
+      page.getByRole("contentinfo").getByRole("link", { name: contact.supportEmail }),
+    ).toHaveAttribute("href", `mailto:${contact.supportEmail}`);
+
+    await page.goto("/legal/privacy");
+    await expect(page.getByText(`is operated by ${contact.legalEntity},`)).toBeVisible();
+    await expect(
+      page.getByText(new RegExp(`· Operated by ${escape(contact.legalEntity)} · Effective date`)),
+    ).toBeVisible();
+    await expect(main.getByRole("link", { name: contact.supportEmail }).first()).toBeVisible();
+  });
+
+  test("the Organization markup carries them only when they are real", async ({ request }) => {
+    const { html } = await fetchHtml(request, "/", { host: SITE_HOST ?? undefined });
+    const org = jsonLdBlocks(html)
+      .flatMap((b) => b["@graph"] as Record<string, unknown>[])
+      .find((n) => n["@type"] === "Organization")!;
+    if (contact.supportEmailIsPlaceholder) expect(org.email).toBeUndefined();
+    else expect(org.email).toBe(contact.supportEmail);
+    if (contact.legalEntityIsPlaceholder) expect(org.legalName).toBeUndefined();
+    else expect(org.legalName).toBe(contact.legalEntity);
+  });
+});
+
 test.describe("production host check", () => {
   test.skip(!PRODUCTION, "needs SITE_INDEXABLE=true and PUBLIC_SITE_URL");
 

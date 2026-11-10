@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { BRAND } from "../brand";
 import { LegalDocument, type LegalSection } from "./legal-document";
+import { LegalEntity, SupportEmail } from "../site-contact";
 
 const n = BRAND.name;
 
@@ -11,10 +12,10 @@ const SECTIONS: LegalSection[] = [
     title: "Agreement",
     body: (
       <p>
-        These terms form an agreement between {BRAND.legalEntity} (&quot;we&quot;) and the business
-        or person that creates a {n} workspace (&quot;you&quot;). By creating an account or using
-        the service you accept these terms and our <Link href="/legal/privacy">privacy policy</Link>
-        . If you accept on behalf of a business, you confirm you are authorised to do so.
+        These terms form an agreement between <LegalEntity /> (&quot;we&quot;) and the business or
+        person that creates a {n} workspace (&quot;you&quot;). By creating an account or using the
+        service you accept these terms and our <Link href="/legal/privacy">privacy policy</Link>. If
+        you accept on behalf of a business, you confirm you are authorised to do so.
       </p>
     ),
   },
@@ -196,7 +197,7 @@ const SECTIONS: LegalSection[] = [
     body: (
       <p>
         We may update these terms and will notify workspace owners of material changes by email
-        before they take effect. Contact us at {BRAND.supportEmail}.
+        before they take effect. Contact us at <SupportEmail />.
       </p>
     ),
   },
