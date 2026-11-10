@@ -15,7 +15,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -611,6 +611,7 @@ function ItemCard({
   canBranch: boolean;
   onOpen: () => void;
 }) {
+  const nameId = useId();
   const setAvailability = useSetAvailability(restaurantId);
   const putOverride = usePutOverride(branchId);
   const updateItem = useUpdateItem();
@@ -660,7 +661,9 @@ function ItemCard({
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-start gap-2">
           <DietaryMark dietary={item.dietary} className="mt-0.5" />
-          <span className="line-clamp-2 font-medium">{item.name}</span>
+          <span id={`${nameId}-name`} className="line-clamp-2 font-medium">
+            {item.name}
+          </span>
         </div>
         <span className="text-sm font-semibold tabular-nums">
           {item.variantCount > 0 ? "From " : ""}
@@ -688,8 +691,12 @@ function ItemCard({
           type="button"
           onClick={onOpen}
           className="flex min-w-0 flex-1 gap-3 rounded-lg text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          // "Edit <name>": short, and still contains the visible label (WCAG 2.5.3).
+          aria-labelledby={`${nameId}-edit ${nameId}-name`}
         >
-          <span className="sr-only">Edit </span>
+          <span id={`${nameId}-edit`} className="sr-only">
+            Edit
+          </span>
           {body}
         </button>
       ) : (
