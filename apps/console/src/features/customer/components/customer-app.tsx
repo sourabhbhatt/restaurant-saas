@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import {
@@ -34,11 +35,21 @@ import { cn } from "@ros/ui/utils";
 import { brandStyle } from "../brand";
 import { cartTotals, useCartStore } from "../cart-store";
 import { useGuestSession, useJoinedSessionId, useQrMenu } from "../queries";
-import { BillView } from "./bill-view";
-import { CartSheet } from "./cart-sheet";
-import { ItemSheet } from "./item-sheet";
 import { MenuView } from "./menu-view";
-import { OrdersView } from "./orders-view";
+
+/*
+ * Only the menu is on screen when a guest scans the QR code. The sheets and the
+ * other tabs (with their form controls and the menu contract's labels, which
+ * pull in zod) are separate chunks, prefetched once the menu has rendered.
+ */
+const loadItemSheet = () => import("./item-sheet");
+const loadCartSheet = () => import("./cart-sheet");
+const loadOrdersView = () => import("./orders-view");
+const loadBillView = () => import("./bill-view");
+const ItemSheet = dynamic(() => loadItemSheet().then((m) => m.ItemSheet), { ssr: false });
+const CartSheet = dynamic(() => loadCartSheet().then((m) => m.CartSheet), { ssr: false });
+const OrdersView = dynamic(() => loadOrdersView().then((m) => m.OrdersView), { ssr: false });
+const BillView = dynamic(() => loadBillView().then((m) => m.BillView), { ssr: false });
 
 type Tab = "menu" | "orders" | "bill";
 
@@ -61,6 +72,13 @@ export function CustomerApp() {
   useEffect(() => {
     void hydrate(token);
   }, [hydrate, token]);
+
+  // Warm the lazily loaded sheets and tabs as soon as the menu is on screen.
+  const menuReady = menu.isSuccess;
+  useEffect(() => {
+    if (!menuReady) return;
+    for (const load of [loadItemSheet, loadCartSheet, loadOrdersView, loadBillView]) void load();
+  }, [menuReady]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
