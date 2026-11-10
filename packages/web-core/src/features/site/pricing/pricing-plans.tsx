@@ -17,17 +17,25 @@ import {
   formatLimit,
   LIMIT_LABELS,
   planPrice,
-  usePublicPlans,
   type BillingView,
   type PublicPlan,
-} from "./plans";
+  type PublicPlans,
+} from "./plan-model";
+import { usePublicPlans } from "./plans";
 
 /**
  * Live plan cards (and, on the full pricing page, a comparison table) rendered
  * from GET /api/v1/public/plans. Loading, empty and error states included.
+ * `initial` comes from the server render so the plans are in the HTML.
  */
-export function PricingPlans({ variant = "full" }: { variant?: "full" | "teaser" }) {
-  const query = usePublicPlans();
+export function PricingPlans({
+  variant = "full",
+  initial,
+}: {
+  variant?: "full" | "teaser";
+  initial?: { data: PublicPlans; fetchedAt: number };
+}) {
+  const query = usePublicPlans(initial);
   const [view, setView] = useState<BillingView>("monthly");
 
   if (query.isPending) return <PlansSkeleton />;
@@ -86,7 +94,7 @@ export function PricingPlans({ variant = "full" }: { variant?: "full" | "teaser"
           {trialDays
             ? `Every eligible plan starts with a free ${trialDays}-day trial.`
             : "Eligible plans start with a free trial."}{" "}
-          No card required to start.
+          No card required to start. Prices exclude GST.
         </p>
       </div>
 
@@ -287,7 +295,7 @@ function GroupRow({ label, span }: { label: string; span: number }) {
   );
 }
 
-function PlansSkeleton() {
+export function PlansSkeleton() {
   return (
     <div
       role="status"

@@ -2,7 +2,7 @@
 
 import { cn } from "@ros/ui/utils";
 
-import type { BillingView } from "./plans";
+import type { BillingView } from "./plan-model";
 
 export function BillingToggle({
   value,
