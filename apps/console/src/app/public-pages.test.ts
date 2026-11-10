@@ -33,7 +33,8 @@ describe("public pages and the SEO page list", () => {
   it("every public page uses the runtime metadata and JSON-LD helpers for its own path", () => {
     for (const page of SITE_PAGES) {
       const source = readFileSync(pageFile(page.path), "utf8");
-      expect(source).toContain(`publicPageMetadata("${page.path}")`);
+      // Either `publicPageMetadata("/x")` or `publicPageMetadata("/x", { … })`.
+      expect(source).toMatch(new RegExp(`publicPageMetadata\\("${page.path}"[,)]`));
       expect(source).toContain(`<PageStructuredData path="${page.path}" />`);
     }
   });

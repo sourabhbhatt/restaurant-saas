@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { ALL_FAQ_ITEMS } from "../faq-data";
 import { FEATURE_DETAILS } from "../feature-details";
+import { parsePublicPlans } from "../pricing/plan-model";
 import { HTML_LIMITED_BOTS, NEXT_DEFAULT_HTML_LIMITED_BOTS } from "./crawlers";
 import { buildLlmsTxt } from "./llms-txt";
 import { CONSOLE_DISALLOW } from "./robots-policy";
@@ -41,6 +42,37 @@ describe("llms.txt", () => {
 
   it("states the limits plainly", () => {
     expect(text).toMatch(/Not available yet: online payments/);
+  });
+
+  it("lists live plan prices, excluding GST, from the same plan data as the site", () => {
+    const plans = parsePublicPlans([
+      {
+        key: "starter",
+        name: "Starter",
+        currency: "INR",
+        monthlyPrice: 49900,
+        annualPrice: 499000,
+      },
+      { key: "pro", name: "Pro", currency: "INR", monthlyPrice: 199900, annualPrice: null },
+      { key: "enterprise", name: "Enterprise", currency: "INR", monthlyPrice: null },
+    ]);
+    const priced = buildLlmsTxt(PROD, plans);
+    const section = priced.slice(
+      priced.indexOf("## Pricing"),
+      priced.indexOf("## Common questions"),
+    );
+    expect(section).toContain("- Starter: ₹499/month or ₹4,990/year");
+    expect(section).toContain("- Pro: ₹1,999/month");
+    expect(section).toContain("- Enterprise: custom pricing (contact us)");
+    expect(section).toContain("Prices exclude GST.");
+    expect(section).toContain("https://www.restaurantos.in/pricing");
+  });
+
+  it("points to the pricing page when the plans are unavailable", () => {
+    const section = text.slice(text.indexOf("## Pricing"), text.indexOf("## Common questions"));
+    expect(section).toContain("## Pricing");
+    expect(section).toContain("https://www.restaurantos.in/pricing");
+    expect(section).not.toContain("₹");
   });
 });
 

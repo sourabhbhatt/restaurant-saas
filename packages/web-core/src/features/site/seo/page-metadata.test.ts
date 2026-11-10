@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { getFeatureDetail } from "../feature-details";
-import { buildPageMetadata } from "./page-metadata";
+import { parsePublicPlans } from "../pricing/plan-model";
+import { buildPageMetadata, pricingPageDescription } from "./page-metadata";
 import { resolveSiteConfig } from "./site-config";
 import {
   breadcrumbTrail,
@@ -89,5 +90,44 @@ describe("public page list", () => {
     for (const page of SITE_PAGES.filter((p) => p.path.startsWith("/features/"))) {
       expect(getFeatureDetail(page.path).h1.length).toBeGreaterThan(10);
     }
+  });
+});
+
+describe("pricingPageDescription", () => {
+  const plan = (key: string, monthlyPrice: number | null, annualPrice: number | null = null) => ({
+    key,
+    name: key[0]!.toUpperCase() + key.slice(1),
+    currency: "INR",
+    monthlyPrice,
+    annualPrice,
+    limits: {},
+    features: [],
+  });
+
+  it("leads with the lowest published monthly price, excluding GST", () => {
+    const plans = parsePublicPlans([
+      plan("pro", 199900, 1999000),
+      plan("starter", 49900, 499000),
+      plan("enterprise", null),
+      plan("free", 0),
+      plan("annual-only", null, 300000),
+    ]);
+    const description = pricingPageDescription(plans);
+    expect(description).toMatch(/^Plans from ₹499 a month, excluding GST,/);
+    expect(description!.length).toBeLessThanOrEqual(160);
+  });
+
+  it("falls back to the static description without priced plans or without the API", () => {
+    expect(pricingPageDescription(null)).toBeNull();
+    expect(pricingPageDescription(parsePublicPlans([plan("enterprise", null)]))).toBeNull();
+    expect(pricingPageDescription(parsePublicPlans([]))).toBeNull();
+  });
+
+  it("uses the given description for the page, Open Graph and Twitter", () => {
+    const page = { ...getSitePage("/pricing"), description: "Plans from ₹499 a month." };
+    const metadata = buildPageMetadata(page, PROD, true);
+    expect(metadata.description).toBe("Plans from ₹499 a month.");
+    expect(metadata.openGraph?.description).toBe("Plans from ₹499 a month.");
+    expect(metadata.twitter?.description).toBe("Plans from ₹499 a month.");
   });
 });
