@@ -39,8 +39,8 @@ test("trial banner, a reached plan limit, and an upgrade approved by the super a
   const over = await owner.api.post(`/api/v1/workspaces/${ws}/restaurants`, {
     data: { name: "One too many" },
   });
-  expect(over.ok()).toBe(false);
-  expect(over.status()).toBeGreaterThanOrEqual(400);
+  expect(over.status()).toBe(402);
+  expect(((await over.json()) as { error: { code: string } }).error.code).toBe("LIMIT_REACHED");
 
   const { context, page } = await newContext(null);
   await context.addCookies((await owner.api.storageState()).cookies);

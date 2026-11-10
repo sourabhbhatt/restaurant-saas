@@ -268,13 +268,10 @@ test("ops consoles link back to the dashboard on the console app, not to a missi
   }
 });
 
-test("a duplicate table name is a field error from the production API, not a 500", async ({
-  ownerApi,
-  demo,
-}) => {
-  // UniqueViolationError is thrown by the container's adapter copy and recognised by the
-  // tables service's copy (tables/service.ts), which turns it into a field error. Only a
-  // production build has the two copies; if `instanceof` failed this would be a 500.
+test("a duplicate table name is a field error, not a 500", async ({ ownerApi, demo }) => {
+  // The tables service checks existing names before inserting, so this is its pre-check's
+  // field error. The unique-index path (UniqueViolationError) is covered in admin.spec.ts by
+  // a duplicate plan key, which has no pre-check.
   const table = await freshTable(ownerApi, demo.branchId);
   const again = await ownerApi.post(`/api/v1/branches/${demo.branchId}/tables`, {
     data: { name: table.name, capacity: 2 },

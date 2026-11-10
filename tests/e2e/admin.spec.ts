@@ -1,7 +1,15 @@
 import type { Page } from "@playwright/test";
 
-import { DEMO_ACCOUNTS } from "./support/accounts";
-import { E2E_URLS, data, expect, newOwner, test } from "./support/fixtures";
+import { DEMO_ACCOUNTS, authFile } from "./support/accounts";
+import {
+  E2E_URLS,
+  apiClient,
+  data,
+  expect,
+  newOwner,
+  test,
+  uniqueSuffix,
+} from "./support/fixtures";
 
 /**
  * Super-admin console (admin app, desktop project). Works on a brand-new
@@ -41,6 +49,8 @@ test("super admin signs in, finds a workspace, manages its trial, status and lim
 
   // Trial management: extend by 5 days.
   const before = await trialDaysLeft(page);
+  // A wording change would make it NaN, and poll(...).toBe(NaN + 5) would pass vacuously.
+  expect(before).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Extend trial" }).click();
   const extend = page.getByRole("dialog", { name: "Extend trial" });
   await extend.getByLabel("Days").fill("5");
@@ -51,7 +61,11 @@ test("super admin signs in, finds a workspace, manages its trial, status and lim
 
   // Account limits: a trial organization may own one workspace; the override allows two.
   const second = { data: { name: `${owner.workspaceName} B` } };
-  expect((await owner.api.post("/api/v1/workspaces", second)).status()).toBe(402); // PLAN_LIMIT
+  const blocked = await owner.api.post("/api/v1/workspaces", second);
+  expect(blocked.status()).toBe(402);
+  expect(
+    ((await blocked.json()) as { error: { code: string; details?: { reason?: string } } }).error,
+  ).toMatchObject({ code: "LIMIT_REACHED", details: { reason: "PLAN_LIMIT" } });
   await page.getByLabel("Max workspaces override").fill("2");
   await page.getByRole("button", { name: "Save limit" }).click();
   await expect(page.getByText("Workspace limit set to 2")).toBeVisible();
@@ -115,6 +129,45 @@ test("super admin signs in, finds a workspace, manages its trial, status and lim
   const mine = entries.items.filter((e) => e.targetId === detail.organization!.id);
   expect(mine.map((e) => e.actor?.email)).toEqual([DEMO_ACCOUNTS.admin.email]);
   await owner.api.dispose();
+});
+
+test("a duplicate plan key is a 422 field error from the production API, not a 500", async () => {
+  // createPlan inserts without a pre-check, so the unique index raises the conflict: the
+  // runner maps it to UniqueViolationError and the platform service to a 422 field error.
+  // This runs on the production build (where Next.js bundles these modules more than once).
+  // A private, archived plan with a unique key: never shown on pricing pages.
+  const api = await apiClient(authFile("admin"));
+  const plan = {
+    key: `e2e-${uniqueSuffix()}`,
+    name: "E2E private plan",
+    description: null,
+    currency: "INR",
+    monthlyPrice: null,
+    annualPrice: null,
+    isTrialEligible: false,
+    isPublic: false,
+    status: "ARCHIVED",
+    limits: {
+      maxRestaurants: 1,
+      maxBranches: 1,
+      maxStaff: 1,
+      maxTables: 1,
+      maxMenuItems: 1,
+      storageMb: 1,
+    },
+    maxWorkspaces: 1,
+    features: [],
+    sortOrder: 999,
+  };
+  expect((await api.post("/api/v1/admin/plans", { data: plan })).status()).toBe(201);
+  const again = await api.post("/api/v1/admin/plans", { data: plan });
+  const body = (await again.json()) as {
+    error: { code: string; fieldErrors?: Record<string, string[]> };
+  };
+  expect(again.status()).toBe(422);
+  expect(body.error.code).toBe("VALIDATION_FAILED");
+  expect(body.error.fieldErrors?.key).toEqual(["A plan with this key already exists"]);
+  await api.dispose();
 });
 
 test("a workspace owner is refused by the admin console and its API", async ({
