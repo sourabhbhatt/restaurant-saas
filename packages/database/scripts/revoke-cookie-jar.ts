@@ -6,7 +6,7 @@
 import { readFile } from "node:fs/promises";
 
 import { revokeSessionsFromCookieJar } from "../src/providers/postgres/revoke-cookie-jar";
-import { connectPglite, connectPostgres } from "../src/providers/postgres/client";
+import { connectPglite, connectPostgresForMaintenance } from "../src/providers/postgres/client";
 
 async function main() {
   const files = process.argv.slice(2);
@@ -15,7 +15,7 @@ async function main() {
   const handle =
     process.env.DATABASE_PROVIDER === "pglite"
       ? await connectPglite(process.env.PGLITE_DATA_DIR)
-      : await connectPostgres(
+      : await connectPostgresForMaintenance(
           process.env.DATABASE_URL ??
             "postgres://restaurantos:restaurantos@localhost:5432/restaurantos_dev",
           2,

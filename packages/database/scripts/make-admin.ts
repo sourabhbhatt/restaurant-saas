@@ -4,7 +4,7 @@
  */
 import { eq } from "drizzle-orm";
 
-import { connectPglite, connectPostgres } from "../src/providers/postgres/client";
+import { connectPglite, connectPostgresForMaintenance } from "../src/providers/postgres/client";
 import { users } from "../src/providers/postgres/schema";
 
 async function main() {
@@ -13,7 +13,7 @@ async function main() {
   const pglite = process.env.DATABASE_PROVIDER === "pglite";
   const handle = pglite
     ? await connectPglite(process.env.PGLITE_DATA_DIR)
-    : await connectPostgres(
+    : await connectPostgresForMaintenance(
         process.env.DATABASE_URL ??
           "postgres://restaurantos:restaurantos@localhost:5432/restaurantos_dev",
         2,

@@ -65,14 +65,45 @@ export function attachPoolErrorHandler(
   });
 }
 
-/** node-postgres pool (production and local dev against a real Postgres). */
-export async function connectPostgres(url: string, poolMax = 10): Promise<DatabaseHandle> {
+/**
+ * Migrations, dump/restore/verify, seed and admin scripts: a connect timeout
+ * only. `statement_timeout` is sent in the startup packet and would cancel a
+ * long `CREATE INDEX`, backfill or restore verification.
+ */
+export const MAINTENANCE_POOL_OPTIONS = { connectionTimeoutMillis: 5_000 } as const;
+
+export type PostgresPoolOptions = {
+  connectionTimeoutMillis?: number;
+  statement_timeout?: number;
+  idleTimeoutMillis?: number;
+};
+
+/** The pg Pool configuration for `url`, exported so tests can see what each caller gets. */
+export function poolConfigFor(
+  url: string,
+  poolMax: number,
+  options: PostgresPoolOptions,
+): { connectionString: string; max: number } & PostgresPoolOptions {
+  return { connectionString: url, max: poolMax, ...options };
+}
+
+/** node-postgres pool for the API runtime (bounded connects, statements and idle clients). */
+export async function connectPostgres(
+  url: string,
+  poolMax = 10,
+  options: PostgresPoolOptions = POSTGRES_POOL_OPTIONS,
+): Promise<DatabaseHandle> {
   const { Pool } = await import("pg");
   const { drizzle } = await import("drizzle-orm/node-postgres");
-  const pool = new Pool({ connectionString: url, max: poolMax, ...POSTGRES_POOL_OPTIONS });
+  const pool = new Pool(poolConfigFor(url, poolMax, options));
   attachPoolErrorHandler(pool);
   const db = drizzle(pool, { schema }) as unknown as Executor;
   return { db, close: () => pool.end() };
+}
+
+/** The pool for scripts and the migrate job: no statement timeout (see MAINTENANCE_POOL_OPTIONS). */
+export function connectPostgresForMaintenance(url: string, poolMax = 2): Promise<DatabaseHandle> {
+  return connectPostgres(url, poolMax, MAINTENANCE_POOL_OPTIONS);
 }
 
 /** Embedded Postgres (WASM). Used by integration tests; no server needed. */

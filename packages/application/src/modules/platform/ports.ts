@@ -124,6 +124,8 @@ export interface HousekeepingInput {
   sessionsBefore: Date;
   /** Auth tokens (reset, verification) that expired or were used before this. */
   authTokensBefore: Date;
+  /** Rows per delete statement (default 10 000), so each statement stays short under statement_timeout. */
+  batchSize?: number;
 }
 
 export interface SupportFilter {

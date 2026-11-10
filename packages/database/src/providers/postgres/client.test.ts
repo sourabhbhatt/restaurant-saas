@@ -1,8 +1,41 @@
 import { EventEmitter } from "node:events";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { attachPoolErrorHandler, POSTGRES_POOL_OPTIONS } from "./client";
+import {
+  attachPoolErrorHandler,
+  MAINTENANCE_POOL_OPTIONS,
+  poolConfigFor,
+  POSTGRES_POOL_OPTIONS,
+} from "./client";
+
+describe("pool configuration per caller", () => {
+  it("the API runtime gets the statement timeout, maintenance does not", () => {
+    const runtime = poolConfigFor("postgres://x/y", 5, POSTGRES_POOL_OPTIONS);
+    expect(runtime.statement_timeout).toBe(30_000);
+    expect(runtime.connectionTimeoutMillis).toBe(5_000);
+    const maintenance = poolConfigFor("postgres://x/y", 2, MAINTENANCE_POOL_OPTIONS);
+    expect(maintenance.statement_timeout).toBeUndefined();
+    expect(maintenance.connectionTimeoutMillis).toBe(5_000);
+    expect(maintenance.max).toBe(2);
+  });
+
+  it("every script (migrate job, dump/restore/verify, seed, admin) uses the maintenance connector", () => {
+    const scriptsDir = path.resolve(import.meta.dirname, "../../../scripts");
+    const files = readdirSync(scriptsDir)
+      .filter((f) => f.endsWith(".ts"))
+      .map((f) => path.join(scriptsDir, f));
+    files.push(path.resolve(import.meta.dirname, "../../../../../apps/api/scripts/seed.ts"));
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      const plain = source.match(/\bconnectPostgres\s*\(/g) ?? [];
+      expect(plain, `${path.basename(file)} must use connectPostgresForMaintenance`).toEqual([]);
+    }
+    expect(files.length).toBeGreaterThanOrEqual(7);
+  });
+});
 
 describe("attachPoolErrorHandler", () => {
   it("keeps an idle-client error from crashing the process and logs it without the connection string", () => {

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { DEFAULT_PLATFORM_SETTINGS } from "@ros/domain/platform/settings";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
@@ -25,6 +25,7 @@ import type {
   SupportRequestDto,
   TestClockDto,
 } from "@ros/contracts/platform";
+import { platformRepository } from "@ros/database/providers/postgres/repositories/platform";
 import {
   authTokens,
   emailOutbox,
@@ -144,6 +145,33 @@ describe("subscription sweep job", () => {
 });
 
 describe("housekeeping in the sweep job", () => {
+  it("deletes in batches until the backlog is gone, each statement bounded by the batch size", async () => {
+    const now = c.clock.now();
+    await c.db.insert(rateLimitBuckets).values(
+      Array.from({ length: 5 }, (_, i) => ({
+        key: `hk:batch:${i}`,
+        count: 1,
+        resetAt: new Date(now.getTime() - 2 * 86_400_000),
+      })),
+    );
+    const before = new Date(now.getTime() - 86_400_000);
+    const result = await platformRepository(c.db).pruneExpired({
+      now,
+      rateLimitBefore: before,
+      idempotencyBefore: new Date(0),
+      sessionsBefore: new Date(0),
+      authTokensBefore: new Date(0),
+      batchSize: 2,
+    });
+    // 2 + 2 + 1 across three statements; the loop stops on the short batch.
+    expect(result.rateLimitBuckets).toBe(5);
+    const left = await c.db
+      .select({ key: rateLimitBuckets.key })
+      .from(rateLimitBuckets)
+      .where(like(rateLimitBuckets.key, "hk:batch:%"));
+    expect(left).toEqual([]);
+  });
+
   it("removes expired plumbing rows and keeps live ones", async () => {
     c.env.CRON_SECRET = SECRET;
     const now = c.clock.now();

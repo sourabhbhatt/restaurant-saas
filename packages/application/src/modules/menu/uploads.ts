@@ -149,7 +149,7 @@ export function createUploadService(deps: UploadServiceDeps) {
             entitlements: scope.entitlements,
             workspaceId: scope.workspaceId,
             key: "storageMb",
-            adding: additionalStorageMb(usage.storageBytes, bytes.byteLength),
+            addingBytes: bytes.byteLength,
           });
           await r.uploads.insert({
             workspaceId: scope.workspaceId,
