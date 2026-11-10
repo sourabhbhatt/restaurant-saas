@@ -93,7 +93,9 @@ await enqueueMutation({
 - `chainVersion: true` is for scopes that edit **one** record whose new `version` comes back in
   the response (`order:<id>`). When an item synced, later pending items of the scope that were
   made on the same version are rebased on the returned one, so a chain of offline changes to one
-  order doesn't conflict with itself. A real concurrent change still conflicts.
+  order doesn't conflict with itself. The version is resolved again when an item is sent: it
+  follows the versions this device's earlier answered changes of the scope returned, so a quick
+  second tap stored only after the first one was answered (the rebase never saw it) is not a 409. A real concurrent change still conflicts: another device's edits are never followed.
 
 `useOfflineDraft(key, initial)` → `{ value, setValue, clear, restored, savedAt, ready }`. Values
 are saved per user and device (debounced 400 ms) and restored on the next mount. Call `clear()`
