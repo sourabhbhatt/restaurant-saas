@@ -27,7 +27,8 @@ bills, 7,864 payments) and a live service.
 
 Lighthouse uses its mobile profile (simulated slow 4G) for public, guest and waiter pages and
 the desktop preset for the dashboard, kitchen and admin. Simulated LCP differs by up to about
-600 ms between the three runs of one page here, so smaller differences are noise.
+1,050 ms between the three runs of one page here (guest, base: 4207–5259 ms), so treat
+smaller differences as noise.
 
 Guard rails: the harness only accepts its own databases (PGlite under `.data/`, or
 127.0.0.1:55150), and so do the seed scripts. It checks that each frontend's proxy returns
@@ -195,7 +196,7 @@ Accept-Encoding`), or a Caddy sidecar. Both cost nothing and need no new cloud r
    Filtering the precache list per app would trim it.
 4. **Owner dashboard CLS 0.117** (low to medium; W3). The Branches section is pushed down by
    content that appears after first paint. It is unchanged by W6.
-5. **Analytics over long ranges** (low). Workspace analytics for 90 days takes 131–136 ms at c1
+5. **Analytics over long ranges** (low). Workspace analytics for 90 days takes 130–136 ms at c1
    on Postgres here. If workspaces grow to many branches or years of data, pre-aggregate daily
    totals.
 6. **Occasional late first request on sign-in and guest** (low). Two of three Lighthouse runs
@@ -225,6 +226,6 @@ pnpm perf --label final --out .data/perf-results/final \
 
 This needs Chrome for Testing (installed with Playwright) and, for the `pg` phase, a local
 PostgreSQL 18 (`PERF_PG_BIN`, Postgres.app or Homebrew) or Docker. Ports: 4150, 3150–3152 and
-55150 (override with `PERF_*_PORT`). A full run takes about 13 minutes here. The comparisons in
+55150 (override with `PERF_*_PORT`). A full run takes about 14 minutes here. The comparisons in
 this report also used `guest-timing.mjs` (first-request timing in plain Chromium) and
 `attribution.mjs` (W6's share of bundle changes) from `.claude/audit/W6-raw/`.
