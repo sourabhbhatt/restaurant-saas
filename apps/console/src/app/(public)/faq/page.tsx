@@ -1,13 +1,16 @@
-import type { Metadata } from "next";
-
 import { FaqPage } from "@ros/web-core/features/site/faq-page";
+import { publicPageMetadata } from "@ros/web-core/features/site/seo/page-metadata";
+import { PageStructuredData } from "@ros/web-core/features/site/seo/page-structured-data";
 
-export const metadata: Metadata = {
-  title: "FAQ",
-  description:
-    "Answers about QR ordering, offline use, payments, trials and what is not supported yet.",
-};
+export function generateMetadata() {
+  return publicPageMetadata("/faq");
+}
 
 export default function Page() {
-  return <FaqPage />;
+  return (
+    <>
+      <FaqPage />
+      <PageStructuredData path="/faq" />
+    </>
+  );
 }

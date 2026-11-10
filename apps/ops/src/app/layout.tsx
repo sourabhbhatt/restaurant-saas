@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     template: `%s · ${APP_NAME}`,
   },
   description: "Waiter, kitchen and cashier consoles for RestaurantOS. Works on flaky connections.",
+  robots: { index: false, follow: false },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { annualSavingPercent, formatLimit, parsePublicPlans, planPrice } from "./plans";
+import { annualSavingPercent, formatLimit, parsePublicPlans, planPrice } from "./plan-model";
 
 const starter = {
   key: "starter",
@@ -46,6 +46,8 @@ describe("pricing helpers", () => {
 
   it("formats monthly and annual prices", () => {
     expect(planPrice(plan!, "monthly")).toMatchObject({ amount: "₹499", period: "/month" });
+    // The yearly price is visible in the monthly view too (it is also in the JSON-LD offers).
+    expect(planPrice(plan!, "monthly").note).toBe("or ₹4,990 billed yearly");
     const annual = planPrice(plan!, "annual");
     expect(annual).toMatchObject({ amount: "₹4,990", period: "/year" });
     expect(annual.note).toContain("₹416");

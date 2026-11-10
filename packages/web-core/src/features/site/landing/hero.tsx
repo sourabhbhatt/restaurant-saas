@@ -26,7 +26,7 @@ export function Hero() {
             />
           </Link>
           <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl md:text-6xl">
-            Table ordering that keeps <span className="text-primary">your team in control</span>
+            QR table ordering that keeps <span className="text-primary">your team in control</span>
           </h1>
           <p className="max-w-2xl text-lg text-pretty text-muted-foreground">
             Guests scan, browse and order from their phones — no app, no account. Waiters approve

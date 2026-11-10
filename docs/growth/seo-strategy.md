@@ -1,0 +1,181 @@
+# SEO strategy
+
+Technical SEO and content plan for the RestaurantOS public site (the console app: `/`, `/features`, `/features/*`, `/pricing`, `/faq`, `/contact`, `/legal/*`). Everything else (owner dashboard, guest QR pages, ops, admin, API) is kept out of search.
+
+Status on 2026-11-10: the implementation is done and tested, but **nothing is indexable yet**. There is no production domain. The site stays `noindex` until the steps in [Indexing requirements](#indexing-requirements) are done. AI-search specifics are in [ai-search-visibility.md](ai-search-visibility.md).
+
+## Contents
+
+1. [Research findings](#research-findings)
+2. [Keyword research and intent](#keyword-research-and-intent)
+3. [Keyword-to-page map](#keyword-to-page-map)
+4. [What was implemented](#what-was-implemented)
+5. [Indexing requirements](#indexing-requirements)
+6. [Search Console and Bing setup](#search-console-and-bing-setup)
+7. [Content rules](#content-rules)
+8. [Next steps](#next-steps)
+9. [Sources](#sources)
+
+## Research findings
+
+### Crawling and indexing (Google Search Central)
+
+- **robots.txt controls crawling, not indexing.** A URL blocked in robots.txt can still be indexed without its content if other pages link to it, and a crawler that may not fetch a page never sees its `noindex` [1][2]. So:
+  - Outside production, public pages stay **crawlable** and carry `noindex`. Blocking everything in robots.txt would hide the `noindex`.
+  - Private areas are both disallowed (saves crawl budget, keeps guest QR tokens out of crawler queues) and served with `X-Robots-Tag: noindex`, for crawlers that ignore robots.txt.
+- **`X-Robots-Tag` is equivalent to the robots meta tag** and also works for non-HTML responses [2].
+- **Canonical URLs:** use absolute URLs. `rel="canonical"` is only accepted inside `<head>`. Every URL in a sitemap counts as a (weak) canonical suggestion. Don't use robots.txt for canonicalisation [3].
+- **Sitemaps:** use absolute URLs. Google ignores `<priority>` and `<changefreq>`. It uses `<lastmod>` only when it is consistently accurate [4]. We omit `lastmod` because nothing keeps per-page dates accurate yet.
+
+### Structured data in 2026
+
+| Type                                     | Rich result today                                                                                                                                                                                                                                                                 | Decision                                                                                                                                                     |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `FAQPage`                                | **Retired.** No FAQ rich results in Google Search since 7 May 2026. The report and Rich Results Test support were dropped in June 2026, and Search Console API support ends in August 2026 [5][6]. They had been limited to authoritative government and health sites since 2023. | **Not emitted.** The FAQ stays as visible HTML (`<details>` with question text), which is what search and AI answers actually read.                          |
+| `SoftwareApplication` / `WebApplication` | Shown, but **requires `aggregateRating` or `review`** [7]                                                                                                                                                                                                                         | Emitted without ratings: there are no genuine reviews and none will be made up. No rich result is expected. The markup still states the category and prices. |
+| `Organization`                           | Logo and knowledge-panel signals. No required properties; logo at least 112×112 px, placed on the homepage [8]                                                                                                                                                                    | Emitted on `/` and `/pricing`. Legal name and email are left out while they are template placeholders.                                                       |
+| `BreadcrumbList`                         | Desktop only. Google removed breadcrumbs from **mobile** results in January 2025 [9][10]                                                                                                                                                                                          | Emitted on every non-home page, matching the visible breadcrumb trail.                                                                                       |
+
+### Next.js 16 specifics (from the bundled docs in `apps/console/node_modules/next/dist/docs/`)
+
+- `robots.ts` and `sitemap.ts` are route handlers that are cached at build time unless they use a request-time API. They call `connection()`, so they read the runtime environment (one Docker image serves every environment).
+- With `cacheComponents`, a `generateMetadata` that reads request data makes the metadata **stream**: ordinary browsers get it in the body (React then moves it into `<head>`), and only "HTML-limited bots" get a blocking render with metadata in `<head>`. Googlebot is not on Next's default list. Google only accepts a canonical from `<head>`, and AI crawlers don't run JavaScript. So `htmlLimitedBots` is extended with Googlebot and the AI crawlers (`packages/web-core/src/features/site/seo/crawlers.ts`). We checked this by fetching `/pricing` with a Googlebot user agent: title, canonical and robots were inside `<head>`. With a Chrome user agent they streamed into the body.
+- JSON-LD goes in a plain `<script type="application/ld+json">`, with `<` escaped (Next.js JSON-LD guide).
+
+## Keyword research and intent
+
+**How this was done (no paid tools):** on 2026-11-10 we sampled the result pages for each target query with a web search tool and classified what ranks. The tool searches from the US, so Indian results are approximate. **We have no search volumes.** No free tool gives reliable volumes, so none are quoted, and the keywords are ranked by intent and product fit instead. When the site is live, Search Console impressions will give real numbers within weeks.
+
+| Query                                  | What currently ranks (observed)                                                                                                | Intent                                 | Fit for RestaurantOS                                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| restaurant management software India   | Listicles and directories (Techjockey "23 best…", Capterra India, SoftwareSuggest), Petpooja / Posist / DineOpen product pages | Commercial investigation               | Medium. Head term dominated by directories, so a listing on those directories matters more than our page.  |
+| restaurant POS software                | Review sites (Capterra, G2, Software Advice), Square / Toast / Lightspeed product pages                                        | Commercial                             | **Low–medium.** We have no POS hardware or payment gateway, so we must not pose as a full POS.             |
+| QR code ordering system (restaurants)  | Product pages (Square, Restroworks, Restolabs, Bopple, Foodhub), one GitHub project                                            | Commercial, product-led                | **High.** Core feature, with a clear differentiator (waiter approval).                                     |
+| digital menu for restaurants           | Indian QR-menu vendors (Petpooja blog, eresto, Capterra India listings), menu-maker tools                                      | Mixed: many want a free menu maker     | Medium. Our menu is part of ordering, not a standalone free menu maker.                                    |
+| restaurant billing software (India)    | myBillBook, Vyapar, DineOpen, Tally pages, all GST-focused                                                                     | Commercial, GST-centric                | Medium. Bills support CGST/SGST tax lines, but there is no e-invoicing or GST filing (stated on the page). |
+| kitchen display system                 | Product pages (Toast, Lightspeed, TouchBistro, UpMenu) and "what is a KDS" guides                                              | Commercial and informational           | **High.** Built in, browser-based, no extra hardware.                                                      |
+| restaurant order management software   | Multi-channel order hubs (UpMenu, OrderOut), "best of" lists                                                                   | Commercial; often delivery-aggregator  | Medium–low. Dine-in only; no aggregator integration.                                                       |
+| offline restaurant management software | Offline POS vendors (local-server designs), Indian vendors' blog posts                                                         | Commercial; expects a full offline POS | **Medium, handle honestly.** We survive drops and queue some actions; we are not a local-server POS.       |
+| restaurant SaaS for small restaurants  | Vendor blogs and directories (G2, GetApp, FitGap)                                                                              | Informational / commercial             | Medium. The Starter plan suits one outlet; the pricing page answers this.                                  |
+
+**Takeaways.** (1) Head terms are won by directories and listicles: a new domain with no links will not outrank them soon. Being listed and reviewed on those directories is the realistic route (see [ai-search-visibility.md](ai-search-visibility.md#what-depends-on-things-outside-the-code)). (2) Feature-level queries (QR ordering, KDS) have product-page results, so a focused product page can compete. (3) Offline and POS queries carry expectations we don't meet, so the pages say plainly what we don't do. That avoids attracting the wrong buyers.
+
+## Keyword-to-page map
+
+Each page has one primary intent. No two pages target the same query.
+
+| Page                               | Primary query                          | Secondary queries                                                 | `<title>`                                                      |
+| ---------------------------------- | -------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
+| `/`                                | restaurant management software (India) | restaurant SaaS for small restaurants, restaurant software        | Restaurant management software with QR ordering · RestaurantOS |
+| `/features`                        | restaurant software features           | restaurant order management software                              | Restaurant software features · RestaurantOS                    |
+| `/features/qr-code-ordering`       | QR code ordering system                | digital menu for restaurants, QR menu ordering, table ordering    | QR code ordering system for restaurants · RestaurantOS         |
+| `/features/kitchen-display-system` | kitchen display system                 | KDS for restaurants, kitchen order screen                         | Kitchen display system (KDS) for restaurants · RestaurantOS    |
+| `/features/restaurant-billing`     | restaurant billing software            | split bill, CGST SGST restaurant bill, restaurant POS billing     | Restaurant billing software with split payments · RestaurantOS |
+| `/features/offline-mode`           | offline restaurant software            | restaurant software that works without internet                   | Offline-ready restaurant software · RestaurantOS               |
+| `/pricing`                         | restaurant software pricing            | restaurant SaaS for small restaurants, restaurant POS price India | Restaurant software pricing · RestaurantOS                     |
+| `/faq`                             | RestaurantOS questions (brand)         | "does QR ordering need an app", "restaurant software offline"     | FAQ: QR ordering, offline use and billing · RestaurantOS       |
+| `/contact`, `/legal/*`             | brand and navigational                 | —                                                                 | unique per page                                                |
+
+The single source of truth is `packages/web-core/src/features/site/seo/site-pages.ts`. Titles, descriptions, canonicals, breadcrumbs, the sitemap, llms.txt and the `X-Robots-Tag` allow-list all come from it. A unit test enforces unique titles (≤ 65 characters) and descriptions (70–170 characters), and another checks that every public route is listed.
+
+## What was implemented
+
+| Area                   | Implementation                                                                                                                                                                                                                                                                                                         | Files                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Indexing policy        | Off by default. Public pages are indexable only when `SITE_INDEXABLE=true`, `PUBLIC_SITE_URL` is an https custom domain, and the request's `Host` (or `X-Forwarded-Host`) is that domain. Production variables copied onto staging or a `*.run.app` URL therefore stay `noindex`.                                      | `seo/site-config.ts`, `seo/robots-policy.ts`                                                       |
+| `X-Robots-Tag`         | Console proxy: `noindex, nofollow` on every response except public pages on the production host. This covers guest `/t/*`, `/app/*` (the session redirect is unchanged), auth, print, 404s and llms.txt. Console `/api/*`, and all of ops, admin and the API: static header on every response.                         | `apps/console/src/proxy.ts`, `seo/robots-header.ts`, `apps/{console,ops,admin,api}/next.config.ts` |
+| robots.txt             | Console: `Allow: /`, disallow `/app`, `/t/`, `/print`, `/api/`, `/dev`, `/design-system`, `/invite/`, `/reset-password`, `/verify-email`, `/~offline`, `/serwist/` and `/health` (also covers `/healthz`); `Sitemap:` only in production. Ops, admin and API: `Disallow: /`.                                           | `apps/*/src/app/robots.ts`                                                                         |
+| sitemap.xml            | The 12 public pages, as absolute https URLs, in production only; empty elsewhere.                                                                                                                                                                                                                                      | `apps/console/src/app/sitemap.ts`                                                                  |
+| Metadata               | Unique title and description, absolute canonical, Open Graph (`en_IN`, 1200×630 image) and Twitter card per page. Robots meta is `index, follow` (with `max-image-preview:large`) only on the production host. The root layouts default to `noindex`.                                                                  | `seo/page-metadata.ts`, public `page.tsx` files, `apps/console/src/app/layout.tsx`                 |
+| Metadata for crawlers  | `htmlLimitedBots` extended (Googlebot, GoogleOther, OAI-SearchBot, GPTBot, ChatGPT-User, PerplexityBot, ClaudeBot, Claude-SearchBot, CCBot …), so these crawlers get metadata in `<head>`.                                                                                                                             | `seo/crawlers.ts`                                                                                  |
+| Server-rendered prices | Plans are fetched on the server (cached 1 minute, failures not cached) and hydrate the client query. Before this change, the pricing HTML contained only a loading skeleton. The monthly view also shows the yearly price; "Prices exclude GST" is stated.                                                             | `pricing/server-plans.ts`, `pricing/server-pricing-plans.tsx`                                      |
+| JSON-LD                | `/`: Organization, WebSite, WebApplication (offers from the live plans). `/pricing`: Organization, WebApplication with offers. Other pages: BreadcrumbList. No ratings, reviews or placeholders. Output is escaped.                                                                                                    | `seo/structured-data.ts`, `seo/page-structured-data.tsx`                                           |
+| Images                 | `/og-image.png` (1200×630) and `/logo.png` (512×512), generated with `next/og` at build time from the site's brand mark                                                                                                                                                                                                | `apps/console/src/app/og-image.png/`, `logo.png/`, `seo/brand-images.tsx`                          |
+| Semantic HTML          | One `<h1>` per page (checked by E2E on every public page), visible breadcrumbs (`nav[aria-label=Breadcrumb]`, `aria-current`), a FAQ in native `<details>`, numbered steps in `<ol>`                                                                                                                                   | `breadcrumbs.tsx`, `section.tsx`, `feature-detail-page.tsx`                                        |
+| Internal links         | Features page blocks link to their detail pages ("… in detail"); footer "Product" links to the four feature pages; each feature page has a "Related" block; the landing offline section links to offline mode; the 404 links to Features, Pricing, FAQ and Contact.                                                    | `features-page.tsx`, `site-footer.tsx`, `not-found.tsx`                                            |
+| New pages              | `/features/qr-code-ordering`, `/features/kitchen-display-system`, `/features/restaurant-billing`, `/features/offline-mode`. Each answers "what is it" directly, then covers how it works here, details, **what it doesn't do**, a relevant FAQ and related links.                                                      | `feature-details.ts` (content), `feature-detail-page.tsx`                                          |
+| Accuracy fixes         | The offline copy said "placing an order" needs a connection and that drafts are saved. In the code, waiter orders and kitchen updates are queued offline, guest orders, approvals, bills and payments need a connection, and no screen uses the form-draft hook. The landing page, FAQ and features page now say this. | `landing/offline.tsx`, `faq-data.ts`, `features-page.tsx`                                          |
+| 404                    | Real 404 status, `noindex` (header and meta), links back into the site                                                                                                                                                                                                                                                 | `apps/console/src/app/not-found.tsx`                                                               |
+| llms.txt               | Generated from the same data; see [ai-search-visibility.md](ai-search-visibility.md#llmstxt)                                                                                                                                                                                                                           | `seo/llms-txt.ts`, `apps/console/src/app/llms.txt/route.ts`                                        |
+
+`seo/…` means `packages/web-core/src/features/site/seo/…`.
+
+**Tests.** Unit tests (Vitest) cover config resolution per environment (local, CI, staging, a copied production config, a real domain), robots rules, sitemap contents, the `X-Robots-Tag` matrix, metadata, JSON-LD (prices, breadcrumbs, no ratings or FAQPage, escaping), the crawler regex, llms.txt, page-list coverage and the console proxy, including the `/app` redirect. The Playwright spec `tests/e2e/seo.spec.ts` checks the server HTML of every public page and the private routes. Run it in production mode too:
+
+```sh
+# default (everything noindex)
+E2E_PORT=3130 E2E_API_PORT=4130 pnpm test:e2e tests/e2e/seo.spec.ts
+# production host logic (requests are sent with Host: www.restaurantos.test)
+SITE_INDEXABLE=true PUBLIC_SITE_URL=https://www.restaurantos.test \
+  E2E_PORT=3130 E2E_API_PORT=4130 pnpm test:e2e tests/e2e/seo.spec.ts
+```
+
+## Indexing requirements
+
+Do these in order. Until all of them are true, every page stays `noindex`, by design.
+
+1. **Get a domain** and serve the console on it over HTTPS, for example `www.<brand>.in`. The site must not live on a `*.run.app` or `*.web.app` URL: those are refused in code and change when you move providers. Decide on `www` or the apex domain, and 301-redirect the other one to it at the load balancer or DNS host.
+2. **Set two production-only variables** on the production console service:
+   - `PUBLIC_SITE_URL=https://www.<brand>.in` (no path)
+   - `SITE_INDEXABLE=true`
+
+   Never set `SITE_INDEXABLE` on staging. Even if someone does, staging stays `noindex` because its host differs.
+
+3. **Make sure the request reaches the app with the domain in `Host`** (or `X-Forwarded-Host`). Cloud Run domain mappings and most load balancers keep `Host`. A proxy that rewrites `Host` to the `*.run.app` name and drops `X-Forwarded-Host` makes the site `noindex`: that fails safe, but fix it.
+4. **Replace the placeholders** before launch: `NEXT_PUBLIC_SUPPORT_EMAIL` (a real inbox on the domain) and `NEXT_PUBLIC_LEGAL_ENTITY`, rebuilt into the image. Have the legal templates reviewed (their banner says so). Until then the Organization markup leaves out email and legal name.
+5. **Verify** (expected results in comments):
+
+   ```sh
+   curl -sI https://www.<brand>.in/pricing | grep -i x-robots-tag      # no output
+   curl -s  -A Googlebot https://www.<brand>.in/pricing | grep -o '<meta name="robots"[^>]*>'
+   #   <meta name="robots" content="index, follow"/>
+   curl -s  https://www.<brand>.in/robots.txt | tail -1               # Sitemap: https://www.<brand>.in/sitemap.xml
+   curl -s  https://www.<brand>.in/sitemap.xml | grep -c '<loc>'      # 12
+   curl -sI https://www.<brand>.in/t/anything | grep -i x-robots-tag  # noindex, nofollow
+   curl -sI https://<service>.run.app/pricing | grep -i x-robots-tag  # noindex, nofollow
+   ```
+
+## Search Console and Bing setup
+
+All free. About 30 minutes, plus waiting for data.
+
+1. **Google Search Console** (<https://search.google.com/search-console>): add a **Domain property** for `<brand>.in`, verify with the DNS TXT record it shows, then wait for "Ownership verified".
+2. **Sitemaps → add** `https://www.<brand>.in/sitemap.xml`. Expected status: "Success" with 12 discovered URLs (it can take a day).
+3. **URL Inspection** on `/`, `/pricing` and `/features/qr-code-ordering` → **Test live URL**. Expected: "URL is available to Google", user-declared canonical = Google-selected canonical, and in "View tested page → HTML" the canonical and `index, follow` inside `<head>`. Then click **Request indexing** for those three.
+4. **Rich Results Test** (<https://search.google.com/test/rich-results>) on `/` and `/features/restaurant-billing`. Expected: Breadcrumb detected (on the feature page) and Organization recognised. "Software App" is **not** expected to be eligible, because there are no reviews (see [Structured data](#structured-data-in-2026)). Also run the Schema Markup Validator (<https://validator.schema.org/>): expected 0 errors.
+5. **Bing Webmaster Tools** (<https://www.bing.com/webmasters>): choose "Import from Google Search Console". The sitemap and verification carry over. Bing's index also feeds Microsoft Copilot.
+6. After 2–4 weeks, read **Performance → Queries** in Search Console. These are the first real impression numbers: re-rank the keyword map with them.
+
+## Content rules
+
+- Every claim must match what the code does today. Check `feature-details.ts`, `faq-data.ts` and `not-yet.ts` whenever a feature changes, and keep the "doesn't do yet" lists current.
+- No made-up testimonials, customer counts, ratings, statistics, awards or ranking promises. Structured data repeats only what is visible on the page.
+- One intent per page. Add a page only when a query's intent clearly differs from an existing page (as with the four feature pages), never city or keyword variants of the same page.
+- To add a public page: add it to `SITE_PAGES`, create the route with `publicPageMetadata(...)` and `<PageStructuredData …/>`, and link it from a hub page. The unit tests fail if any of these steps is missing.
+
+## Next steps
+
+| Priority | Action                                                                                                                                                                     | Owner          |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| P0       | Domain, production variables, verification and Search Console, as above                                                                                                    | Owner / DevOps |
+| P1       | List RestaurantOS (with accurate features and limits) on Capterra India, SoftwareSuggest, Techjockey and G2. These dominate the head-term results.                         | Owner          |
+| P1       | Ask real customers for reviews on those directories. Only genuine reviews may later go into `aggregateRating`, and only if they are shown on the page too.                 | Owner          |
+| P2       | Practical guides with distinct intent, written from real operating experience (for example "how to set up QR ordering for a 20-table restaurant"). Not thin keyword pages. | Content        |
+| P2       | Once dates are tracked reliably, add `lastmod` to the sitemap                                                                                                              | Engineering    |
+| P3       | Hindi landing copy, only if customers ask for it. That needs `hreflang` and a translated, maintained page set.                                                             | Product        |
+
+## Sources
+
+1. Google Search Central, _Introduction to robots.txt_. <https://developers.google.com/search/docs/crawling-indexing/robots/intro>
+2. Google Search Central, _Block Search indexing with noindex_. <https://developers.google.com/search/docs/crawling-indexing/block-indexing>
+3. Google Search Central, _How to specify a canonical URL_. <https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls>
+4. Google Search Central, _Build and submit a sitemap_. <https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap>
+5. Google Search Central, _FAQ (FAQPage) structured data_ (deprecation notice) and _Search updates_. <https://developers.google.com/search/docs/appearance/structured-data/faqpage>, <https://developers.google.com/search/updates>
+6. Search Engine Roundtable, _Google Search Drops FAQ Rich Results in Search & Search Console_ (2026). <https://www.seroundtable.com/google-drops-faq-rich-results-41298.html>
+7. Google Search Central, _Software app (SoftwareApplication) structured data_. <https://developers.google.com/search/docs/appearance/structured-data/software-app>
+8. Google Search Central, _Organization structured data_. <https://developers.google.com/search/docs/appearance/structured-data/organization>
+9. Google Search Central, _Breadcrumb (BreadcrumbList) structured data_. <https://developers.google.com/search/docs/appearance/structured-data/breadcrumb>
+10. Google Search Central Blog, _Simplifying the visible URL element on mobile search results_ (Jan 2025). <https://developers.google.com/search/blog/2025/01/simplifying-breadcrumbs>
+11. Google Search Central, _Search gallery_ (structured data features currently supported). <https://developers.google.com/search/docs/appearance/structured-data/search-gallery>
+12. Next.js 16.4 bundled docs: `robots.md`, `sitemap.md`, `generate-metadata.md` ("With Cache Components", "Streaming metadata"), `json-ld.md`, `not-found.md`, `opengraph-image.md`, `image-response.md` under `apps/console/node_modules/next/dist/docs/01-app/`.
+13. Results pages sampled on 2026-11-10 (examples): Techjockey restaurant management listicle <https://www.techjockey.com/blog/?p=3523>, SoftwareSuggest India <https://www.softwaresuggest.com/restaurant-management-software/india>, Capterra restaurant POS <https://www.capterra.com/restaurant-pos-software/s/windows/>, Square QR ordering <https://squareup.com/us/en/online-ordering/qr-code-ordering>, Restroworks QR ordering <https://www.restroworks.com/qr-code-ordering-system/>, Toast KDS <https://pos.toasttab.com/restaurant-pos/kitchen-display-system>, myBillBook restaurant billing <https://mybillbook.in/s/pos-billing-software/restaurant/>, Vyapar restaurant billing <https://vyaparapp.in/free/restaurant-billing-software>, UpMenu order management <https://www.upmenu.com/restaurant-order-management-system>, DineOpen offline POS guide <https://www.dineopen.com/blog/offline-pos-restaurants-india-2026>, eresto Edge <https://eresto.in/products/eresto-edge>.

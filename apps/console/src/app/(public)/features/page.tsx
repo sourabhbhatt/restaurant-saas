@@ -1,13 +1,16 @@
-import type { Metadata } from "next";
-
 import { FeaturesPage } from "@ros/web-core/features/site/features-page";
+import { publicPageMetadata } from "@ros/web-core/features/site/seo/page-metadata";
+import { PageStructuredData } from "@ros/web-core/features/site/seo/page-structured-data";
 
-export const metadata: Metadata = {
-  title: "Features",
-  description:
-    "QR table ordering, waiter approval, kitchen display, counter billing, menu and staff management, multi-branch and offline-ready devices.",
-};
+export function generateMetadata() {
+  return publicPageMetadata("/features");
+}
 
 export default function Page() {
-  return <FeaturesPage />;
+  return (
+    <>
+      <FeaturesPage />
+      <PageStructuredData path="/features" />
+    </>
+  );
 }

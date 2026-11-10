@@ -1,12 +1,16 @@
-import type { Metadata } from "next";
-
 import { PricingPage } from "@ros/web-core/features/site/pricing-page";
+import { publicPageMetadata } from "@ros/web-core/features/site/seo/page-metadata";
+import { PageStructuredData } from "@ros/web-core/features/site/seo/page-structured-data";
 
-export const metadata: Metadata = {
-  title: "Pricing",
-  description: "Plans and limits for restaurants of every size, with a free trial.",
-};
+export function generateMetadata() {
+  return publicPageMetadata("/pricing");
+}
 
 export default function Page() {
-  return <PricingPage />;
+  return (
+    <>
+      <PricingPage />
+      <PageStructuredData path="/pricing" />
+    </>
+  );
 }

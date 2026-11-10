@@ -31,6 +31,10 @@ const nextConfig: NextConfig = {
     "/*": ["../../packages/database/src/providers/postgres/migrations/**/*"],
   },
   turbopack: { root: repoRoot },
+  async headers() {
+    // The API is never a search result (robots.txt also disallows everything).
+    return [{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }];
+  },
   transpilePackages: [
     "@ros/domain",
     "@ros/contracts",

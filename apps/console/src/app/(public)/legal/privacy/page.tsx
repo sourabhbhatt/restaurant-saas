@@ -1,12 +1,16 @@
-import type { Metadata } from "next";
-
 import { PrivacyPolicy } from "@ros/web-core/features/site/legal/privacy";
+import { publicPageMetadata } from "@ros/web-core/features/site/seo/page-metadata";
+import { PageStructuredData } from "@ros/web-core/features/site/seo/page-structured-data";
 
-export const metadata: Metadata = {
-  title: "Privacy policy",
-  description: "How personal data is collected, used, retained and deleted.",
-};
+export function generateMetadata() {
+  return publicPageMetadata("/legal/privacy");
+}
 
 export default function Page() {
-  return <PrivacyPolicy />;
+  return (
+    <>
+      <PrivacyPolicy />
+      <PageStructuredData path="/legal/privacy" />
+    </>
+  );
 }

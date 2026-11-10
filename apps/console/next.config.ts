@@ -3,6 +3,8 @@ import path from "node:path";
 import type { NextConfig } from "next";
 import { withSerwist } from "@serwist/turbopack";
 import { SECURITY_HEADERS } from "@ros/web-core/security-headers";
+import { HTML_LIMITED_BOTS } from "@ros/web-core/features/site/seo/crawlers";
+import { NOINDEX } from "@ros/web-core/features/site/seo/robots-policy";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 
@@ -11,6 +13,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   cacheComponents: true,
   partialPrefetching: true,
+  // Search and AI crawlers get metadata (canonical, robots) in the initial <head>.
+  htmlLimitedBots: HTML_LIMITED_BOTS,
   output: "standalone",
   // Trace from the monorepo root so workspace packages land in .next/standalone.
   outputFileTracingRoot: repoRoot,
@@ -44,6 +48,11 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: SECURITY_HEADERS,
+      },
+      {
+        // API responses are never search results. Pages get X-Robots-Tag from src/proxy.ts.
+        source: "/api/:path*",
+        headers: [{ key: "X-Robots-Tag", value: NOINDEX }],
       },
     ];
   },

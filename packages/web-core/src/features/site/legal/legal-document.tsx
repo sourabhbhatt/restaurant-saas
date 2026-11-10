@@ -5,6 +5,8 @@ import { TriangleAlertIcon } from "lucide-react";
 import { cn } from "@ros/ui/utils";
 
 import { BRAND, LEGAL_NAV } from "../brand";
+import { Breadcrumbs } from "../breadcrumbs";
+import type { SitePath } from "../seo/site-pages";
 
 export interface LegalSection {
   id: string;
@@ -25,7 +27,7 @@ export function LegalDocument({
   title: string;
   summary: ReactNode;
   sections: LegalSection[];
-  currentHref: string;
+  currentHref: SitePath;
 }) {
   return (
     <div className="px-4 py-12 sm:px-6 md:py-16">
@@ -67,6 +69,7 @@ export function LegalDocument({
 
         <article className="flex max-w-3xl min-w-0 flex-col gap-8">
           <header className="flex flex-col gap-4">
+            <Breadcrumbs path={currentHref} />
             <div
               role="note"
               className="flex items-start gap-3 rounded-xl border border-warning/50 bg-warning/10 p-4 text-sm"

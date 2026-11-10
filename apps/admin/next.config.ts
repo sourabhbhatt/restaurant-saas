@@ -3,6 +3,7 @@ import path from "node:path";
 import type { NextConfig } from "next";
 
 import { SECURITY_HEADERS } from "@ros/web-core/security-headers";
+import { NOINDEX } from "@ros/web-core/features/site/seo/robots-policy";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 
@@ -35,6 +36,11 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: SECURITY_HEADERS,
+      },
+      {
+        // The admin app is never a search result.
+        source: "/:path*",
+        headers: [{ key: "X-Robots-Tag", value: NOINDEX }],
       },
     ];
   },

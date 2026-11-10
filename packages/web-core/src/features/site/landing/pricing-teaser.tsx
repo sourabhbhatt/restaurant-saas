@@ -3,7 +3,7 @@ import { ArrowRightIcon } from "lucide-react";
 
 import { Button } from "@ros/ui/ui/button";
 
-import { PricingPlans } from "../pricing/pricing-plans";
+import { ServerPricingPlans } from "../pricing/server-pricing-plans";
 import { Section, SectionHeading } from "../section";
 
 export function PricingTeaser() {
@@ -15,7 +15,7 @@ export function PricingTeaser() {
         description="Start with a free trial. Pick a plan when you're ready."
       />
       <div className="mt-12">
-        <PricingPlans variant="teaser" />
+        <ServerPricingPlans variant="teaser" />
       </div>
       <div className="mt-10 flex justify-center">
         <Button asChild variant="outline">
