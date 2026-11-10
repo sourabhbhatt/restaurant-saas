@@ -37,7 +37,8 @@ runs `tests/e2e/support/serve-api.ts`, which builds the four apps (turbo cache),
 throwaway PGlite database under `.data/e2e-<api port>` with the demo seed and serves the API,
 then starts console, ops and admin as production builds proxying `/api/v1` to it. Ports:
 console 3100, ops 3101, admin 3102, API 4100 (`E2E_PORT`, `E2E_OPS_PORT`, `E2E_ADMIN_PORT`,
-`E2E_API_PORT`).
+`E2E_API_PORT`). Never pick a port on the Fetch standard's "bad ports" list (for example 4190):
+Node's `fetch` refuses to connect to it, so the frontends' proxy cannot reach an API there.
 
 `E2E_SKIP_BUILD=1` makes serve-api skip the build and serve the existing production builds. CI uses it for a second run, `tests/e2e/analytics-consent.spec.ts` with `GA_MEASUREMENT_ID=G-E2ETEST01` (every Google request is answered inside the browser, nothing is sent), which writes its report to `playwright-report-consent/` and `test-results-consent/`; see [growth analytics](growth/analytics-events.md#tests).
 
