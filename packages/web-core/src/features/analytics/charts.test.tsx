@@ -11,26 +11,34 @@ afterEach(() => {
 });
 
 describe("charts when the Recharts chunk fails to load", () => {
-  it("shows a note in the chart's place instead of failing the page", async () => {
-    // React logs caught render errors; keep the test output readable.
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const { TrendChart, DonutChart } = await import("./charts");
-    render(
-      <div>
-        <p>Rest of the report</p>
-        <TrendChart
-          data={[{ d: "2026-11-01", v: 1 }]}
-          xKey="d"
-          series={[{ key: "v", label: "Orders", color: "red" }]}
-          formatValue={String}
-        />
-        <DonutChart data={[{ name: "Cash", value: 3 }]} formatValue={String} />
-      </div>,
-    );
-    expect(await screen.findAllByText("Chart unavailable")).toHaveLength(2);
-    expect(screen.getByText("Rest of the report")).toBeVisible();
-    // The donut's legend does not depend on the chunk.
-    expect(screen.getByText("Cash")).toBeVisible();
-    expect(screen.getAllByRole("button", { name: "Reload" })).toHaveLength(2);
-  });
+  // A cold import of the chart module (and its lazy chunk) can take several seconds when every
+  // package's suite runs in parallel; the assertions below are unchanged.
+  it(
+    "shows a note in the chart's place instead of failing the page",
+    { timeout: 20_000 },
+    async () => {
+      // React logs caught render errors; keep the test output readable.
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const { TrendChart, DonutChart } = await import("./charts");
+      render(
+        <div>
+          <p>Rest of the report</p>
+          <TrendChart
+            data={[{ d: "2026-11-01", v: 1 }]}
+            xKey="d"
+            series={[{ key: "v", label: "Orders", color: "red" }]}
+            formatValue={String}
+          />
+          <DonutChart data={[{ name: "Cash", value: 3 }]} formatValue={String} />
+        </div>,
+      );
+      expect(await screen.findAllByText("Chart unavailable", {}, { timeout: 5_000 })).toHaveLength(
+        2,
+      );
+      expect(screen.getByText("Rest of the report")).toBeVisible();
+      // The donut's legend does not depend on the chunk.
+      expect(screen.getByText("Cash")).toBeVisible();
+      expect(screen.getAllByRole("button", { name: "Reload" })).toHaveLength(2);
+    },
+  );
 });
