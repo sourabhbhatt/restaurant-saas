@@ -18,7 +18,7 @@ const NEEDS_CONNECTION = [
 
 export function OfflineSection() {
   return (
-    <Section id="offline">
+    <Section id="offline-ready">
       <SectionHeading
         eyebrow="Offline-ready"
         title="Built for patchy restaurant Wi-Fi"

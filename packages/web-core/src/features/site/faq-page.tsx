@@ -23,7 +23,7 @@ export function FaqPage() {
               {FAQ_GROUPS.map((g) => (
                 <li key={g.id}>
                   <a
-                    href={`#${g.id}`}
+                    href={`#topic-${g.id}`}
                     className="block rounded-md px-3 py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                   >
                     {g.title}
@@ -36,7 +36,7 @@ export function FaqPage() {
             {FAQ_GROUPS.map((g) => (
               <section
                 key={g.id}
-                id={g.id}
+                id={`topic-${g.id}`}
                 aria-labelledby={`${g.id}-title`}
                 className="flex scroll-mt-24 flex-col gap-4"
               >

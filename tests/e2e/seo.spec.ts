@@ -83,6 +83,10 @@ test.describe("public pages are server-rendered for crawlers", () => {
       const h1s = [...html.matchAll(/<h1[\s>][\s\S]*?<\/h1>/g)];
       expect(h1s).toHaveLength(1);
 
+      // Fragment links (#no-app, #offline …) need unique element ids.
+      const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+      expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+
       // JSON-LD parses and uses absolute URLs on the same origin.
       const blocks = jsonLdBlocks(html);
       expect(blocks.length).toBeGreaterThan(0);
