@@ -45,6 +45,10 @@ export function TrackingClient({
   useEffect(() => {
     if (!ready) return;
     if (granted && measured) configureGtag(measurementId, { debug });
+    // A client navigation from a measured page to a guest QR page or a print sheet: the tag
+    // is already loaded, so switch it off there (configureGtag re-enables it on the way back).
+    // Our own code sends nothing on these routes; this keeps gtag.js itself quiet too.
+    if (granted && !measured) disableGtag(measurementId);
     if (!granted) {
       disableGtag(measurementId);
       clearAnalyticsCookies();
