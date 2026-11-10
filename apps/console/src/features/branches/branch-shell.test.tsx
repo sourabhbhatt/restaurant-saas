@@ -60,7 +60,7 @@ const structure: WorkspaceStructureDto = {
   workspaceName: "Sharma Hospitality",
   roleKey: "workspace_owner",
   roleLabel: "Workspace Owner",
-  permissions: ["menu.view", "tables.view", "orders.view"],
+  permissions: ["menu.view", "tables.view", "orders.view", "workspace.support.manage"],
   entitlements,
   restaurants: [
     {
@@ -160,6 +160,23 @@ describe("BranchShell sidebar", () => {
       "href",
       `http://localhost:3000/app/w/${WS}/support`,
     );
+  });
+
+  it("does not send staff who cannot open support requests to a dead end", async () => {
+    // Waiters and kitchen staff would only see "Only workspace owners and admins can
+    // open support requests" there, so the item is left out for them.
+    renderShell(branchContext({}), {
+      ...structure,
+      roleKey: "waiter",
+      roleLabel: "Waiter",
+      permissions: ["orders.view"],
+    });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "PS Priya Sharma, account menu" }),
+    );
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: /Account settings/ })).toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: /Help & support/ })).toBeNull();
   });
 
   it("shows the full workspace name on hover when it is truncated", async () => {

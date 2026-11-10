@@ -22,7 +22,12 @@ import {
   DropdownMenuTrigger,
 } from "@ros/ui/ui/dropdown-menu";
 import { Skeleton } from "@ros/ui/ui/skeleton";
-import { useIdentity, useSignOut } from "../session/queries";
+import {
+  permissionChecker,
+  useIdentity,
+  useSignOut,
+  useWorkspaceStructure,
+} from "../session/queries";
 import { useSwitchWorkspace } from "../workspaces/use-switch-workspace";
 import { appHref, useAppLinks } from "../../app-links";
 
@@ -52,6 +57,10 @@ export function ProfileMenu({
   const signOut = useSignOut();
   const switchWorkspace = useSwitchWorkspace(workspaceId);
   const links = useAppLinks();
+  // Support requests need workspace.support.manage; for other staff the page is a dead end.
+  const structure = useWorkspaceStructure(area === "app" ? workspaceId : undefined);
+  const canGetSupport =
+    !workspaceId || permissionChecker(structure.data?.permissions)("workspace.support.manage");
   // The account's own workspace list is the source of truth for its name.
   const contextName = workspaces.find((w) => w.id === workspaceId)?.name ?? workspaceName;
 
@@ -122,7 +131,7 @@ export function ProfileMenu({
             <Settings className="size-4" aria-hidden /> Account settings
           </Link>
         </DropdownMenuItem>
-        {area === "app" && (
+        {area === "app" && canGetSupport && (
           <DropdownMenuItem asChild>
             <Link
               href={appHref(
