@@ -13,6 +13,11 @@ import {
 /**
  * App-wide toast host themed with design tokens. Render once near the root and
  * call `toast()` / `toast.success()` from `sonner` anywhere.
+ *
+ * Every mounted Toaster renders every toast. Today hosts are mounted per area
+ * (admin shell, console workspace layout, some pages): a page must render
+ * under exactly one. Moving to a single global host means removing all the
+ * local ones in the same change.
  */
 function Toaster({ theme = "system", ...props }: ToasterProps) {
   return (
