@@ -55,6 +55,40 @@ describe("query persistence", () => {
     expect(rows[0]!.data).toEqual({ name: "Main" });
   });
 
+  it("saves the first result of each query at once, before the debounce", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const stop = startQueryPersistence(qc, db, () => "user-1");
+    await qc.fetchQuery({ queryKey: ["me"], queryFn: async () => ({ user: { id: "user-1" } }) });
+    await qc.fetchQuery({
+      queryKey: ["branch", "b1", "context"],
+      queryFn: async () => ({ name: "Main" }),
+    });
+    // No timer advanced: a reload or lost connection right now must still find the data.
+    vi.useRealTimers();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const keys = (await db.queryCache.toArray()).map((r) => r.key).sort();
+    expect(keys).toEqual(
+      [queryCacheKey(["branch", "b1", "context"]), queryCacheKey(["me"])].sort(),
+    );
+    stop();
+  });
+
+  it("writes a pending (debounced) update at once when the tab is hidden", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const stop = startQueryPersistence(qc, db, () => "user-1");
+    const queryKey = ["branch", "b1", "context"];
+    await qc.fetchQuery({ queryKey, queryFn: async () => ({ name: "Main" }) });
+    await qc.fetchQuery({ queryKey, queryFn: async () => ({ name: "Renamed" }), staleTime: 0 });
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    visibility.mockRestore();
+    vi.useRealTimers();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const row = await db.queryCache.get(queryCacheKey(queryKey));
+    expect(row?.data).toEqual({ name: "Renamed" });
+    stop();
+  });
+
   it("restores only the last signed-in user's fresh rows, marked stale", async () => {
     await switchUser(db, "user-1");
     const now = Date.now();
