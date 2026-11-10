@@ -12,6 +12,7 @@ import { users } from "@ros/database/providers/postgres/schema";
 import { buildContainer, setContainerForTests, type Container } from "@/composition/container";
 import { getEnv, resetEnvCache } from "@ros/application/config/env";
 import type { PaymentGateway } from "@ros/application/ports/payment-gateway";
+import type { ServerTracking } from "@ros/application/ports/server-tracking";
 import { eq } from "drizzle-orm";
 
 import { migrateTo } from "@ros/testing/migrate-to";
@@ -28,6 +29,8 @@ export interface TestContainerOptions {
   seed?: (db: Executor) => Promise<void>;
   /** A payment gateway (the fake) for the payments tests; default none. */
   payments?: PaymentGateway;
+  /** A tracking adapter (the memory one) for the analytics tests; default by env (none). */
+  tracking?: ServerTracking;
 }
 
 export async function createTestContainer(options: TestContainerOptions = {}): Promise<Container> {
@@ -48,6 +51,7 @@ export async function createTestContainer(options: TestContainerOptions = {}): P
     database: handle,
     quiet: true,
     payments: options.payments ?? null,
+    tracking: options.tracking,
   });
   setContainerForTests(c);
   return c;

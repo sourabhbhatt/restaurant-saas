@@ -19,6 +19,7 @@ import type {
 } from "./ports/core-repositories";
 import type { Clock, ErrorReporter, Logger } from "./ports/observability";
 import type { PaymentGateway } from "./ports/payment-gateway";
+import type { ServerTracking } from "./ports/server-tracking";
 import type { EntitlementService } from "./subscriptions/entitlement-service";
 
 /**
@@ -39,6 +40,8 @@ export interface Container {
   push: PushSender;
   /** Null when PAYMENT_PROVIDER=none: the checkout endpoints and the Pay button are off. */
   payments: PaymentGateway | null;
+  /** Server-side growth events (TRACKING_PROVIDER); `none` sends nothing. */
+  tracking: ServerTracking;
   access: AccessService;
   entitlements: EntitlementService;
   /** Readiness probe: the database answers and no migration is pending. Throws when unreachable. */

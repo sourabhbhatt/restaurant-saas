@@ -1,3 +1,5 @@
+import type { AnalyticsIds } from "@ros/contracts/tracking-events";
+
 /** Who is making the request, resolved on the server from the session cookie. */
 export interface UserActor {
   type: "user";
@@ -14,6 +16,8 @@ export interface RequestMeta {
   requestId: string;
   ip: string | null;
   userAgent: string | null;
+  /** GA4 ids of a browser that opted in to analytics; attributes server growth events. */
+  analytics?: AnalyticsIds | null;
 }
 
 export interface AuditActor {

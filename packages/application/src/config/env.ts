@@ -98,6 +98,19 @@ const fields = z.object({
   RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
 
+  /** Server-side growth events: `none` sends nothing; `ga4` uses the GA4 Measurement Protocol. */
+  TRACKING_PROVIDER: z.enum(["none", "ga4"]).default("none"),
+  /** This environment's GA4 web stream (the console's), so server events join browser data. */
+  GA_MEASUREMENT_ID: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z
+      .string()
+      .regex(/^G-[A-Z0-9]{4,20}$/, "Expected a GA4 Measurement ID (G-XXXXXXX)")
+      .optional(),
+  ),
+  /** Measurement Protocol API secret of that stream; with `ga4` both are required. */
+  GA_API_SECRET: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).optional()),
+
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   ERROR_REPORTER: z.enum(["log", "none"]).default("log"),
 
@@ -135,6 +148,8 @@ export function getEnv(): ServerEnv {
       throw new Error("Live Razorpay keys are not allowed: use a rzp_test_ key (test mode only)");
     }
   }
+  if (env.TRACKING_PROVIDER === "ga4" && (!env.GA_MEASUREMENT_ID || !env.GA_API_SECRET))
+    throw new Error("TRACKING_PROVIDER=ga4 requires GA_MEASUREMENT_ID and GA_API_SECRET");
   if (env.NODE_ENV === "production") {
     if (env.APP_SECRET.startsWith("dev-only"))
       throw new Error("APP_SECRET must be set in production");

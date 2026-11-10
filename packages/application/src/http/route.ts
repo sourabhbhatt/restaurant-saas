@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { DomainError, isDomainError } from "@ros/domain/shared/errors";
 import { hashToken } from "@ros/domain/shared/tokens";
+import { consentedAnalyticsIds } from "@ros/contracts/tracking-events";
 
 import type { RequestMeta, UserActor } from "../context";
 import { getContainer, type Container } from "../container";
@@ -197,6 +198,7 @@ export function route<
         requestId,
         ip: clientIpFrom(req.headers, c.env.TRUSTED_PROXY_HOPS),
         userAgent: req.headers.get("user-agent"),
+        analytics: consentedAnalyticsIds(req.headers.get("cookie"), c.env.GA_MEASUREMENT_ID),
       };
       if (MUTATING.has(req.method) && !config.skipOriginCheck)
         assertSameOrigin(req, c.env.ALLOWED_ORIGINS);
