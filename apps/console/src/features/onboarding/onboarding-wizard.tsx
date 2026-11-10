@@ -597,6 +597,21 @@ function MenuStep({
   );
 }
 
+/** QR codes created at once during onboarding: enough to be quick, gentle on the API. */
+const QR_CONCURRENCY = 4;
+
+/** Runs `fn` over `items` with at most `limit` calls in flight. */
+async function eachLimited<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const item = items[next++]!;
+      await fn(item);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+}
+
 function TablesStep({
   workspaceId,
   branchId,
@@ -610,6 +625,7 @@ function TablesStep({
   const [count, setCount] = useState("10");
   const [capacity, setCapacity] = useState("4");
   const { pending, run, err, error, formError, setFieldErrors } = useAction();
+  const [qrProgress, setQrProgress] = useState<{ done: number; total: number } | null>(null);
   const n = Number(count);
   const limit = useLimit(workspaceId, "maxTables", {
     adding: Number.isInteger(n) && n > 0 ? n : 1,
@@ -626,6 +642,11 @@ function TablesStep({
         <>
           <PlanErrorNotice error={error} workspaceId={workspaceId} />
           {!isPlanError(error) ? <FormError>{formError}</FormError> : null}
+          {qrProgress ? (
+            <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
+              Generating QR codes {qrProgress.done}/{qrProgress.total}
+            </p>
+          ) : null}
         </>
       }
       onSubmit={async () => {
@@ -648,8 +669,14 @@ function TablesStep({
           });
           // Codes right away, so the first test order needs no extra step. A failure here
           // is not fatal: the print sheet's "Generate missing" covers any table left out.
-          for (const t of tables) {
-            await api.post(`/tables/${t.id}/qr`).catch(() => undefined);
+          setQrProgress({ done: 0, total: tables.length });
+          try {
+            await eachLimited(tables, QR_CONCURRENCY, async (t) => {
+              await api.post(`/tables/${t.id}/qr`).catch(() => undefined);
+              setQrProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
+            });
+          } finally {
+            setQrProgress(null);
           }
           return tables;
         });

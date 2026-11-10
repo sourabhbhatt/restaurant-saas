@@ -93,7 +93,9 @@ await enqueueMutation({
 - `chainVersion: true` is for scopes that edit **one** record whose new `version` comes back in
   the response (`order:<id>`). When an item synced, later pending items of the scope that were
   made on the same version are rebased on the returned one, so a chain of offline changes to one
-  order doesn't conflict with itself. A real concurrent change still conflicts.
+  order doesn't conflict with itself. The version is resolved again when an item is sent: it
+  follows the versions this device's earlier answered changes of the scope returned, so a quick
+  second tap stored only after the first one was answered (the rebase never saw it) is not a 409. A real concurrent change still conflicts: another device's edits are never followed.
 
 `useOfflineDraft(key, initial)` → `{ value, setValue, clear, restored, savedAt, ready }`. Values
 are saved per user and device (debounced 400 ms) and restored on the next mount. Call `clear()`
@@ -137,9 +139,16 @@ A small custom persister over Dexie (no extra dependency):
 ## Queued staff operations
 
 `queued-ops.ts` builds the outbox entries; feature code calls `enqueueMutation(builder(...))`.
-A screen queues instead of calling the API directly when the device is offline **or** the scope
-still has unsynced items (so a new change never overtakes queued ones). Online, with nothing
-queued, the usual direct request is used.
+**The kitchen screen always queues, online too.** Item status and start/ready go through the
+outbox, which sends one order's changes strictly in order: each one after the previous one
+resolved, and on the version it returned (`chainVersion` rebase). A direct request per tap had
+no such ordering and no version: two quick taps could resend the first step (the line stayed
+"preparing"), or toggle a ready line back from a stale screen. A tap on stale data now gets a
+409 and becomes a conflict instead.
+
+The waiter's staff orders queue when the device is offline **or** the table still has unsynced
+items (so a new order never overtakes queued ones). Online, with nothing queued, the direct
+request is used: it carries an idempotency key, so a retry or double submit creates one order.
 
 | Operation (builder)                                 | Request                                         | Scope             | Duplicate / conflict handling                                                                                                                                                                                                                                                                                                                     |
 | --------------------------------------------------- | ----------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -150,6 +159,13 @@ queued, the usual direct request is used.
 - The kitchen ticket shows the server status plus a "Waiting to sync" badge (per item and per
   ticket); a queued item is never drawn as done and "Ready"/"Waiting for pickup" appear only
   once the server says so. Refused changes show "A change to this ticket was not saved".
+- Between a change being confirmed and the kitchen feed being refetched, the ticket shows the
+  order the server returned (`withConfirmedKitchenChanges`: its version, status and line
+  statuses, only while newer than the feed). So the next tap builds on what the server has, never
+  on the stale feed.
+- Waiter accept/reject/serve and cashier payments are never queued. They send the order version
+  or an idempotency key, are disabled while pending, and a 409 shows "already handled" and
+  refetches.
 - The table drawer lists unsent staff orders as "Not sent — will send when online" with the
   item summary and no price; the server's order (with server prices) replaces it after a 2xx.
 - The kitchen feed, branch orders, table sessions, session detail and the branch menu are

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { BillDto, PaymentSummaryDto } from "@ros/contracts/billing";
@@ -741,7 +741,7 @@ describe("closing a table session", () => {
     expect((await closeSession(kitchen, b.branchId, session.sessionId)).status).toBe(403);
   });
 
-  it("allows closing with a balance when the branch does not require full payment", async () => {
+  it("allows closing with a balance when the branch does not require full payment, and audits it as such", async () => {
     const b = await setupBillingBranch(c, {
       taxes: [],
       settings: { requireFullPaymentToClose: false },
@@ -753,6 +753,51 @@ describe("closing a table session", () => {
     expect(res.status).toBe(200);
     const items = await c.db.select().from(billItems);
     expect(items.length).toBeGreaterThan(0);
+    const [audit] = await c.db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(eq(auditLogs.targetId, session.sessionId), eq(auditLogs.action, "session.closed")),
+      );
+    expect(audit!.metadata).toMatchObject({
+      closedWithBalance: true,
+      requireFullPaymentToClose: false,
+      balanceDue: 4_000,
+    });
+  });
+
+  it("refuses to close while an order is still in the kitchen, even with a paid bill", async () => {
+    const b = await setupBillingBranch(c, {
+      taxes: [],
+      settings: { autoCompleteOnPayment: false },
+    });
+    const session = await openSession(c, b);
+    const served = await insertOrder(c, b, session, "SERVED", [{ name: "Dal", unitPrice: 8_000 }]);
+    const cooking = await insertOrder(c, b, session, "PREPARING", [
+      { name: "Naan", unitPrice: 2_000 },
+    ]);
+    const bill = (await generate(b.owner, b.branchId, { sessionId: session.sessionId })).body.data!;
+    await pay(b.owner, bill.id, { method: "CASH", amount: bill.balanceDue });
+
+    const blocked = await closeSession(b.owner, b.branchId, session.sessionId);
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.error!.code).toBe("CONFLICT");
+    expect(errorDetails(blocked)?.blockers).toEqual(["ORDERS_IN_KITCHEN"]);
+    expect(errorDetails(blocked)?.reasons).toEqual([
+      "Serve or cancel the orders still in the kitchen first",
+    ]);
+    // Nothing changed: the session is still open and the kitchen order untouched.
+    const [still] = await c.db.select().from(orders).where(eq(orders.id, cooking.orderId));
+    expect(still!.status).toBe("PREPARING");
+
+    await c.db.update(orders).set({ status: "SERVED" }).where(eq(orders.id, cooking.orderId));
+    const closed = await closeSession(b.owner, b.branchId, session.sessionId);
+    expect(closed.status).toBe(200);
+    expect(closed.body.data!.completedOrders).toBe(2);
+    for (const id of [served.orderId, cooking.orderId]) {
+      const [o] = await c.db.select().from(orders).where(eq(orders.id, id));
+      expect(o!.status).toBe("COMPLETED");
+    }
   });
 });
 

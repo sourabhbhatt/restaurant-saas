@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { BranchMenu } from "@ros/contracts/menu";
 import type { OrderDto } from "@ros/contracts/orders";
 import type { TableDto, TableQrDto } from "@ros/contracts/tables";
-import { BILLABLE_ORDER_STATUSES } from "@ros/domain/orders/order-status";
+import { BILLABLE_ORDER_STATUSES, type OrderStatus } from "@ros/domain/orders/order-status";
 import { api, ApiError } from "@ros/api-client";
 
 /**
@@ -23,6 +23,16 @@ const keys = {
 /** Same rule as the console's menu and tables queries: 401/403/404 are final. */
 const noRetryOnAuth = (failureCount: number, error: unknown) =>
   !(error instanceof ApiError && [401, 403, 404].includes(error.status)) && failureCount < 2;
+
+/**
+ * Orders that were accepted at some point. CANCELLED counts: cancelling is only
+ * possible after accepting (ACCEPTED, PREPARING or READY), and the checklist
+ * itself tells owners to cancel the test order afterwards.
+ */
+export const ACCEPTED_ONCE_STATUSES: readonly OrderStatus[] = [
+  ...BILLABLE_ORDER_STATUSES,
+  "CANCELLED",
+];
 
 /** While the owner is placing or accepting the test order, check for it this often. */
 export const SETUP_POLL_MS = 30_000;
@@ -54,7 +64,7 @@ export function setupDone(input: {
     // One table with a code is enough to take orders; counters and parcel tables may never get one.
     qr: tables.some((t) => t.qr.active),
     "test-order": (input.anyOrder ?? []).length > 0,
-    accept: (input.acceptedOrder ?? []).some((o) => BILLABLE_ORDER_STATUSES.includes(o.status)),
+    accept: (input.acceptedOrder ?? []).some((o) => ACCEPTED_ONCE_STATUSES.includes(o.status)),
   };
 }
 
@@ -96,7 +106,7 @@ export function useBranchSetupProgress(branchId: string, enabled: boolean): Setu
     queryFn: ({ signal }) =>
       api.get<OrderDto[]>(
         `/branches/${branchId}/orders`,
-        { status: BILLABLE_ORDER_STATUSES.join(","), limit: 1 },
+        { status: ACCEPTED_ONCE_STATUSES.join(","), limit: 1 },
         signal,
       ),
     enabled,

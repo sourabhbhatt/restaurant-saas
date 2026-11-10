@@ -42,30 +42,52 @@ export interface ClosureState {
   activeOrderCount: number;
   /** Orders still PENDING (customer awaiting approval). */
   pendingOrderCount: number;
+  /** Orders ACCEPTED, PREPARING or READY: in the kitchen or waiting to be served. */
+  inKitchenOrderCount: number;
   hasBillableOrders: boolean;
   bill: { balanceDue: number; status: "ISSUED" | "CLOSED" | "VOID" } | null;
 }
 
+/** Machine-readable reasons a session cannot close, for clients and the 409 body. */
+export type ClosureBlocker = "PENDING_ORDERS" | "ORDERS_IN_KITCHEN" | "NO_BILL" | "BALANCE_DUE";
+
 export interface ClosureCheck {
   allowed: boolean;
   reasons: string[];
+  blockers: ClosureBlocker[];
 }
 
-/** Can a table session be closed under the branch's closure rules? */
+/**
+ * Can a table session be closed under the branch's closure rules?
+ *
+ * Every order must be settled first: pending ones decided, kitchen ones served
+ * (or cancelled). Closing around an order that is still being prepared would
+ * strand it: the kitchen display lists orders by status, not by session, and
+ * nothing would ever serve or complete it. Billable orders need a live bill;
+ * whether an outstanding balance may stay open is the branch's own rule
+ * (`requireFullPayment`), and a close with a balance is audited as such.
+ */
 export function checkSessionClosure(state: ClosureState, rules: ClosureRules): ClosureCheck {
-  const reasons: string[] = [];
+  const found: { blocker: ClosureBlocker; reason: string }[] = [];
   if (state.pendingOrderCount > 0) {
-    reasons.push("Approve or reject pending orders first");
+    found.push({ blocker: "PENDING_ORDERS", reason: "Approve or reject pending orders first" });
   }
-  const unfinished = state.activeOrderCount - state.pendingOrderCount;
+  if (state.inKitchenOrderCount > 0) {
+    found.push({
+      blocker: "ORDERS_IN_KITCHEN",
+      reason: "Serve or cancel the orders still in the kitchen first",
+    });
+  }
   if (state.hasBillableOrders) {
     const bill = state.bill && state.bill.status !== "VOID" ? state.bill : null;
-    if (!bill) reasons.push("Generate the bill before closing");
+    if (!bill) found.push({ blocker: "NO_BILL", reason: "Generate the bill before closing" });
     else if (rules.requireFullPayment && bill.balanceDue > 0) {
-      reasons.push("The bill has an outstanding balance");
+      found.push({ blocker: "BALANCE_DUE", reason: "The bill has an outstanding balance" });
     }
-  } else if (unfinished > 0) {
-    reasons.push("There are orders still in progress");
   }
-  return { allowed: reasons.length === 0, reasons };
+  return {
+    allowed: found.length === 0,
+    reasons: found.map((f) => f.reason),
+    blockers: found.map((f) => f.blocker),
+  };
 }

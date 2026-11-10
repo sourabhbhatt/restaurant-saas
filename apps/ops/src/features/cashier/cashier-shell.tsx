@@ -80,7 +80,7 @@ function Inner({ children }: { children: ReactNode }) {
 /** Full-screen cashier layout (own chrome, no dashboard sidebar). */
 export function CashierShell({ children }: { children: ReactNode }) {
   return (
-    <AuthGate>
+    <AuthGate offlineCapable>
       <Inner>{children}</Inner>
     </AuthGate>
   );

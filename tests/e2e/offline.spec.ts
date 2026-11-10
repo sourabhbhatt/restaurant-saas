@@ -140,6 +140,12 @@ test("kitchen marks items ready offline; they show waiting, survive a reload, an
   await ticket
     .getByRole("button", { name: /^1 Masala Chai: waiting to sync\. Tap to mark ready/ })
     .click();
+  // Both changes are stored on the device (the line shows the queued "ready" step).
+  await expect(
+    ticket.getByRole("button", {
+      name: /^1 Masala Chai: waiting to sync\. Tap to mark preparing$/,
+    }),
+  ).toBeVisible();
 
   await expect(ticket.getByText("Waiting to sync").first()).toBeVisible();
   await expect(ticket.getByText("Waiting for pickup")).toHaveCount(0);

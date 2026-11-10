@@ -6,7 +6,6 @@ import { toast } from "sonner";
 
 import { StatusBadge } from "@ros/ui/shared/feedback";
 import { Button } from "@ros/ui/ui/button";
-import { Spinner } from "@ros/ui/ui/spinner";
 import type { OrderItemDto } from "@ros/contracts/orders";
 import type { KitchenOrderDto } from "@ros/contracts/staff-ops";
 import { isDelayed, minutesSince } from "@ros/domain/orders/order-status";
@@ -16,15 +15,13 @@ import {
   enqueueMutation,
   kitchenItemStatusMutation,
   kitchenTransitionMutation,
-  orderScope,
   queuedKitchenState,
-  scopeHasUnsynced,
   useSyncStore,
+  withConfirmedKitchenChanges,
   type EnqueueInput,
   type KitchenAction,
 } from "@ros/web-core/features/offline";
 import { OrderStatusBadge, PriorityBadge } from "@ros/web-core/features/orders/order-ui";
-import { useItemStatus, useOrderAction } from "@ros/web-core/features/orders/queries";
 import { formatClock, formatElapsed } from "@ros/web-core/features/orders/use-now";
 
 /** Late if over the dish's prep time or the branch delay limit, whichever comes first. */
@@ -59,14 +56,12 @@ function ItemRow({
   item,
   queuedStatus,
   interactive,
-  pending,
   onToggle,
 }: {
   item: OrderItemDto;
   /** Status a change saved on this device will set once it reaches the server. */
   queuedStatus?: "PREPARING" | "READY";
   interactive: boolean;
-  pending: boolean;
   onToggle: () => void;
 }) {
   // A queued change is never shown as done: only the server's status counts.
@@ -83,9 +78,7 @@ function ItemRow({
         )}
         aria-hidden
       >
-        {pending ? (
-          <Spinner decorative />
-        ) : queuedStatus ? (
+        {queuedStatus ? (
           <CloudUpload className="size-4 text-warning" />
         ) : done ? (
           <Check className="size-5" />
@@ -129,7 +122,7 @@ function ItemRow({
     <li>
       <button
         type="button"
-        disabled={pending || !next}
+        disabled={!next}
         onClick={onToggle}
         aria-label={`${item.quantity} ${item.itemName}: ${state}. Tap to mark ${next?.toLowerCase()}`}
         className="flex min-h-12 w-full items-start gap-3 rounded-lg py-1.5 text-left outline-none hover:bg-muted/60 focus-visible:ring-[3px] focus-visible:ring-ring/50"
@@ -142,13 +135,15 @@ function ItemRow({
 
 /**
  * One kitchen ticket. Large type, per-item toggles, Start / Mark ready.
- * Offline (or while earlier changes of this order are still queued) changes
- * go to the outbox with the order version, and show "Waiting to sync" until
- * the server confirms them.
+ * Every change, online too, goes through the outbox: one FIFO per order, each
+ * sent after the previous one resolved and on the version it returned, so
+ * quick taps arrive in order and a stale tap is a 409 conflict instead of a
+ * blind write. A change shows "Waiting to sync" until the server confirms it;
+ * then the server's answer is shown until the feed catches up.
  */
 export function TicketCard({
   branchId,
-  order,
+  order: feedOrder,
   now,
   kitchenDelayMinutes,
   canUpdate,
@@ -161,17 +156,13 @@ export function TicketCard({
   canUpdate: boolean;
   fresh: boolean;
 }) {
-  const action = useOrderAction(branchId);
-  const item = useItemStatus(branchId);
-  const online = useSyncStore((s) => s.online);
   const outbox = useSyncStore((s) => s.items);
+  // What the server last confirmed (newer than the feed until it is refetched).
+  const order = useMemo(() => withConfirmedKitchenChanges(outbox, feedOrder), [outbox, feedOrder]);
   const queued = useMemo(() => queuedKitchenState(outbox, order.id), [outbox, order.id]);
-  // Behind queued changes of this order, new ones must queue too (FIFO per order).
-  const mustQueue = !online || scopeHasUnsynced(outbox, orderScope(order.id));
   const delayed = ticketIsDelayed(order, kitchenDelayMinutes, now);
   const elapsedMin = order.acceptedAt ? minutesSince(new Date(order.acceptedAt), new Date(now)) : 0;
   const active = order.status === "ACCEPTED" || order.status === "PREPARING";
-  const busy = action.isPending || item.isPending;
   const readyQueued = queued.actions.includes("ready");
   const liveItems = order.items.filter((i) => i.status !== "CANCELLED");
   const allItemsQueuedReady =
@@ -185,8 +176,7 @@ export function TicketCard({
     enqueueMutation(input).catch((error: unknown) => toast.error(errorMessage(error)));
   };
   const runAction = (kind: KitchenAction) => {
-    if (mustQueue) queue(kitchenTransitionMutation({ branchId, order, action: kind }));
-    else action.mutate({ order, action: kind });
+    queue(kitchenTransitionMutation({ branchId, order, action: kind }));
   };
 
   return (
@@ -252,15 +242,10 @@ export function TicketCard({
             item={i}
             queuedStatus={queued.itemStatus[i.id]}
             interactive={canUpdate && active && !readyQueued}
-            pending={item.isPending && item.variables?.itemId === i.id}
             onToggle={() => {
               const next = NEXT_ITEM_STATUS[queued.itemStatus[i.id] ?? i.status];
               if (!next) return;
-              if (mustQueue) {
-                queue(kitchenItemStatusMutation({ branchId, order, item: i, status: next }));
-              } else {
-                item.mutate({ orderId: order.id, itemId: i.id, status: next });
-              }
+              queue(kitchenItemStatusMutation({ branchId, order, item: i, status: next }));
             }}
           />
         ))}
@@ -268,17 +253,8 @@ export function TicketCard({
       {canUpdate && active && (
         <div className="mt-auto flex gap-2">
           {order.status === "ACCEPTED" && !startQueued && (
-            <Button
-              size="lg"
-              className="h-14 flex-1 text-lg"
-              disabled={busy}
-              onClick={() => runAction("start")}
-            >
-              {action.isPending && action.variables?.action === "start" ? (
-                <Spinner decorative />
-              ) : (
-                <ChefHat aria-hidden />
-              )}
+            <Button size="lg" className="h-14 flex-1 text-lg" onClick={() => runAction("start")}>
+              <ChefHat aria-hidden />
               Start preparing
             </Button>
           )}
@@ -286,14 +262,10 @@ export function TicketCard({
             size="lg"
             variant="success"
             className="h-14 flex-1 text-lg"
-            disabled={busy || readyQueued || allItemsQueuedReady}
+            disabled={readyQueued || allItemsQueuedReady}
             onClick={() => runAction("ready")}
           >
-            {action.isPending && action.variables?.action === "ready" ? (
-              <Spinner decorative />
-            ) : (
-              <CircleCheckBig aria-hidden />
-            )}
+            <CircleCheckBig aria-hidden />
             Mark ready
           </Button>
         </div>

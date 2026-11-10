@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CheckCircle2, Circle, ExternalLink, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@ros/ui/ui/button";
@@ -17,9 +17,11 @@ import {
 } from "@ros/ui/ui/card";
 import { Progress } from "@ros/ui/ui/progress";
 import { cn } from "@ros/ui/utils";
-import { api, errorMessage } from "@ros/api-client";
+import { api, ApiError, errorMessage } from "@ros/api-client";
+import { isOperationAllowed } from "@ros/domain/subscriptions/entitlements";
 
 import { analyticsKeys, useWorkspaceDetail } from "../analytics/queries";
+import { useEntitlements } from "../subscriptions/queries";
 import { appHref, useAppLinks } from "../../app-links";
 
 import { setupGoalReached, useBranchSetupProgress, type SetupStepKey } from "./setup-progress";
@@ -34,6 +36,19 @@ interface Step {
   keepAction?: boolean;
   action: { href: string; label: string; external?: boolean } | null;
 }
+
+/** Hidden on this device when the server refuses to save it (read-only or suspended workspace). */
+const hiddenKey = (workspaceId: string) => `ros.setup-checklist.hidden.${workspaceId}`;
+
+function readHiddenHere(workspaceId: string): boolean {
+  try {
+    return window.localStorage.getItem(hiddenKey(workspaceId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+const isRestricted = (e: unknown) => e instanceof ApiError && e.code === "WORKSPACE_RESTRICTED";
 
 function StepLink({
   href,
@@ -85,15 +100,38 @@ export function SetupChecklist({
   const links = useAppLinks();
   const detail = useWorkspaceDetail(workspaceId);
   const dismissed = Boolean(detail.data?.workspace.onboarding.dismissedAt);
+  // Read-only and suspended workspaces can't save setup progress: no checklist there.
+  const entitlements = useEntitlements(workspaceId);
+  const entitlementsKnown = entitlements.isSuccess || entitlements.isError;
+  const canSave =
+    !entitlements.data || isOperationAllowed(entitlements.data.entitlements.accessLevel, "operate");
+  const [hiddenHere, setHiddenHere] = useState(() => readHiddenHere(workspaceId));
+  const hideHere = () => {
+    setHiddenHere(true);
+    try {
+      window.localStorage.setItem(hiddenKey(workspaceId), "1");
+    } catch {
+      // Private mode: hidden for this visit only.
+    }
+  };
   const complete = useMutation({
     mutationFn: () =>
       api.put(`/workspaces/${workspaceId}/onboarding`, { completedStep: "done", dismiss: true }),
     onSuccess: () => qc.invalidateQueries({ queryKey: analyticsKeys.workspaceDetail(workspaceId) }),
+    // A refusal (workspace restricted) is final: don't retry on every visit, don't alarm.
+    onError: (e) => {
+      if (isRestricted(e)) hideHere();
+    },
   });
   // Nothing is fetched or polled once the goal is reached or the checklist is hidden.
   const progress = useBranchSetupProgress(
     branchId,
-    detail.isSuccess && !dismissed && complete.isIdle,
+    detail.isSuccess &&
+      entitlementsKnown &&
+      canSave &&
+      !dismissed &&
+      !hiddenHere &&
+      complete.isIdle,
   );
   const reached = progress.ready && setupGoalReached(progress.done);
   const markComplete = complete.mutate;
@@ -109,10 +147,18 @@ export function SetupChecklist({
       toast.success("Setup checklist hidden");
       await qc.invalidateQueries({ queryKey: analyticsKeys.workspaceDetail(workspaceId) });
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => (isRestricted(e) ? hideHere() : toast.error(errorMessage(e))),
   });
 
-  if (!detail.isSuccess || dismissed || !progress.ready || reached || !complete.isIdle) {
+  if (
+    !detail.isSuccess ||
+    !canSave ||
+    dismissed ||
+    hiddenHere ||
+    !progress.ready ||
+    reached ||
+    !complete.isIdle
+  ) {
     return null;
   }
   const { done, qrTables } = progress;

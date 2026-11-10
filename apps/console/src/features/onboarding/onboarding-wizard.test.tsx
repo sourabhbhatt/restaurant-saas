@@ -25,7 +25,8 @@ const me = {
   workspaces: [{ id: WS, name: "Sharma Foods", slug: "s", status: "ACTIVE" }],
 } as unknown as MeResponse;
 
-type Handler = (body: unknown) => { status: number; body: unknown };
+type Reply = { status: number; body: unknown };
+type Handler = (body: unknown) => Reply | Promise<Reply>;
 
 function mockApi(routes: Record<string, Handler>) {
   const calls: { method: string; path: string; body?: unknown }[] = [];
@@ -37,7 +38,7 @@ function mockApi(routes: Record<string, Handler>) {
       const body = init?.body ? JSON.parse(String(init.body)) : undefined;
       calls.push({ method, path, body });
       const handler = routes[`${method} ${path}`];
-      const res = handler ? handler(body) : { status: 404, body: {} };
+      const res = handler ? await handler(body) : { status: 404, body: {} };
       return new Response(JSON.stringify(res.body), {
         status: res.status,
         headers: { "content-type": "application/json" },
@@ -207,5 +208,63 @@ describe("OnboardingWizard tables step", () => {
       `/api/v1/tables/${TA}/qr`,
       `/api/v1/tables/${TB}/qr`,
     ]);
+  });
+});
+
+describe("OnboardingWizard QR codes for many tables", () => {
+  it("creates them a few at a time and shows progress", async () => {
+    const ids = Array.from(
+      { length: 10 },
+      (_, i) => `66666666-6666-4666-8666-${String(i).padStart(12, "0")}`,
+    );
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const qrRoutes = Object.fromEntries(
+      ids.map((id) => [
+        `POST /api/v1/tables/${id}/qr`,
+        async () => {
+          inFlight += 1;
+          maxInFlight = Math.max(maxInFlight, inFlight);
+          await new Promise((r) => setTimeout(r, 40));
+          inFlight -= 1;
+          return { status: 200, body: { data: { tableId: id, url: "http://localhost/t/x" } } };
+        },
+      ]),
+    );
+    const calls = mockApi({
+      [`GET /api/v1/workspaces/${WS}`]: ok({
+        workspace: {
+          id: WS,
+          onboarding: {
+            completedSteps: ["business", "branch", "menu"],
+            restaurantId: R1,
+            branchId: B1,
+          },
+        },
+      }),
+      [`PUT /api/v1/workspaces/${WS}/onboarding`]: ok({}),
+      [`POST /api/v1/branches/${B1}/tables/bulk`]: () => ({
+        status: 201,
+        body: { data: ids.map((id, i) => ({ id, name: `T${i + 1}` })) },
+      }),
+      ...qrRoutes,
+    });
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    qc.setQueryData(sessionKeys.me, me);
+    render(
+      <QueryClientProvider client={qc}>
+        <OnboardingWizard />
+      </QueryClientProvider>,
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Create 10 tables" }));
+    expect(await screen.findByText(/Generating QR codes \d+\/10/)).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Your restaurant is set up" });
+
+    expect(calls.filter((c) => c.method === "POST" && c.path.endsWith("/qr"))).toHaveLength(10);
+    expect(maxInFlight).toBeGreaterThan(1);
+    expect(maxInFlight).toBeLessThanOrEqual(4);
   });
 });
