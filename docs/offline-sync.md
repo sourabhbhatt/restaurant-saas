@@ -127,8 +127,9 @@ A small custom persister over Dexie (no extra dependency):
   after it loaded still has its data), later ones debounced 300 ms. Pending debounced writes are
   flushed when the tab is hidden. Results put in with `setQueryData` are not written back.
 - On startup the last confirmed user's rows (max 7 days old) are restored with
-  `setQueryData(key, data, { updatedAt })`. The original timestamp keeps them stale, so they
-  are refetched as soon as the network allows. Fresher in-memory data is never overwritten.
+  `setQueryData(key, data, { updatedAt })` and then invalidated without a refetch, so they are
+  stale even when saved seconds before a reload (within `staleTime`) and the screen refetches
+  them as soon as the network allows. Fresher in-memory data is never overwritten.
 - Restoring is asynchronous (IndexedDB), right after the providers mount. While offline,
   TanStack queries are paused (`networkMode: "offlineFirst"`), so views show their loading state
   for a moment and then the restored data.
@@ -212,8 +213,9 @@ while items are waiting, when a backed-off item is due, right after `enqueueMuta
 manual **Sync now** (which ignores backoff timers). Each trigger first probes
 `GET /api/v1/sync/ping` (public, `no-store`) because `navigator.onLine` can say "online" on dead
 Wi-Fi. The `online` event often fires before the network carries traffic, so a probe that fails
-while the browser reports a connection is repeated after 1, 2, 4 and 8 s (`REPROBE_DELAYS_MS`)
-before the 30 s interval takes over. Background Sync API is not used.
+with a network error while the browser reports a connection (an HTTP error answer counts as
+reachable) is repeated after 1, 2, 4 and 8 s (`REPROBE_DELAYS_MS`), once per `online` event or
+startup; after that the 30 s interval takes over. Background Sync API is not used.
 
 ## Service worker (`apps/console/src/app/sw.ts` and `apps/ops/src/app/sw.ts`, Serwist 9)
 
@@ -224,6 +226,17 @@ before the 30 s interval takes over. Background Sync API is not used.
   `/_next/static/**` is cache-first, so the QR menu shell loads on a flaky connection. Ordering
   still needs the network.
 - Everything else uses Serwist's `defaultCache` for Next.js.
+- First page of a tab (`cache-current-page.ts`): it loads before the worker controls the tab, so
+  `cacheOnNavigation` never sees it. `OfflineRuntime` sends it to the worker with `CACHE_URLS`
+  when it is a staff screen (`/app/**` in the console; `/waiter`, `/kitchen`, `/cashier` in ops)
+  without a token in its query and no cache holds it yet. It lands in Serwist's `others` cache
+  (NetworkFirst, 32 entries, 24 h), keyed by URL only and not cleared at sign-out. Public, auth,
+  invite and guest pages are never cached this way; the guest's first `/t/<token>` page is not
+  reloadable offline (out of scope: ordering needs the network anyway).
+- **Frontend HTML must stay user-agnostic.** Pages are cached per URL across sign-outs and
+  accounts, which is safe only because every page is a client shell: all user and tenant data
+  comes from the API into per-user IndexedDB. Never render user data on the server in a page
+  (no `cookies()`/`headers()` in console or ops pages).
 - Navigation fallback: `/~offline`. It explains what works offline and shows the number of unsynced
   changes, read from IndexedDB.
 - `push` / `notificationclick` handlers are present but only receive messages when a push provider

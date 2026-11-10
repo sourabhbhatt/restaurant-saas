@@ -34,14 +34,33 @@ Local Postgres for them: `docker run -d --name ros-pg -e POSTGRES_PASSWORD=dev -
 
 `pnpm exec playwright install chromium && pnpm test:e2e`. Without `E2E_BASE_URL`, Playwright
 runs `tests/e2e/support/serve-api.ts`, which builds the four apps (turbo cache), recreates a
-throwaway PGlite database under `.data/e2e-<api port>` with the demo seed and serves the API
-(`NODE_ENV=test`, test hooks on, never `.env.local` or a Postgres server), then starts console,
-ops and admin as production builds proxying `/api/v1` to it. Ports: console 3100, ops 3101,
-admin 3102, API 4100 (`E2E_PORT`, `E2E_OPS_PORT`, `E2E_ADMIN_PORT`, `E2E_API_PORT`). With
-`E2E_BASE_URL` (+ `E2E_OPS_URL`, `E2E_ADMIN_URL`) it tests running servers instead.
+throwaway PGlite database under `.data/e2e-<api port>` with the demo seed and serves the API,
+then starts console, ops and admin as production builds proxying `/api/v1` to it. Ports:
+console 3100, ops 3101, admin 3102, API 4100 (`E2E_PORT`, `E2E_OPS_PORT`, `E2E_ADMIN_PORT`,
+`E2E_API_PORT`).
 
-- Global setup signs each demo account in once and saves its cookies under `.data/e2e-auth`
-  (sign-in is rate limited); a saved session the server still accepts is reused.
+- The API is a production build with a test runtime configuration: `NODE_ENV=test` (fast
+  password hashing, no production env checks) and `ENABLE_TEST_HOOKS=true` (the dev mailbox the
+  invitation journey reads). Its environment is exactly the one serve-api builds:
+  `ROS_NO_ENV_FILE=1` stops `apps/api/next.config.ts` from loading the repo-root `.env.local`,
+  server settings from the shell are dropped, and email (outbox), storage (throwaway dir),
+  push, payments, analytics (`TRACKING_PROVIDER=none`), `QR_BASE_URL` and the database (PGlite
+  only, never `DATABASE_URL`) are pinned. A developer's local providers never see E2E traffic.
+- **Writes are guarded.** The suite creates tables, orders, payments, owners and workspaces.
+  serve-api sets `APP_VERSION=e2e-<random>` and records it in `.data/e2e-<api port>/run-id`;
+  global setup refuses to run unless the API, console, ops and admin `/api/v1/health` all report
+  that id. So a server reused on an E2E port that is not this throwaway stack (or a console
+  proxying to another API) is refused before anything is written.
+- `E2E_BASE_URL` (+ `E2E_OPS_URL`, `E2E_ADMIN_URL`) tests running servers instead. **That writes
+  to their database**: use only a disposable, demo-seeded stack, and confirm with
+  `E2E_ALLOW_WRITES=1` (required, also to bypass the run-id check). Never point it at staging or
+  production.
+
+- Global setup signs each demo account in once and saves its cookies under
+  `.data/e2e-auth/<console host>` (sign-in is rate limited; one folder per target because
+  localhost cookies ignore the port); a saved session the server still accepts is reused.
+- Specs that change subscription or workspace state (`admin`, `subscription`) work on a
+  brand-new owner (`newOwner()`), never on the demo workspace.
 - Every API and browser context gets its own `X-Forwarded-For` address, so the per-IP rate
   limits never couple parallel tests.
 - Tests never share a table: `freshTable()` creates one (with its QR code) per test, so a repeat
@@ -52,15 +71,18 @@ admin 3102, API 4100 (`E2E_PORT`, `E2E_OPS_PORT`, `E2E_ADMIN_PORT`, `E2E_API_POR
 - `page.route()` does not see requests the service worker makes (GET `/api/*` once it controls
   the page): a test that stubs API reads opens its context with `serviceWorkers: "block"`.
 
-| Spec                       | Project | Covers                                                                                                                                                                                                                                                                                            |
-| -------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `site.spec.ts`             | both    | public pages, sign-up validation, sign-in error, reset without token                                                                                                                                                                                                                              |
-| `app-shell.spec.ts`        | both    | home page, web app manifest, service worker, offline fallback page                                                                                                                                                                                                                                |
-| `owner-onboarding.spec.ts` | desktop | sign-up form, onboarding wizard (workspace, restaurant and branch, first dish, tables), QR codes generated on the print sheet, a guest opens the first QR menu                                                                                                                                    |
-| `guest.spec.ts`            | mobile  | QR menu, search, customisation, order and re-order, two guests on one bill, bill request, invalid/rotated QR, lost session cookie, offline and lost-response retries                                                                                                                              |
-| `waiter.spec.ts`           | mobile  | approve and serve a QR order, reject with a reason (guest sees it), staff-entered order, bill requests                                                                                                                                                                                            |
-| `operations.spec.ts`       | desktop | kitchen start and item-level ready, cashier bill with split UPI + cash payment and change, two waiters racing on one order (409), dashboard history/tables/bills, ops back links                                                                                                                  |
-| `offline.spec.ts`          | desktop | staff order queued offline and sent once, kitchen updates queued, reloaded offline and synced, two screens converging, refused change kept as a conflict, session-changed hold and "Retry with latest", lost answer + 503 replayed with one idempotency key, online-only actions disabled offline |
+| Spec                        | Project | Covers                                                                                                                                                                                                                                                                                                          |
+| --------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `site.spec.ts`              | both    | public pages, sign-up validation, sign-in error, reset without token                                                                                                                                                                                                                                            |
+| `app-shell.spec.ts`         | both    | home page, web app manifest, service worker, offline fallback page                                                                                                                                                                                                                                              |
+| `owner-invitations.spec.ts` | desktop | owner invites a cook (Kitchen Staff, one branch); the link from the email outbox (dev mailbox) matches the one shown; the cook signs up, accepts, signs in on ops and gets the kitchen screen; the waiter console and the orders/invitations APIs refuse the role                                               |
+| `admin.spec.ts`             | desktop | super admin signs in on the admin app; workspace search and detail (plan, members); trial extension; organization workspace-limit override (402 before, 201 after); suspend (owner refused) and reactivate; audit log rows for each action; a workspace owner is refused by the admin app and `/api/v1/admin/*` |
+| `subscription.spec.ts`      | desktop | trial banner with the server's days left; the restaurant limit disables "Create restaurant" with the reason as its description; upgrade request without a payment gateway; super-admin approval in the admin app; Enterprise limits apply and the banner is gone after a reload                                 |
+| `owner-onboarding.spec.ts`  | desktop | sign-up form, onboarding wizard (workspace, restaurant and branch, first dish, tables), QR codes generated on the print sheet, a guest opens the first QR menu                                                                                                                                                  |
+| `guest.spec.ts`             | mobile  | QR menu, search, customisation, order and re-order, two guests on one bill, bill request, invalid/rotated QR, lost session cookie, offline and lost-response retries                                                                                                                                            |
+| `waiter.spec.ts`            | mobile  | approve and serve a QR order, reject with a reason (guest sees it), staff-entered order, bill requests                                                                                                                                                                                                          |
+| `operations.spec.ts`        | desktop | kitchen start and item-level ready, cashier bill with split UPI + cash payment and change, two waiters racing on one order (409), dashboard history/tables/bills, ops back links                                                                                                                                |
+| `offline.spec.ts`           | desktop | staff order queued offline and sent once, kitchen updates queued, reloaded offline and synced, two screens converging, refused change kept as a conflict, session-changed hold and "Retry with latest", lost answer + 503 replayed with one idempotency key, online-only actions disabled offline               |
 
 ## Smoke run
 
@@ -68,7 +90,7 @@ admin 3102, API 4100 (`E2E_PORT`, `E2E_OPS_PORT`, `E2E_ADMIN_PORT`, `E2E_API_POR
 
 ## Not covered yet
 
-- Browser end-to-end journeys for staff invitations, the super-admin console and subscription upgrades (covered by API integration tests only).
+- Online (Razorpay test-mode) checkout in the browser: `PAYMENT_PROVIDER=none` in E2E; covered by API integration tests and `scripts/razorpay-test-e2e.ts` (manual, Razorpay test mode).
 - Docker images and the compose stack are not exercised by tests (CI builds the affected images only).
 - Load and accessibility audits.
 
