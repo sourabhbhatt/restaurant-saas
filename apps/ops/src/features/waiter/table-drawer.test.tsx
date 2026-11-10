@@ -148,12 +148,16 @@ describe("TableDrawer close without a bill", () => {
   });
 
   it("closes a table whose orders were all cancelled or rejected", async () => {
-    const fetch = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({ data: { sessionId: "s1", status: "CLOSED", billId: null } }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        ),
+    const json = (data: unknown) =>
+      new Response(JSON.stringify({ data }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    const fetch = vi.fn(async (url: string, init?: RequestInit) =>
+      init?.method === "POST"
+        ? json({ sessionId: "s1", status: "CLOSED", billId: null })
+        : // Refetches after closing (session detail, board) see an empty table.
+          json({ table: { id: "t5", name: "T5" }, session: null, orders: [], bill: null }),
     );
     vi.stubGlobal("fetch", fetch);
     renderDrawer([], nothingToBill);
