@@ -183,8 +183,10 @@ test.describe("with a Measurement ID", () => {
     const cookies = await context.cookies();
     expect(cookies.find((c) => c.name === "ros_analytics_consent")?.value).toBe("denied");
     expect(cookies.some((c) => c.name === "_ga")).toBe(false);
-    expect(await page.evaluate((id) => (window as never)[`ga-disable-${id}`], MEASUREMENT_ID)).toBe(
-      true,
+    const disabled = await page.evaluate(
+      (id) => (window as unknown as Record<string, unknown>)[`ga-disable-${id}`],
+      MEASUREMENT_ID,
     );
+    expect(disabled).toBe(true);
   });
 });
