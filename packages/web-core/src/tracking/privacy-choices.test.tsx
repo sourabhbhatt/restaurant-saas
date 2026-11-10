@@ -1,11 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthShell } from "../features/auth/auth-shell";
 import { ProfileMenu } from "../features/navigation/profile-menu";
 import { useTrackingStore } from "./consent";
-import { TEST_ID, resetTracking } from "./test-helpers";
+import { PrivacyChoicesLink } from "./privacy-choices";
+import { TEST_ID, resetTracking, setConsentCookie } from "./test-helpers";
+import { TrackingClient } from "./tracking-client";
 
 vi.mock("../features/session/queries", () => ({
   useIdentity: () => ({
@@ -20,6 +22,8 @@ vi.mock("../features/workspaces/use-switch-workspace", () => ({
 }));
 // The toast host needs matchMedia, which jsdom lacks; it plays no part here.
 vi.mock("@ros/ui/ui/sonner", () => ({ Toaster: () => null }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/app/account" }));
+vi.mock("next/script", () => ({ default: () => null }));
 
 beforeEach(() => resetTracking());
 afterEach(() => resetTracking());
@@ -63,5 +67,43 @@ describe("Cookie settings wherever the banner can be accepted", () => {
     await openAccountMenu();
     expect(await screen.findByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Cookie settings" })).toBeNull();
+  });
+});
+
+/** Keyboard and screen-reader users must land on the banner they just reopened. */
+describe("reopening the choice", () => {
+  const heading = () => screen.getByRole("heading", { name: "Help us improve RestaurantOS?" });
+  const tracker = <TrackingClient measurementId={TEST_ID} debug={false} />;
+
+  it("moves focus to the banner when opened from the account menu", async () => {
+    setConsentCookie("granted");
+    render(
+      <>
+        {tracker}
+        <ProfileMenu />
+      </>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /account menu/i }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Cookie settings" }));
+    await waitFor(() => expect(heading()).toHaveFocus());
+  });
+
+  it("moves focus to the banner when opened from a footer link", async () => {
+    setConsentCookie("granted");
+    render(
+      <>
+        {tracker}
+        <PrivacyChoicesLink />
+      </>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Cookie settings" }));
+    await waitFor(() => expect(heading()).toHaveFocus());
+  });
+
+  it("does not take focus when the banner first appears on a page", async () => {
+    render(tracker);
+    expect(await screen.findByTestId("analytics-consent")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.body).toHaveFocus();
   });
 });

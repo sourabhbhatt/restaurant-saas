@@ -79,7 +79,7 @@ export function TrackingClient({
         <Script id="ga4-gtag" src={gtagScriptSrc(measurementId)} strategy="afterInteractive" />
       ) : null}
       {ready && measured && (consent === null || settingsOpen) ? (
-        <ConsentBanner current={consent} />
+        <ConsentBanner current={consent} takeFocus={settingsOpen} />
       ) : null}
     </>
   );
