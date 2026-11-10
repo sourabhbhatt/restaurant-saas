@@ -103,6 +103,6 @@ infra/               Dockerfile (one per-app image) and the compose stack
 
 [architecture](docs/architecture.md) · [API reference](docs/api-reference.md) · [technology decisions](docs/technology-decisions.md) · [provider abstractions](docs/provider-abstractions.md) · [provider migration](docs/provider-migration-guide.md) · [database schema](docs/database-schema.md) · [tenant security](docs/tenant-security.md) · [offline sync](docs/offline-sync.md) · [environment variables](docs/environment-variables.md) · [deployment](docs/deployment.md) · [testing](docs/testing.md) · [roadmap](docs/implementation-roadmap.md)
 
-Runbooks: [backup and restore](docs/runbooks/backup-and-restore.md) · [rollback](docs/runbooks/rollback.md) · [local data preservation](docs/runbooks/local-data-preservation.md) · [disable RLS (emergency)](docs/runbooks/disable-rls-emergency.md)
+Runbooks: [backup and restore](docs/runbooks/backup-and-restore.md) · [rollback](docs/runbooks/rollback.md) · [local data preservation](docs/runbooks/local-data-preservation.md) · [disable RLS (emergency)](docs/runbooks/disable-rls-emergency.md) · [signed client IP rollout](docs/runbooks/client-ip-signing-rollout.md)
 
 This repo uses a Next.js version with breaking changes; read the guides in `apps/console/node_modules/next/dist/docs/` before changing framework-level code (see `AGENTS.md`).
