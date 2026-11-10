@@ -441,6 +441,15 @@ export const orders = pgTable(
     index("orders_branch_status_idx").on(t.workspaceId, t.branchId, t.status, t.createdAt),
     index("orders_session_idx").on(t.sessionId),
     index("orders_branch_created_idx").on(t.branchId, t.createdAt),
+    // Kitchen "recently done" list, read on every kitchen poll (kitchenRecentFilter in
+    // repositories/staff-ops.ts). The CASE expression must stay identical to orderFinishedAt
+    // there; it is CASE, not coalesce, so it can be an index condition under row-level security.
+    index("orders_branch_done_recent_idx").on(
+      t.workspaceId,
+      t.branchId,
+      sql`(case when ${t.servedAt} is not null then ${t.servedAt} when ${t.completedAt} is not null then ${t.completedAt} else ${t.updatedAt} end)`,
+    ),
+    index("orders_branch_cancelled_at_idx").on(t.workspaceId, t.branchId, t.cancelledAt),
     check(
       "orders_status_ck",
       sql`${t.status} in ('PENDING','ACCEPTED','PREPARING','READY','SERVED','COMPLETED','REJECTED','CANCELLED')`,
