@@ -226,7 +226,7 @@ describe("queued kitchen operations", () => {
     await engine.enqueue(tap("PREPARING"));
     let inFlight = 0;
     let maxInFlight = 0;
-    responder = async (call) => {
+    responder = async () => {
       inFlight += 1;
       maxInFlight = Math.max(maxInFlight, inFlight);
       try {
