@@ -29,6 +29,7 @@ import {
   useEntitlements,
 } from "@ros/web-core/features/subscriptions/queries";
 import { api, ApiError } from "@ros/api-client";
+import { asOneAction } from "@ros/web-core/tracking/api-events";
 import { useAction } from "@ros/web-core/use-action";
 
 type Step = "workspace" | "restaurant" | "menu" | "tables" | "done";
@@ -671,10 +672,13 @@ function TablesStep({
           // is not fatal: the print sheet's "Generate missing" covers any table left out.
           setQrProgress({ done: 0, total: tables.length });
           try {
-            await eachLimited(tables, QR_CONCURRENCY, async (t) => {
-              await api.post(`/tables/${t.id}/qr`).catch(() => undefined);
-              setQrProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
-            });
+            // One user action: counted as one qr_generated (a key event), with the number made.
+            await asOneAction("qr_generated", () =>
+              eachLimited(tables, QR_CONCURRENCY, async (t) => {
+                await api.post(`/tables/${t.id}/qr`).catch(() => undefined);
+                setQrProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
+              }),
+            );
           } finally {
             setQrProgress(null);
           }

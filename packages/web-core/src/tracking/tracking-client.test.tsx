@@ -208,6 +208,46 @@ describe("changing the choice later", () => {
   });
 });
 
+describe("client navigation into a page that is never measured", () => {
+  const TOKEN = "GYw3TEwFZ7bpHJOKMnagBoWJxEwV-PffDfEFKcigOg4";
+
+  it.each([`/t/${TOKEN}`, "/print/tables?branchId=b1"])(
+    "switches the loaded tag off on %s and back on, with one new page_view, on the way out",
+    (unmeasured) => {
+      setConsentCookie("granted");
+      go("/");
+      const { rerender } = render(ui());
+      expect(window[`ga-disable-${TEST_ID}`]).toBe(false);
+      expect(events("page_view")).toHaveLength(1);
+
+      // Allow on the site, then a client navigation to a guest QR page or a print sheet.
+      go(unmeasured);
+      rerender(ui());
+      expect(window[`ga-disable-${TEST_ID}`]).toBe(true);
+      expect(commands().at(-1)).toEqual(["consent", "update", { analytics_storage: "denied" }]);
+      expect(events("page_view")).toHaveLength(1);
+      expect(screen.queryByTestId("gtag-script")).toBeNull();
+      expect(JSON.stringify(commands())).not.toContain(TOKEN);
+      // The visitor's own choice is untouched: still allowed, cookies kept.
+      expect(document.cookie).toContain(`${ANALYTICS_CONSENT_COOKIE}=granted`);
+
+      // Back to the same measured page: enabled again, and counted again.
+      go("/");
+      rerender(ui());
+      expect(window[`ga-disable-${TEST_ID}`]).toBe(false);
+      expect(
+        commands()
+          .filter((c) => c[0] === "consent" && c[1] === "update")
+          .at(-1),
+      ).toEqual(["consent", "update", { analytics_storage: "granted" }]);
+      expect(events("page_view").map((e) => e.params.page_location)).toEqual([
+        "http://localhost:3000/",
+        "http://localhost:3000/",
+      ]);
+    },
+  );
+});
+
 describe("a choice made in another tab", () => {
   /** What another tab does on Decline/Allow: write the shared cookie, then announce it. */
   function otherTabChooses(choice: "granted" | "denied") {

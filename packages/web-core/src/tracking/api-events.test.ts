@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { API_EVENT_RULES, handleApiSuccess } from "./api-events";
+import { API_EVENT_RULES, asOneAction, handleApiSuccess } from "./api-events";
 import { useTrackingStore } from "./consent";
 import { configureGtag } from "./gtag";
 import { TEST_ID, events, resetTracking, setConsentCookie, setPath } from "./test-helpers";
@@ -41,6 +41,45 @@ describe("server-confirmed product events", () => {
       "qr_generated",
     ]);
     expect(JSON.stringify(events())).not.toMatch(/Spice|a@b\.co|0b3c6c2e/);
+  });
+
+  it("counts one QR code generated from a single action as one qr_generated with count 1", () => {
+    post(`/api/v1/tables/${ID}/qr`);
+    expect(events("qr_generated")).toEqual([{ name: "qr_generated", params: { count: 1 } }]);
+  });
+
+  it("counts a bulk run (onboarding, Generate missing) as one action with the number of codes", async () => {
+    await asOneAction("qr_generated", async () => {
+      // A few in flight at once, as the onboarding wizard does; a refused one never reports.
+      await Promise.all(
+        [1, 2, 3].map(async (n) => {
+          await new Promise((resolve) => setTimeout(resolve, n));
+          post(`/api/v1/tables/${ID.slice(0, -1)}${n}/qr`);
+        }),
+      );
+      expect(events("qr_generated")).toEqual([]);
+    });
+    expect(events("qr_generated")).toEqual([{ name: "qr_generated", params: { count: 3 } }]);
+  });
+
+  it("sends nothing for a bulk run in which no code was accepted, and still rethrows", async () => {
+    await expect(
+      asOneAction("qr_generated", async () => {
+        throw new Error("bulk create failed");
+      }),
+    ).rejects.toThrow("bulk create failed");
+    expect(events("qr_generated")).toEqual([]);
+    // The scope is closed again: the next single action counts on its own.
+    post(`/api/v1/tables/${ID}/qr`);
+    expect(events("qr_generated")).toEqual([{ name: "qr_generated", params: { count: 1 } }]);
+  });
+
+  it("a nested bulk run joins the outer one", async () => {
+    await asOneAction("qr_generated", async () => {
+      post(`/api/v1/tables/${ID}/qr`);
+      await asOneAction("qr_generated", async () => post(`/api/v1/tables/${ID}/qr`));
+    });
+    expect(events("qr_generated")).toEqual([{ name: "qr_generated", params: { count: 2 } }]);
   });
 
   it("tells an invited teammate's sign-up apart from a new customer's", () => {
