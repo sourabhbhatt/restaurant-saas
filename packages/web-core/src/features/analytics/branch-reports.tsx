@@ -50,7 +50,7 @@ function SalesTab({ d, dimmed }: { d: Data; dimmed: boolean }) {
         days={d.range.days}
         pendingNow={d.kpis.pendingNow}
       />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard
           title="Revenue by day"
           description="Collected vs billed"
@@ -90,7 +90,7 @@ function SalesTab({ d, dimmed }: { d: Data; dimmed: boolean }) {
           )}
         </ChartCard>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard title="Orders by day" description="All orders placed" dimmed={dimmed}>
           {d.kpis.totalOrders ? (
             <ColumnChart
@@ -149,7 +149,7 @@ function MenuTab({ d, dimmed }: { d: Data; dimmed: boolean }) {
   if (!d.topItems.length) return <NoOrders />;
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard title="Top items" description="By quantity sold" dimmed={dimmed}>
           <BarList
             data={d.topItems}
@@ -323,7 +323,7 @@ function CashierTab({ d, dimmed }: { d: Data; dimmed: boolean }) {
           title={`${formatCount(c.refundCount)} refunds`}
         />
       </div>
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard title="Collections by method" dimmed={dimmed}>
           {c.byMethod.length ? (
             <DonutChart

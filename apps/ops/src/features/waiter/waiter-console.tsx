@@ -168,7 +168,7 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
   );
 
   const ordersBody = active.isPending ? (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       {[0, 1, 2].map((i) => (
         <Skeleton key={i} className="h-48 rounded-xl" />
       ))}
@@ -214,7 +214,7 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
           </button>
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <LaneColumn
           title="New"
           icon={<Inbox className="size-4" aria-hidden />}

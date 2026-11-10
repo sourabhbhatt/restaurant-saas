@@ -447,7 +447,7 @@ export function SubscriptionPage() {
         }
       />
       <StatusNotice d={d} />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <CurrentPlanCard d={d} onUpgrade={() => setUpgrade({ open: true })} />
         <TrialCard d={d} />
       </div>

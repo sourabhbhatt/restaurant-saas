@@ -20,7 +20,9 @@ export function UpgradeRequestsCard({ workspaceId }: { workspaceId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Upgrade requests</CardTitle>
+        <CardTitle>
+          <h2>Upgrade requests</h2>
+        </CardTitle>
         <CardDescription>Plan changes you asked for and what happened to them.</CardDescription>
       </CardHeader>
       <CardContent>

@@ -311,7 +311,7 @@ export function MenuEditorPage() {
           }
         />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[16rem_1fr]">
           <CategoryPanel
             categories={view.categories}
             items={view.items}
@@ -505,7 +505,7 @@ function CategoryPanel({
   };
 
   return (
-    <Card className="gap-0 self-start p-2 lg:sticky lg:top-20">
+    <Card className="min-w-0 gap-0 self-start p-2 lg:sticky lg:top-20">
       <nav aria-label="Categories">
         <ul className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
           <li className="shrink-0">
@@ -688,8 +688,8 @@ function ItemCard({
           type="button"
           onClick={onOpen}
           className="flex min-w-0 flex-1 gap-3 rounded-lg text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          aria-label={`Edit ${item.name}`}
         >
+          <span className="sr-only">Edit </span>
           {body}
         </button>
       ) : (

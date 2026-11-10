@@ -32,7 +32,7 @@ export function AdminPlansPage() {
         title="Plans"
         description="Subscription plans and their limits. Editing from this screen is not built yet; use PUT /api/v1/admin/plans/:id."
       />
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {plans.map((p) => (
           <Card key={p.id}>
             <CardHeader>

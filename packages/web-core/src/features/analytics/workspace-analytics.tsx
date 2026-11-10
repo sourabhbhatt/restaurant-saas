@@ -200,7 +200,7 @@ export function WorkspaceAnalytics() {
             days={d.range.days}
             pendingNow={d.kpis.pendingNow}
           />
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <ChartCard
               title="Revenue trend"
               description="Collected vs billed per day"
@@ -240,7 +240,7 @@ export function WorkspaceAnalytics() {
               )}
             </ChartCard>
           </div>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <ChartCard title="Orders trend" description="Orders placed per day" dimmed={dimmed}>
               {d.kpis.totalOrders ? (
                 <TrendChart

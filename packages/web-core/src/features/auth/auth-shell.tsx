@@ -53,7 +53,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex flex-col">
-        <div className="flex items-center justify-between px-4 py-4 sm:px-8 lg:justify-end">
+        <header className="flex items-center justify-between px-4 py-4 sm:px-8 lg:justify-end">
           <BrandLogo className="lg:hidden" />
           <Link
             href={appHref(links.console, "/")}
@@ -61,7 +61,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           >
             Back to website
           </Link>
-        </div>
+        </header>
         <main id="main" className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8">
           <div className="w-full max-w-md motion-safe:animate-in motion-safe:duration-500 motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
             {children}

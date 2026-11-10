@@ -244,7 +244,7 @@ export function AdminRestaurantMenuPage() {
             <h2 className="text-lg font-semibold">
               {c.name} {!c.isVisible && <Badge variant="outline">Hidden from customers</Badge>}
             </h2>
-            <div className="grid gap-3 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
               {c.items.map((i) => (
                 <ItemCard
                   key={i.id}

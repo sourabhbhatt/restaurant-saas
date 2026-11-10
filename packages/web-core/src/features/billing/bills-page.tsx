@@ -245,6 +245,7 @@ export function BillsPage() {
           empty={
             <EmptyState
               size="compact"
+              headingLevel={2}
               icon={<Receipt />}
               title={filtered ? "No bills match these filters" : "No bills yet"}
               description={

@@ -73,7 +73,7 @@ export function PasswordStrength({ value, id }: { value: string; id?: string }) 
               <CircleIcon aria-hidden="true" className="size-3" />
             )}
             {c.label}
-            {!c.required && <span className="text-muted-foreground/70">(optional)</span>}
+            {!c.required && <span className="text-muted-foreground">(optional)</span>}
             <span className="sr-only">{c.ok ? "— done" : "— not yet"}</span>
           </li>
         ))}

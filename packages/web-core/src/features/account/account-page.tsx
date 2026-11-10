@@ -131,7 +131,7 @@ function Inner() {
   const activeId = me.data.activeWorkspaceId;
   const active = me.data.workspaces.find((w) => w.id === activeId);
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-10">
+    <main id="main" className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-10">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Account</h1>
         <div className="flex items-center gap-2">
@@ -164,7 +164,7 @@ function Inner() {
       )}
       <ProfileCard initialName={me.data.user.name} />
       <PasswordCard />
-    </div>
+    </main>
   );
 }
 

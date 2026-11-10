@@ -67,7 +67,9 @@ export function ChartCard({
     <Card className={cn("gap-4", className)}>
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
         <div className="flex min-w-0 flex-col gap-1">
-          <CardTitle className="text-base">{title}</CardTitle>
+          <CardTitle className="text-base">
+            <h2>{title}</h2>
+          </CardTitle>
           {description && <CardDescription>{description}</CardDescription>}
         </div>
         {action}
@@ -485,7 +487,11 @@ export function PeakHoursHeatmap({
           "No orders in this period"
         )}
       </p>
-      <div className="overflow-x-auto pb-1">
+      {/* Scrolls sideways on phones: focusable so keyboard users can scroll it. */}
+      <div
+        className="overflow-x-auto rounded-md pb-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        tabIndex={0}
+      >
         <div
           className="grid min-w-[560px] gap-0.5"
           style={{ gridTemplateColumns: "2.5rem repeat(24, minmax(0, 1fr))" }}

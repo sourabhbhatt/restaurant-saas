@@ -4,7 +4,12 @@ import { cn } from "../utils";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div
+      data-slot="table-container"
+      // Wide tables scroll sideways on phones; keyboard users must be able to scroll too.
+      tabIndex={0}
+      className="relative w-full overflow-x-auto rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
