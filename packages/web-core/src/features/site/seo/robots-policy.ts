@@ -76,12 +76,22 @@ const INDEXABLE_IMAGE_PATHS = new Set(["/logo.png", "/og-image.png"]);
 const isIndexableImagePath = (pathname: string) =>
   INDEXABLE_IMAGE_PATHS.has(pathname) || pathname.startsWith("/images/");
 
+/** Stands in for the request's own origin when resolving `url=`. */
+const OWN_ORIGIN = "http://own.invalid";
+
 /** An optimised image (`/_next/image?url=…`) is indexable only if its source is. */
 function isIndexableOptimisedImage(search: string | null | undefined): boolean {
   const source = new URLSearchParams(search ?? "").get("url");
-  // Only same-site paths; "//host/…" and absolute URLs are other sites' images.
-  if (!source?.startsWith("/") || source.startsWith("//")) return false;
-  return isIndexableImagePath(new URL(source, "http://local").pathname);
+  if (!source?.startsWith("/")) return false;
+  // Only same-site images: "//host/…", "/\host/…" and absolute URLs resolve to
+  // another origin.
+  let resolved: URL;
+  try {
+    resolved = new URL(source, OWN_ORIGIN);
+  } catch {
+    return false; // "//[" and similar do not parse
+  }
+  return resolved.origin === OWN_ORIGIN && isIndexableImagePath(resolved.pathname);
 }
 
 function isIndexablePath(request: Pick<RobotsRequest, "pathname" | "search">): boolean {

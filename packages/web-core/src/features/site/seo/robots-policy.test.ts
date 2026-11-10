@@ -164,6 +164,12 @@ describe("X-Robots-Tag decision", () => {
       "/images/../api/v1/files/x.jpg",
       "//evil.example/images/x.png",
       "https://evil.example/images/x.png",
+      // URL parsing turns "\" into "/": these resolve to another host.
+      "/\\evil.example/images/x.png",
+      "\\\\evil.example/images/x.png",
+      "/\\/evil.example/images/x.png",
+      "//[",
+      "/\\[", // does not parse; must not throw in the proxy
     ]) {
       expect(
         consoleRobotsHeader(PROD, { pathname: "/_next/image", search: image(url), ...prodHost }),

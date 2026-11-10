@@ -70,8 +70,43 @@ const NON_PRODUCTION_SUFFIXES = [
 const ENVIRONMENT_WORD =
   /^(?:staging|stage|stg|dev|develop|development|preview|test|testing|qa|uat|sandbox)\d*$/;
 
+/**
+ * Two-level public suffixes, so the brand in `test-kitchen.co.in` is part of
+ * the registrable name and not read as a subdomain. A short explicit list
+ * (India first) rather than the full Public Suffix List.
+ */
+const TWO_LEVEL_PUBLIC_SUFFIXES = new Set([
+  "co.in",
+  "net.in",
+  "org.in",
+  "firm.in",
+  "gen.in",
+  "ind.in",
+  "ac.in",
+  "edu.in",
+  "res.in",
+  "gov.in",
+  "co.uk",
+  "org.uk",
+  "me.uk",
+  "ac.uk",
+  "com.au",
+  "net.au",
+  "org.au",
+  "co.nz",
+  "com.sg",
+  "com.my",
+  "co.za",
+  "com.bd",
+  "com.np",
+  "com.pk",
+  "com.lk",
+]);
+
 function hasEnvironmentLabel(name: string): boolean {
-  const subdomainLabels = name.split(".").slice(0, -2);
+  const labels = name.split(".");
+  const registrable = TWO_LEVEL_PUBLIC_SUFFIXES.has(labels.slice(-2).join(".")) ? 3 : 2;
+  const subdomainLabels = labels.slice(0, -registrable);
   return subdomainLabels.some((label) =>
     label.split("-").some((part) => ENVIRONMENT_WORD.test(part)),
   );
@@ -112,13 +147,44 @@ export function resolveSiteConfig(env: SiteEnv): SiteConfig {
   return { origin, host, indexable: reason === "production public site", reason };
 }
 
-/** Reads the environment; call it only at request time (after `connection()`). */
+/** Process-wide, so the proxy and app bundles share one warning. */
+const NOT_INDEXABLE_WARNED = Symbol.for("ros.site-config.not-indexable-warned");
+
+/**
+ * SITE_INDEXABLE=true while the site still is not indexable is almost always a
+ * configuration mistake (wrong URL, http, a staging or platform host). Say why
+ * once per process, as a JSON log line like the API's logger, instead of
+ * staying noindex silently.
+ */
+function warnOnceIfNotIndexable(env: SiteEnv, config: SiteConfig): void {
+  const store = globalThis as { [NOT_INDEXABLE_WARNED]?: true };
+  if (env.SITE_INDEXABLE !== "true" || config.indexable || store[NOT_INDEXABLE_WARNED]) return;
+  store[NOT_INDEXABLE_WARNED] = true;
+  console.error(
+    JSON.stringify({
+      level: "warn",
+      time: new Date().toISOString(),
+      msg: "site_not_indexable",
+      reason: config.reason,
+      publicSiteUrl: env.PUBLIC_SITE_URL ?? null,
+    }),
+  );
+}
+
+/**
+ * Reads the environment; call it only at request time (after `connection()`).
+ * The console proxy calls it on every request, so a misconfiguration is
+ * logged on the first request (the deploy smoke check hits /health).
+ */
 export function getSiteConfig(): SiteConfig {
-  return resolveSiteConfig({
+  const env: SiteEnv = {
     PUBLIC_SITE_URL: process.env.PUBLIC_SITE_URL,
     SITE_INDEXABLE: process.env.SITE_INDEXABLE,
     CONSOLE_URL: process.env.CONSOLE_URL,
-  });
+  };
+  const config = resolveSiteConfig(env);
+  warnOnceIfNotIndexable(env, config);
+  return config;
 }
 
 /** Absolute URL of a site path. The homepage is `origin/`. */
