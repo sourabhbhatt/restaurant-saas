@@ -777,6 +777,7 @@ export function createBillingService({ tx, clock, realtime, logger }: BillingSer
           {
             activeOrderCount: counts.activeOrderCount,
             pendingOrderCount: counts.pendingOrderCount,
+            inKitchenOrderCount: counts.inKitchenOrderCount,
             hasBillableOrders: counts.billableOrderCount > 0,
             bill: bill ? { balanceDue: bill.balanceDue, status: bill.status } : null,
           },
@@ -784,7 +785,7 @@ export function createBillingService({ tx, clock, realtime, logger }: BillingSer
         );
         if (!check.allowed) {
           throw new DomainError("CONFLICT", check.reasons[0] ?? "This table can't be closed yet", {
-            details: { reasons: check.reasons },
+            details: { reasons: check.reasons, blockers: check.blockers },
           });
         }
         const now = clock.now();
@@ -830,6 +831,9 @@ export function createBillingService({ tx, clock, realtime, logger }: BillingSer
             tableId: session.tableId,
             billId: bill?.id ?? null,
             balanceDue: bill?.balanceDue ?? 0,
+            // A close that leaves money owed is allowed only by the branch rule; say so explicitly.
+            closedWithBalance: (bill?.balanceDue ?? 0) > 0,
+            requireFullPaymentToClose: settings.requireFullPaymentToClose,
             completedOrders,
           },
         );

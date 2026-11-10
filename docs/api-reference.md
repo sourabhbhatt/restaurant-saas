@@ -100,18 +100,18 @@ Ownership column = the module (`packages/application/src/modules/<m>`) that impl
 
 ## Billing (billing module)
 
-| Method | Path                                            | Notes                                                                         |
-| ------ | ----------------------------------------------- | ----------------------------------------------------------------------------- |
-| POST   | `/branches/:branchId/bills/preview`             | `previewBillSchema` → totals without saving                                   |
-| POST   | `/branches/:branchId/bills`                     | `generateBillSchema` (**idem**) → `BillDto`. Snapshots lines, taxes, discount |
-| GET    | `/branches/:branchId/bills`                     | filter by paymentStatus/date                                                  |
-| GET    | `/bills/:billId`                                | `BillDto`                                                                     |
-| POST   | `/bills/:billId/payments`                       | `recordPaymentSchema` (**idem**)                                              |
-| POST   | `/bills/:billId/refunds`                        | `refundSchema`                                                                |
-| POST   | `/payments/:paymentId/void`                     | `voidSchema`                                                                  |
-| POST   | `/bills/:billId/void`                           | `voidSchema` (only with no confirmed payments)                                |
-| POST   | `/branches/:branchId/sessions/:sessionId/close` | applies closure rules                                                         |
-| GET    | `/branches/:branchId/payments/summary`          | `PaymentSummaryDto`                                                           |
+| Method | Path                                            | Notes                                                                                                                                                                                                                                                                          |
+| ------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/branches/:branchId/bills/preview`             | `previewBillSchema` → totals without saving                                                                                                                                                                                                                                    |
+| POST   | `/branches/:branchId/bills`                     | `generateBillSchema` (**idem**) → `BillDto`. Snapshots lines, taxes, discount                                                                                                                                                                                                  |
+| GET    | `/branches/:branchId/bills`                     | filter by paymentStatus/date                                                                                                                                                                                                                                                   |
+| GET    | `/bills/:billId`                                | `BillDto`                                                                                                                                                                                                                                                                      |
+| POST   | `/bills/:billId/payments`                       | `recordPaymentSchema` (**idem**)                                                                                                                                                                                                                                               |
+| POST   | `/bills/:billId/refunds`                        | `refundSchema`                                                                                                                                                                                                                                                                 |
+| POST   | `/payments/:paymentId/void`                     | `voidSchema`                                                                                                                                                                                                                                                                   |
+| POST   | `/bills/:billId/void`                           | `voidSchema` (only with no confirmed payments)                                                                                                                                                                                                                                 |
+| POST   | `/branches/:branchId/sessions/:sessionId/close` | applies closure rules: 409 `CONFLICT` with `details.blockers` (`PENDING_ORDERS`, `ORDERS_IN_KITCHEN`, `NO_BILL`, `BALANCE_DUE` — the last only when the branch requires full payment) and `details.reasons`; a close that leaves a balance is audited with `closedWithBalance` |
+| GET    | `/branches/:branchId/payments/summary`          | `PaymentSummaryDto`                                                                                                                                                                                                                                                            |
 
 ## Subscriptions, platform & support (platform module)
 
