@@ -50,6 +50,9 @@ if [ -n "$PROXY_SECRET_REF" ]; then
   FRONTEND_SECRETS="--set-secrets=PROXY_SHARED_SECRET=$PROXY_SECRET_REF"
 else
   echo "   signed client IP off (no ros-staging-proxy-secret)"
+  # Mirror the API, whose --set-secrets list is replaced on every deploy: a secret that was
+  # removed must not stay mapped on the frontends' previous revision.
+  FRONTEND_SECRETS="--remove-secrets=PROXY_SHARED_SECRET"
 fi
 
 if want api; then

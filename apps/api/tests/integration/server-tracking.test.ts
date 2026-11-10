@@ -437,6 +437,23 @@ describe("retention of a stored opt-in", () => {
     expect(await storedClientId(viaVerify)).toBeNull();
     expect(tracking.events).toEqual([]);
   });
+
+  it("a late webhook clears only its own order's id; other over-age ids wait for the cleanup run", async () => {
+    // Clearing other rows under the locked order would let two concurrent late deliveries
+    // deadlock on each other's row, and it is the hourly job's work anyway.
+    const { user, organizationId } = await owner("Late Neighbours");
+    const mine = await startCheckout(user, organizationId, GA_COOKIES);
+    const paymentId = fake.capture(mine.orderId);
+    const other = await startCheckout(user, organizationId, GA_COOKIES);
+    c.clock.setOffsetMs(49 * HOUR);
+
+    expect((await postWebhook(mine, paymentId)).body.data?.outcome).toBe("activated");
+    expect(await storedClientId(mine)).toBeNull();
+    expect(await storedClientId(other)).toBe(BROWSER.clientId);
+
+    expect((await sweep()).status).toBe(200);
+    expect(await storedClientId(other)).toBeNull();
+  });
 });
 
 describe("failure isolation", () => {

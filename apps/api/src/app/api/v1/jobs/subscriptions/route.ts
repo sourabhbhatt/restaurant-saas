@@ -1,3 +1,4 @@
+import type { SubscriptionJobResult } from "@ros/contracts/platform";
 import { DomainError } from "@ros/domain/shared/errors";
 import { paymentService } from "@/composition/payments";
 import { platformService } from "@/composition/platform";
@@ -24,6 +25,7 @@ export const POST = route({ auth: "public", skipOriginCheck: true }, async ({ re
     });
   }
   const result = await platformService(c).runSubscriptionSweep();
-  c.logger.info("subscription_sweep_completed", { ...result, ...analytics });
-  return { data: { ...result, ...analytics } };
+  const data: SubscriptionJobResult = { ...result, ...analytics };
+  c.logger.info("subscription_sweep_completed", { ...data });
+  return { data };
 });

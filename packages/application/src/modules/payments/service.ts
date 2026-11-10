@@ -276,10 +276,15 @@ export function createPaymentService({
   }
 
   /** A locked order carrying an over-age id: delete it (and any other over-age ones) now. */
+  /**
+   * Clears an over-age analytics id on the order this transaction holds locked,
+   * and only that one: touching other tenants' rows under a FOR UPDATE lock
+   * could deadlock two late deliveries. The cross-order sweep belongs to
+   * `forgetAbandonedAnalyticsIds` (the hourly job).
+   */
   async function forgetIfOverAge(r: PaymentRepos, order: PaymentOrderRow): Promise<void> {
-    const now = clock.now();
-    if (order.analyticsClientId && !usableAnalyticsId(order, now))
-      await r.payments.forgetAnalyticsIds(new Date(now.getTime() - ANALYTICS_ID_RETENTION_MS));
+    if (order.analyticsClientId && !usableAnalyticsId(order, clock.now()))
+      await r.payments.markOrder(order.id, { status: order.status, analyticsClientId: null });
   }
 
   async function auditMismatch(

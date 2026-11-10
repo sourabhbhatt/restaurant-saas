@@ -607,6 +607,12 @@ export interface SubscriptionSweepResult {
   housekeeping: HousekeepingResult;
 }
 
+/** What `POST /jobs/subscriptions` answers: the sweep plus the growth-analytics cleanup. */
+export interface SubscriptionJobResult extends SubscriptionSweepResult {
+  /** Unpaid checkouts whose buyer's analytics client id was forgotten (older than 48 h). */
+  analyticsIdsCleared: number;
+}
+
 export const testClockSchema = z.object({
   offsetDays: z.number().min(-3650).max(3650),
 });
