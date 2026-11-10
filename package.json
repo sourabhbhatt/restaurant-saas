@@ -30,7 +30,8 @@
     "db:studio": "pnpm --filter @ros/database db:studio",
     "smoke": "tsx scripts/smoke.ts",
     "razorpay:test-e2e": "tsx scripts/razorpay-test-e2e.ts",
-    "smoke:staging": "tsx scripts/staging-smoke.ts"
+    "smoke:staging": "tsx scripts/staging-smoke.ts",
+    "perf": "node scripts/perf/run.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

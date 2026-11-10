@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "bills_branch_open_idx" ON "bills" USING btree ("workspace_id","branch_id","issued_at") WHERE "bills"."status" = 'ISSUED';

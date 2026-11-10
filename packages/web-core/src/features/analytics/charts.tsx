@@ -1,21 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  type TooltipContentProps,
-} from "recharts";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ros/ui/ui/card";
 import { Skeleton } from "@ros/ui/ui/skeleton";
@@ -39,9 +24,6 @@ const METHOD_SLOT: Record<string, number> = { CASH: 0, UPI: 1, CARD: 2, OTHER: 3
 export function methodColor(method: string): string {
   return chartColor(METHOD_SLOT[method] ?? 4);
 }
-
-const AXIS = { fontSize: 12, fill: "var(--muted-foreground)" } as const;
-const GRID = "var(--border)";
 
 // ---------------------------------------------------------------- card shell
 
@@ -105,34 +87,32 @@ export function Legend({
   );
 }
 
-// ---------------------------------------------------------------- tooltip
+// ---------------------------------------------------------------- recharts plots (lazy)
 
-function TooltipBox({
-  title,
-  rows,
-}: {
-  title: ReactNode;
-  rows: { label: string; value: string; color?: string }[];
-}) {
+/*
+ * Recharts is about 115 KB gzip. The plots live in charts-recharts.tsx, a chunk
+ * requested as soon as this module runs in the browser, so it downloads
+ * alongside the report data instead of blocking first paint. Each chart below
+ * sizes its box (and legend) itself and only the plot inside is lazy, so the
+ * page never shifts when the chunk arrives.
+ */
+const loadPlots = () => import("./charts-recharts");
+if (typeof window !== "undefined") void loadPlots();
+
+const TrendPlot = lazy(() => loadPlots().then((m) => ({ default: m.TrendPlot })));
+const ColumnPlot = lazy(() => loadPlots().then((m) => ({ default: m.ColumnPlot })));
+const BarPlot = lazy(() => loadPlots().then((m) => ({ default: m.BarPlot })));
+const DonutPlot = lazy(() => loadPlots().then((m) => ({ default: m.DonutPlot })));
+
+function PlotBox({ height, children }: { height: number; children: ReactNode }) {
   return (
-    <div className="min-w-36 rounded-lg border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
-      <p className="mb-1 text-muted-foreground">{title}</p>
-      <ul className="flex flex-col gap-1">
-        {rows.map((r) => (
-          <li key={r.label} className="flex items-center gap-2">
-            {r.color && (
-              <span aria-hidden className="h-0.5 w-3 shrink-0" style={{ background: r.color }} />
-            )}
-            <span className="font-semibold tabular-nums">{r.value}</span>
-            <span className="text-muted-foreground">{r.label}</span>
-          </li>
-        ))}
-      </ul>
+    <div style={{ height }} className="w-full">
+      <Suspense fallback={<Skeleton className="size-full" />}>{children}</Suspense>
     </div>
   );
 }
 
-// ---------------------------------------------------------------- trend (area)
+type Rows = Record<string, unknown>[];
 
 export interface SeriesDef {
   key: string;
@@ -157,72 +137,22 @@ export function TrendChart<T extends object>({
   formatX?: (v: string) => string;
   height?: number;
 }) {
-  const content = (p: TooltipContentProps) => {
-    if (!p.active || !p.payload?.length) return null;
-    const label = String(p.label ?? "");
-    return (
-      <TooltipBox
-        title={formatX ? formatX(label) : label}
-        rows={series.map((s) => {
-          const entry = p.payload.find((e) => e.dataKey === s.key);
-          return { label: s.label, value: formatValue(Number(entry?.value ?? 0)), color: s.color };
-        })}
-      />
-    );
-  };
   return (
     <div className="flex flex-col gap-3">
       {series.length > 1 && <Legend items={series} shape="line" />}
-      <div style={{ height }} className="w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={data as unknown as Record<string, unknown>[]}
-            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-          >
-            <CartesianGrid vertical={false} stroke={GRID} />
-            <XAxis
-              dataKey={xKey as string}
-              tick={AXIS}
-              tickLine={false}
-              axisLine={{ stroke: GRID }}
-              tickFormatter={formatX}
-              minTickGap={24}
-            />
-            <YAxis
-              tick={AXIS}
-              tickLine={false}
-              axisLine={false}
-              width={64}
-              tickFormatter={formatAxis ?? formatValue}
-              allowDecimals={false}
-            />
-            <Tooltip
-              content={content}
-              cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1 }}
-            />
-            {series.map((s) => (
-              <Area
-                key={s.key}
-                type="monotone"
-                dataKey={s.key}
-                name={s.label}
-                stroke={s.color}
-                strokeWidth={2}
-                fill={s.color}
-                fillOpacity={0.1}
-                dot={false}
-                activeDot={{ r: 4, stroke: "var(--card)", strokeWidth: 2 }}
-                isAnimationActive={false}
-              />
-            ))}
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      <PlotBox height={height}>
+        <TrendPlot
+          data={data as unknown as Rows}
+          xKey={xKey}
+          series={series}
+          formatValue={formatValue}
+          formatAxis={formatAxis}
+          formatX={formatX}
+        />
+      </PlotBox>
     </div>
   );
 }
-
-// ---------------------------------------------------------------- columns
 
 export function ColumnChart<T extends object>({
   data,
@@ -245,57 +175,21 @@ export function ColumnChart<T extends object>({
   formatX?: (v: string) => string;
   height?: number;
 }) {
-  const content = (p: TooltipContentProps) => {
-    if (!p.active || !p.payload?.length) return null;
-    const label2 = String(p.label ?? "");
-    return (
-      <TooltipBox
-        title={formatX ? formatX(label2) : label2}
-        rows={[{ label, value: formatValue(Number(p.payload[0]?.value ?? 0)), color }]}
-      />
-    );
-  };
   return (
-    <div style={{ height }} className="w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={data as unknown as Record<string, unknown>[]}
-          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-          barCategoryGap={2}
-        >
-          <CartesianGrid vertical={false} stroke={GRID} />
-          <XAxis
-            dataKey={xKey as string}
-            tick={AXIS}
-            tickLine={false}
-            axisLine={{ stroke: GRID }}
-            tickFormatter={formatX}
-            minTickGap={16}
-          />
-          <YAxis
-            tick={AXIS}
-            tickLine={false}
-            axisLine={false}
-            width={56}
-            tickFormatter={formatAxis ?? formatValue}
-            allowDecimals={false}
-          />
-          <Tooltip content={content} cursor={{ fill: "var(--muted)", opacity: 0.5 }} />
-          <Bar
-            dataKey={yKey as string}
-            name={label}
-            fill={color}
-            maxBarSize={24}
-            radius={[4, 4, 0, 0]}
-            isAnimationActive={false}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <PlotBox height={height}>
+      <ColumnPlot
+        data={data as unknown as Rows}
+        xKey={xKey}
+        yKey={yKey}
+        label={label}
+        color={color}
+        formatValue={formatValue}
+        formatAxis={formatAxis}
+        formatX={formatX}
+      />
+    </PlotBox>
   );
 }
-
-// ---------------------------------------------------------------- horizontal bars
 
 export function BarList<T extends object>({
   data,
@@ -314,60 +208,20 @@ export function BarList<T extends object>({
   formatValue: (v: number) => string;
   formatAxis?: (v: number) => string;
 }) {
-  const height = Math.max(120, data.length * 36 + 24);
-  const content = (p: TooltipContentProps) => {
-    if (!p.active || !p.payload?.length) return null;
-    const row = p.payload[0]?.payload as T | undefined;
-    return (
-      <TooltipBox
-        title={String(row?.[nameKey] ?? "")}
-        rows={[{ label, value: formatValue(Number(p.payload[0]?.value ?? 0)), color }]}
-      />
-    );
-  };
   return (
-    <div style={{ height }} className="w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={data as unknown as Record<string, unknown>[]}
-          layout="vertical"
-          margin={{ top: 0, right: 16, bottom: 0, left: 0 }}
-          barCategoryGap={8}
-        >
-          <CartesianGrid horizontal={false} stroke={GRID} />
-          <XAxis
-            type="number"
-            tick={AXIS}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={formatAxis ?? formatValue}
-            allowDecimals={false}
-          />
-          <YAxis
-            type="category"
-            dataKey={nameKey as string}
-            tick={AXIS}
-            tickLine={false}
-            axisLine={{ stroke: GRID }}
-            width={120}
-            tickFormatter={(v: string) => (v.length > 16 ? `${v.slice(0, 15)}…` : v)}
-          />
-          <Tooltip content={content} cursor={{ fill: "var(--muted)", opacity: 0.5 }} />
-          <Bar
-            dataKey={valueKey as string}
-            name={label}
-            fill={color}
-            maxBarSize={20}
-            radius={[0, 4, 4, 0]}
-            isAnimationActive={false}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <PlotBox height={Math.max(120, data.length * 36 + 24)}>
+      <BarPlot
+        data={data as unknown as Rows}
+        nameKey={nameKey}
+        valueKey={valueKey}
+        label={label}
+        color={color}
+        formatValue={formatValue}
+        formatAxis={formatAxis}
+      />
+    </PlotBox>
   );
 }
-
-// ---------------------------------------------------------------- donut
 
 export function DonutChart({
   data,
@@ -381,41 +235,15 @@ export function DonutChart({
   centerLabel?: string;
   centerValue?: string;
 }) {
-  const positive = data.filter((d) => d.value > 0);
-  const total = positive.reduce((s, d) => s + d.value, 0);
-  const content = (p: TooltipContentProps) => {
-    if (!p.active || !p.payload?.length) return null;
-    const e = p.payload[0]!;
-    const share = total ? Math.round((Number(e.value) / total) * 1000) / 10 : 0;
-    return (
-      <TooltipBox
-        title={String(e.name)}
-        rows={[{ label: `${share}%`, value: formatValue(Number(e.value)) }]}
-      />
-    );
-  };
+  const colored = data.map((d, i) => ({ ...d, color: d.color ?? chartColor(i) }));
+  const slices = colored.filter((d) => d.value > 0);
+  const total = slices.reduce((s, d) => s + d.value, 0);
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
       <div className="relative size-44 shrink-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={positive}
-              dataKey="value"
-              nameKey="name"
-              innerRadius="62%"
-              outerRadius="100%"
-              stroke="var(--card)"
-              strokeWidth={2}
-              isAnimationActive={false}
-            >
-              {positive.map((d) => (
-                <Cell key={d.name} fill={d.color ?? chartColor(data.indexOf(d))} />
-              ))}
-            </Pie>
-            <Tooltip content={content} />
-          </PieChart>
-        </ResponsiveContainer>
+        <Suspense fallback={<Skeleton className="size-full rounded-full" />}>
+          <DonutPlot slices={slices} formatValue={formatValue} />
+        </Suspense>
         {centerValue && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
             <span className="text-sm font-semibold">{centerValue}</span>
@@ -424,12 +252,12 @@ export function DonutChart({
         )}
       </div>
       <ul className="flex w-full flex-col gap-2 text-sm">
-        {data.map((d, i) => (
+        {colored.map((d) => (
           <li key={d.name} className="flex items-center gap-2">
             <span
               aria-hidden
               className="size-2.5 shrink-0 rounded-sm"
-              style={{ background: d.color ?? chartColor(i) }}
+              style={{ background: d.color }}
             />
             <span className="flex-1 truncate">{d.name}</span>
             <span className="font-medium tabular-nums">{formatValue(d.value)}</span>

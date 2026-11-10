@@ -1,11 +1,22 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { SerwistProvider } from "@serwist/turbopack/react";
 
-import { OfflineRuntime } from "./features/offline/components/offline-runtime";
 import { createQueryClient } from "./query-client";
+
+/**
+ * The offline layer (Dexie, sync engine, query persistence: ~40 KB gzip) is a
+ * separate chunk, fetched while the page hydrates instead of blocking first
+ * paint. It is client-only anyway (it starts in an effect), and the service
+ * worker precaches every /_next/static chunk, so it still loads offline.
+ */
+const OfflineRuntime = dynamic(
+  () => import("./features/offline/components/offline-runtime").then((m) => m.OfflineRuntime),
+  { ssr: false },
+);
 
 /**
  * Client-side providers shared by every route. `pwa` registers the Serwist

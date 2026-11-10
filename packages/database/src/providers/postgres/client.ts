@@ -40,7 +40,9 @@ export const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.u
 export const POSTGRES_POOL_OPTIONS = {
   connectionTimeoutMillis: 5_000,
   statement_timeout: 30_000,
-  idleTimeoutMillis: 30_000,
+  // Longer than the slowest UI poll (30 s), so polling reuses warm connections instead of
+  // closing and reopening one per poll (measured by the performance workstream).
+  idleTimeoutMillis: 60_000,
 } as const;
 
 /**

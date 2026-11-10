@@ -64,6 +64,13 @@
       "when": 1794300279361,
       "tag": "0008_payment_order_analytics_opt_in",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794301628491,
+      "tag": "0009_perf_indexes",
+      "breakpoints": true
     }
   ]
 }

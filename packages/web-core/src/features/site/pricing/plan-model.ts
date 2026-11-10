@@ -1,4 +1,5 @@
-import { z } from "zod";
+// zod/mini: same validation, a fraction of the client bundle (this parser runs on the marketing pages).
+import { z } from "zod/mini";
 
 import {
   FEATURE_META,
@@ -18,27 +19,27 @@ import { ApiError } from "@ros/api-client";
  * fields) so a small contract difference degrades gracefully instead of
  * breaking the marketing site.
  */
-const limitValue = z.number().nullable().optional();
+const limitValue = z.optional(z.nullable(z.number()));
 
 const planSchema = z.object({
-  id: z.string().optional(),
+  id: z.optional(z.string()),
   key: z.string(),
   name: z.string(),
-  description: z.string().nullish(),
-  currency: z.string().nullish(),
+  description: z.nullish(z.string()),
+  currency: z.nullish(z.string()),
   /** Minor units; null = custom pricing ("Contact us"). */
-  monthlyPrice: z.number().nullish(),
-  annualPrice: z.number().nullish(),
-  isTrialEligible: z.boolean().optional(),
-  limits: z.record(z.string(), limitValue).nullish(),
+  monthlyPrice: z.nullish(z.number()),
+  annualPrice: z.nullish(z.number()),
+  isTrialEligible: z.optional(z.boolean()),
+  limits: z.nullish(z.record(z.string(), limitValue)),
   /** `PlanFeatureDto[]` ({ key, label }) per src/contracts/platform.ts; bare keys also accepted. */
-  features: z.array(z.union([z.string(), z.object({ key: z.string() }).loose()])).nullish(),
-  sortOrder: z.number().optional(),
+  features: z.nullish(z.array(z.union([z.string(), z.looseObject({ key: z.string() })]))),
+  sortOrder: z.optional(z.number()),
 });
 
 const responseSchema = z.union([
   z.array(planSchema),
-  z.object({ plans: z.array(planSchema), trialDays: z.number().int().nullish() }),
+  z.object({ plans: z.array(planSchema), trialDays: z.nullish(z.int()) }),
 ]);
 
 export interface PublicPlan {

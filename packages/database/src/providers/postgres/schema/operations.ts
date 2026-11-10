@@ -579,6 +579,10 @@ export const bills = pgTable(
       .on(t.sessionId)
       .where(sql`${t.status} <> 'VOID'`),
     index("bills_branch_status_idx").on(t.workspaceId, t.branchId, t.paymentStatus, t.issuedAt),
+    // Open bills of a branch (cashier queue, polled): stays small however many bills are closed.
+    index("bills_branch_open_idx")
+      .on(t.workspaceId, t.branchId, t.issuedAt)
+      .where(sql`${t.status} = 'ISSUED'`),
     check("bills_status_ck", sql`${t.status} in ('ISSUED','CLOSED','VOID')`),
     check(
       "bills_payment_status_ck",
