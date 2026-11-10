@@ -1,13 +1,25 @@
+"use client";
+
 import type * as React from "react";
 
 import { cn } from "../utils";
+import { useHorizontalOverflow } from "./use-horizontal-overflow";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
+  // Only a table that scrolls sideways becomes a tab stop, named so it is announced.
+  const [box, scrolls] = useHorizontalOverflow<HTMLDivElement>();
+  const label = props["aria-label"];
   return (
     <div
+      ref={box}
       data-slot="table-container"
-      // Wide tables scroll sideways on phones; keyboard users must be able to scroll too.
-      tabIndex={0}
+      {...(scrolls
+        ? {
+            tabIndex: 0,
+            role: "region",
+            "aria-label": `${label ?? "Table"} (scrolls sideways)`,
+          }
+        : {})}
       className="relative w-full overflow-x-auto rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       <table
