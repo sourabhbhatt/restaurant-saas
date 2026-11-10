@@ -42,6 +42,23 @@ describe("shouldPersistQuery", () => {
 });
 
 describe("query persistence", () => {
+  it("also saves results that arrived before persistence started", async () => {
+    await qc.fetchQuery({ queryKey: ["me"], queryFn: async () => ({ user: { id: "u1" } }) });
+    await qc.fetchQuery({
+      queryKey: ["branch", "b1", "context"],
+      queryFn: async () => ({ branch: { id: "b1" } }),
+    });
+    await qc.fetchQuery({ queryKey: ["orders", "b1"], queryFn: async () => [] });
+    const stop = startQueryPersistence(qc, db, () => "u1");
+    await settle();
+    const rows = await db.queryCache.toArray();
+    expect(rows.map((r) => r.key).sort()).toEqual(
+      [queryCacheKey(["branch", "b1", "context"]), queryCacheKey(["me"])].sort(),
+    );
+    expect(rows.every((r) => r.userId === "u1")).toBe(true);
+    stop();
+  });
+
   it("writes successful network results for the confirmed user", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const stop = startQueryPersistence(qc, db, () => "user-1");

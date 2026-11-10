@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getOfflineDb } from "./db";
 import {
   clearDeviceUserData,
+  DEVICE_USER_WAIT_MS,
   enqueueMutation,
   PING_PATH,
   probeConnectivity,
@@ -208,5 +209,32 @@ describe("connectivity probe", () => {
     await settle();
     expect(cancel).toHaveBeenCalledTimes(1);
     expect(useSyncStore.getState().online).toBe(true);
+  });
+});
+
+describe("a change made before the runtime knows who is signed in", () => {
+  // A fresh page: the kitchen screen can be tappable before /auth/me has answered.
+  async function freshStart() {
+    await clearDeviceUserData();
+    startOfflineRuntime(new QueryClient());
+    await settle();
+  }
+
+  it("waits for the signed-in user instead of dropping the change", async () => {
+    await freshStart();
+    const pending = enqueueMutation(change("Mark ready #1"));
+    await advance(1_000);
+    await setCurrentUser("user-2", true);
+    const item = await pending;
+    expect(item.userId).toBe("user-2");
+    expect(await getOfflineDb()!.outbox.count()).toBe(1);
+  });
+
+  it("gives up after a few seconds with the sign-in message", async () => {
+    await freshStart();
+    const pending = enqueueMutation(change("Mark ready #1"));
+    const outcome = expect(pending).rejects.toThrow("Sign in to save changes on this device.");
+    await advance(DEVICE_USER_WAIT_MS);
+    await outcome;
   });
 });
