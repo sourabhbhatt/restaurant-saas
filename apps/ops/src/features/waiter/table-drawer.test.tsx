@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { BranchTableDto, SessionDetailDto } from "@ros/contracts/staff-ops";
 import type { OutboxItem } from "@ros/web-core/features/offline";
@@ -55,7 +56,11 @@ const unsent = (status: OutboxItem["status"], id: string): OutboxItem => ({
   meta: { tableId: "t5", tableName: "T5", summary: "1× Masala Chai" },
 });
 
-function renderDrawer(items: OutboxItem[], table: BranchTableDto = TABLE) {
+function renderDrawer(
+  items: OutboxItem[],
+  table: BranchTableDto = TABLE,
+  can: (permission: string) => boolean = () => true,
+) {
   setSyncState({ userId: "u", online: true, items, counts: countItems(items) });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
@@ -74,7 +79,7 @@ function renderDrawer(items: OutboxItem[], table: BranchTableDto = TABLE) {
         branchId={BRANCH}
         table={table}
         currency="INR"
-        can={() => true}
+        can={can}
         now={Date.now()}
         pollInterval={0}
         onOpenChange={() => {}}
@@ -122,5 +127,53 @@ describe("TableDrawer links", () => {
       "href",
       `${DEFAULT_APP_LINKS.console}/app/b/${BRANCH}/bills`,
     );
+  });
+});
+
+describe("TableDrawer close without a bill", () => {
+  // A test order that was cancelled (or orders that were all rejected) leaves an open
+  // table with nothing to bill; the server allows closing it without a bill.
+  const nothingToBill: BranchTableDto = {
+    ...TABLE,
+    session: {
+      ...TABLE.session!,
+      orderCounts: { CANCELLED: 1 },
+      activeCount: 0,
+      billableSubtotal: 0,
+    },
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("closes a table whose orders were all cancelled or rejected", async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ data: { sessionId: "s1", status: "CLOSED", billId: null } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    vi.stubGlobal("fetch", fetch);
+    renderDrawer([], nothingToBill);
+    expect(screen.queryByRole("button", { name: /Generate bill/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Close table/ }));
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining(`/branches/${BRANCH}/sessions/s1/close`),
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+  });
+
+  it("is not offered while there is something to bill or still in progress", () => {
+    renderDrawer([]);
+    expect(screen.queryByRole("button", { name: /Close table/ })).not.toBeInTheDocument();
+  });
+
+  it("needs permission to manage table sessions", () => {
+    renderDrawer([], nothingToBill, (p) => p !== "sessions.manage");
+    expect(screen.queryByRole("button", { name: /Close table/ })).not.toBeInTheDocument();
   });
 });

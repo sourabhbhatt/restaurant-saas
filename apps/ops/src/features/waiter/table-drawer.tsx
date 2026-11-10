@@ -1,8 +1,10 @@
 "use client";
 
-import { BellRing, CloudUpload, Plus, Receipt } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { BellRing, CloudUpload, DoorClosed, Plus, Receipt } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from "@ros/ui/shared/feedback";
 import { Button } from "@ros/ui/ui/button";
@@ -24,6 +26,8 @@ import {
   useSyncStore,
   type OutboxItem,
 } from "@ros/web-core/features/offline";
+import { closureReasons, useCloseSession } from "@ros/web-core/features/billing/queries";
+import { staffOpsKeys } from "@ros/web-core/features/orders/keys";
 import { OrderActionButtons } from "@ros/web-core/features/orders/order-actions";
 import {
   OrderItemsList,
@@ -107,6 +111,30 @@ export function TableDrawer({
 
   const canAdd = Boolean(table?.isActive) && can("orders.create");
   const canBill = Boolean(sessionId) && !bill && billable > 0 && can("bills.generate");
+  // Nothing to bill and nothing in progress (e.g. a cancelled test order or only
+  // rejected orders): the server lets the table close without a bill.
+  const canCloseEmpty =
+    Boolean(sessionId) &&
+    !bill &&
+    billable === 0 &&
+    (table?.session?.activeCount ?? 0) === 0 &&
+    can("sessions.manage");
+  const qc = useQueryClient();
+  const close = useCloseSession(branchId);
+  const closeEmpty = () => {
+    if (!sessionId) return;
+    close.mutate(
+      { sessionId },
+      {
+        onSuccess: () => {
+          toast.success(`${table?.tableName ?? "Table"} is free again`);
+          void qc.invalidateQueries({ queryKey: staffOpsKeys.branch(branchId) });
+          onOpenChange(false);
+        },
+        onError: (e) => toast.error(closureReasons(e)[0] ?? errorMessage(e)),
+      },
+    );
+  };
 
   return (
     <Sheet open={table !== null} onOpenChange={onOpenChange}>
@@ -203,7 +231,7 @@ export function TableDrawer({
             </ul>
           )}
         </SheetBody>
-        {table && (canAdd || canBill || bill) && (
+        {table && (canAdd || canBill || bill || canCloseEmpty) && (
           <SheetFooter className="flex-row flex-wrap">
             {canAdd && (
               <Button className="flex-1" size="lg" onClick={() => setAdding(true)}>
@@ -231,6 +259,17 @@ export function TableDrawer({
             )}
             {canBill && (
               <NeedsConnectionNote>Generating a bill needs a connection.</NeedsConnectionNote>
+            )}
+            {canCloseEmpty && (
+              <Button
+                className="flex-1"
+                size="lg"
+                variant="outline"
+                disabled={!online || unsent.length > 0 || close.isPending}
+                onClick={closeEmpty}
+              >
+                <DoorClosed aria-hidden /> Close table
+              </Button>
             )}
             {bill && can("bills.view") && (
               <Button className="flex-1" size="lg" variant="outline" asChild>
