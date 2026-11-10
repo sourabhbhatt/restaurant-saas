@@ -33,10 +33,21 @@ export interface DatabaseHandle {
 export const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "migrations");
 
 /** node-postgres pool (production and local dev against a real Postgres). */
+/**
+ * Idle pool connections are kept for a minute. Staff screens poll every 10 s,
+ * and pg's default 10 s idle timeout closed the pool between polls, so nearly
+ * every poll paid for new connections (TCP/TLS and SCRAM authentication).
+ */
+export const POOL_IDLE_TIMEOUT_MS = 60_000;
+
 export async function connectPostgres(url: string, poolMax = 10): Promise<DatabaseHandle> {
   const { Pool } = await import("pg");
   const { drizzle } = await import("drizzle-orm/node-postgres");
-  const pool = new Pool({ connectionString: url, max: poolMax });
+  const pool = new Pool({
+    connectionString: url,
+    max: poolMax,
+    idleTimeoutMillis: POOL_IDLE_TIMEOUT_MS,
+  });
   const db = drizzle(pool, { schema }) as unknown as Executor;
   return { db, close: () => pool.end() };
 }
