@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { and, eq } from "drizzle-orm";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as PlatformComposition from "@/composition/platform";
 import { POST as activate } from "@/app/api/v1/admin/workspaces/[workspaceId]/subscription/activate/route";
 import { POST as cancel } from "@/app/api/v1/admin/workspaces/[workspaceId]/subscription/cancel/route";
 import { POST as runJob } from "@/app/api/v1/jobs/subscriptions/route";
@@ -13,11 +14,30 @@ import { ANALYTICS_CONSENT_COOKIE } from "@ros/contracts/tracking-events";
 import { createFakePaymentGateway } from "@ros/adapters/payments/providers/fake";
 import { createMemoryServerTracking } from "@ros/adapters/tracking/providers/memory";
 import { resetEnvCache } from "@ros/application/config/env";
-import { paymentOrders } from "@ros/database/providers/postgres/schema";
+import { paymentOrders, subscriptions } from "@ros/database/providers/postgres/schema";
 import type { Container } from "@/composition/container";
 import { organizationOf, signUpUser, type TestUser } from "@/test/fixtures";
 import { signUpAdmin } from "@/test/fixtures-platform";
 import { call, createTestContainer } from "@/test/harness";
+
+/** Lets one test make the subscription sweep fail, to prove the id cleanup still runs. */
+const sweepControl = vi.hoisted(() => ({ fail: false }));
+vi.mock("@/composition/platform", async (importOriginal) => {
+  const actual = await importOriginal<typeof PlatformComposition>();
+  return {
+    ...actual,
+    platformService: (c: Parameters<typeof actual.platformService>[0]) => {
+      const service = actual.platformService(c);
+      if (!sweepControl.fail) return service;
+      return {
+        ...service,
+        runSubscriptionSweep: async () => {
+          throw new Error("subscription sweep failed");
+        },
+      };
+    },
+  };
+});
 
 /**
  * Server-authoritative growth events (docs/growth/analytics-events.md): each
@@ -50,6 +70,12 @@ afterAll(async () => {
   await c.close();
 });
 beforeEach(() => tracking.clear());
+afterEach(() => {
+  c.clock.setOffsetMs(0);
+  sweepControl.fail = false;
+});
+
+const HOUR = 3_600_000;
 
 const names = () => tracking.events.map((e) => e.event.name);
 
@@ -119,7 +145,12 @@ const activated = {
 };
 
 let eventSeq = 0;
-function postWebhook(s: CheckoutSessionDto, paymentId: string, eventId = `evt_trk_${++eventSeq}`) {
+function postWebhook(
+  s: CheckoutSessionDto,
+  paymentId: string,
+  eventId = `evt_trk_${++eventSeq}`,
+  amountMinor = s.amountMinor,
+) {
   const body = {
     entity: "event",
     event: "order.paid",
@@ -127,7 +158,7 @@ function postWebhook(s: CheckoutSessionDto, paymentId: string, eventId = `evt_tr
       payment: {
         entity: {
           id: paymentId,
-          amount: s.amountMinor,
+          amount: amountMinor,
           currency: s.currency,
           status: "captured",
           order_id: s.orderId,
@@ -274,6 +305,32 @@ describe("payment_succeeded and subscription_activated", () => {
     ]);
   });
 
+  it("paying again after an active plan's paid period ran out is a new activation, not a renewal", async () => {
+    const { user, ws, organizationId } = await owner("Lapsed");
+    const first = await startCheckout(user, organizationId, GA_COOKIES);
+    await verifyAs(user, organizationId, first, fake.capture(first.orderId), GA_COOKIES);
+    // Months later: the row still says ACTIVE (the sweep does not change it), but nothing is paid.
+    await c.db
+      .update(subscriptions)
+      .set({ currentPeriodEnd: new Date(Date.now() - 86_400_000) })
+      .where(and(eq(subscriptions.workspaceId, ws.id), eq(subscriptions.isCurrent, true)));
+    tracking.clear();
+
+    const again = await startCheckout(user, organizationId, GA_COOKIES);
+    const res = await verifyAs(
+      user,
+      organizationId,
+      again,
+      fake.capture(again.orderId),
+      GA_COOKIES,
+    );
+    expect(res.status).toBe(200);
+    expect(tracking.events).toEqual([
+      { event: paid(again.amountMinor, false), context: { analytics: BROWSER } },
+      { event: activated, context: { analytics: BROWSER } },
+    ]);
+  });
+
   it("a payment that does not match never emits", async () => {
     const { user, organizationId } = await owner("Short");
     const s = await startCheckout(user, organizationId, GA_COOKIES);
@@ -306,30 +363,79 @@ describe("Super Admin actions", () => {
   });
 });
 
+/**
+ * The privacy policy: a stored id is used only within 48 hours of the checkout,
+ * and deleted when the order is paid or by the next cleanup run. The 48-hour
+ * limit holds in code even if no cleanup ever runs.
+ */
 describe("retention of a stored opt-in", () => {
-  it("the scheduled sweep forgets an unpaid checkout's client id after 48 hours", async () => {
+  const CRON = "cron-secret-for-tracking-tests";
+  async function sweep() {
+    const previous = c.env.CRON_SECRET;
+    c.env.CRON_SECRET = CRON;
+    try {
+      return await call<{ analyticsIdsCleared: number }>(runJob, {
+        method: "POST",
+        headers: { authorization: `Bearer ${CRON}` },
+      });
+    } finally {
+      c.env.CRON_SECRET = previous;
+    }
+  }
+
+  it("the cleanup run forgets an unpaid checkout's client id after 48 hours", async () => {
     const { user, organizationId } = await owner("Abandoned");
     const s = await startCheckout(user, organizationId, GA_COOKIES);
-    const previousSecret = c.env.CRON_SECRET;
-    c.env.CRON_SECRET = "cron-secret-for-tracking-tests";
-    const sweep = () =>
-      call<{ analyticsIdsCleared: number }>(runJob, {
-        method: "POST",
-        headers: { authorization: `Bearer ${c.env.CRON_SECRET}` },
-      });
-    try {
-      expect((await sweep()).status).toBe(200);
-      // A checkout still within its payment window keeps the id for the webhook.
-      expect(await storedClientId(s)).toBe(BROWSER.clientId);
+    expect((await sweep()).status).toBe(200);
+    // Still within its payment window: kept for the webhook.
+    expect(await storedClientId(s)).toBe(BROWSER.clientId);
 
-      c.clock.setOffsetMs(49 * 3_600_000);
-      const later = await sweep();
-      expect(later.body.data!.analyticsIdsCleared).toBeGreaterThanOrEqual(1);
-      expect(await storedClientId(s)).toBeNull();
-    } finally {
-      c.clock.setOffsetMs(0);
-      c.env.CRON_SECRET = previousSecret;
-    }
+    c.clock.setOffsetMs(49 * HOUR);
+    const later = await sweep();
+    expect(later.body.data!.analyticsIdsCleared).toBeGreaterThanOrEqual(1);
+    expect(await storedClientId(s)).toBeNull();
+  });
+
+  it("runs even when the subscription sweep fails", async () => {
+    const { user, organizationId } = await owner("Sweep Fails");
+    const s = await startCheckout(user, organizationId, GA_COOKIES);
+    c.clock.setOffsetMs(49 * HOUR);
+    sweepControl.fail = true;
+    // The job still reports the sweep's failure to the scheduler.
+    expect((await sweep()).status).toBe(500);
+    expect(await storedClientId(s)).toBeNull();
+  });
+
+  it("a webhook more than 48 hours after the checkout sends nothing and clears the id", async () => {
+    const { user, organizationId } = await owner("Late Hook");
+    const s = await startCheckout(user, organizationId, GA_COOKIES);
+    const paymentId = fake.capture(s.orderId);
+    c.clock.setOffsetMs(49 * HOUR);
+    tracking.clear();
+
+    expect((await postWebhook(s, paymentId)).body.data?.outcome).toBe("activated");
+    expect(tracking.events).toEqual([]);
+    expect(tracking.rejected).toEqual([]);
+    expect(await storedClientId(s)).toBeNull();
+  });
+
+  it("a late webhook or verify that does not activate still clears an over-age id", async () => {
+    const { user, organizationId } = await owner("Late Mismatch");
+    const viaHook = await startCheckout(user, organizationId, GA_COOKIES);
+    const hookPayment = fake.capture(viaHook.orderId, viaHook.amountMinor - 1);
+    const viaVerify = await startCheckout(user, organizationId, GA_COOKIES);
+    const verifyPayment = fake.capture(viaVerify.orderId, viaVerify.amountMinor - 1);
+    c.clock.setOffsetMs(49 * HOUR);
+
+    const hook = await postWebhook(viaHook, hookPayment, undefined, viaHook.amountMinor - 1);
+    expect(hook.body.data?.outcome).toBe("mismatch");
+    expect(await storedClientId(viaHook)).toBeNull();
+
+    expect(
+      (await verifyAs(user, organizationId, viaVerify, verifyPayment, GA_COOKIES)).status,
+    ).toBe(200);
+    expect(await storedClientId(viaVerify)).toBeNull();
+    expect(tracking.events).toEqual([]);
   });
 });
 

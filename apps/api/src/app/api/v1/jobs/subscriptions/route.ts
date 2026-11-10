@@ -13,9 +13,17 @@ export const POST = route({ auth: "public", skipOriginCheck: true }, async ({ re
   if (!isAuthorizedCron(req.headers.get("authorization"), c.env.CRON_SECRET)) {
     throw new DomainError("UNAUTHENTICATED", "Invalid or missing job credentials");
   }
+  // Growth analytics: unpaid checkouts forget their buyer's GA4 client id after 48 hours. Run
+  // first and on its own, so a failing subscription sweep can never skip it (and vice versa).
+  let analytics = { analyticsIdsCleared: 0 };
+  try {
+    analytics = await paymentService(c).forgetAbandonedAnalyticsIds();
+  } catch (error) {
+    c.logger.error("analytics_id_cleanup_failed", {
+      reason: error instanceof Error ? error.name : "unknown",
+    });
+  }
   const result = await platformService(c).runSubscriptionSweep();
-  // Growth analytics: unpaid checkouts forget their buyer's GA4 client id after 48 hours.
-  const analytics = await paymentService(c).forgetAbandonedAnalyticsIds();
   c.logger.info("subscription_sweep_completed", { ...result, ...analytics });
   return { data: { ...result, ...analytics } };
 });

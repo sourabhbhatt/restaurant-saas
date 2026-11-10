@@ -255,8 +255,31 @@ export function createPaymentService({
         data: { workspaceId: ws.id, planKey: plan.key },
       },
     );
-    // Already on an active paid plan: a renewal (or a plan change), not a new activation.
-    return { subscriptionId, periodEnd: period.end, renewal: old?.status === "ACTIVE" };
+    // A paid period was still running: a renewal (or a plan change), not a new activation. A
+    // lapsed plan can still read ACTIVE (the sweep does not change it), so the date decides.
+    const renewal =
+      old?.status === "ACTIVE" &&
+      old.currentPeriodEnd !== null &&
+      old.currentPeriodEnd.getTime() > now.getTime();
+    return { subscriptionId, periodEnd: period.end, renewal };
+  }
+
+  /**
+   * The stored GA4 client id, only while it may be used: within 48 hours of the
+   * checkout (privacy policy). The limit holds here even if no cleanup has run.
+   */
+  function usableAnalyticsId(order: PaymentOrderRow, now: Date): string | null {
+    if (!order.analyticsClientId) return null;
+    return now.getTime() - order.createdAt.getTime() < ANALYTICS_ID_RETENTION_MS
+      ? order.analyticsClientId
+      : null;
+  }
+
+  /** A locked order carrying an over-age id: delete it (and any other over-age ones) now. */
+  async function forgetIfOverAge(r: PaymentRepos, order: PaymentOrderRow): Promise<void> {
+    const now = clock.now();
+    if (order.analyticsClientId && !usableAnalyticsId(order, now))
+      await r.payments.forgetAnalyticsIds(new Date(now.getTime() - ANALYTICS_ID_RETENTION_MS));
   }
 
   async function auditMismatch(
@@ -491,6 +514,7 @@ export function createPaymentService({
         won.order = undefined;
         const order = await r.payments.lockOrder(gw.name, input.razorpayOrderId);
         if (!order) throw notFound("Payment order");
+        await forgetIfOverAge(r, order);
         const current = async (status: CheckoutVerifyDto["status"], periodEnd: Date | null) => ({
           status,
           order: toOrderDto((await r.payments.findOrder(gw.name, input.razorpayOrderId)) ?? order),
@@ -553,6 +577,7 @@ export function createPaymentService({
           ORDER_EVENTS.has(type) && payment.orderId
             ? await r.payments.lockOrder(gw.name, payment.orderId)
             : null;
+        if (order) await forgetIfOverAge(r, order);
         const fresh = await r.payments.insertEvent({
           provider: gw.name,
           eventId,
@@ -591,7 +616,7 @@ export function createPaymentService({
       if (outcome === "activated" && won.order)
         trackActivation(
           won.order,
-          storedAnalyticsIds(won.order.analyticsClientId),
+          storedAnalyticsIds(usableAnalyticsId(won.order, clock.now())),
           won.renewal === true,
         );
       logger.info("payment_webhook_handled", { type, outcome, requestId: meta.requestId });
