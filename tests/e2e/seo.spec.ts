@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 
+import { resolveSiteConfig } from "../../packages/web-core/src/features/site/seo/site-config";
 import { fullTitle, SITE_PAGES } from "../../packages/web-core/src/features/site/seo/site-pages";
 
 /**
@@ -9,10 +10,13 @@ import { fullTitle, SITE_PAGES } from "../../packages/web-core/src/features/site
  * Production run: start the console with SITE_INDEXABLE=true and
  * PUBLIC_SITE_URL=https://www.restaurantos.test; requests sent with that Host
  * must be indexable and requests on localhost must stay noindex.
+ * The console inherits this process's environment, so the expected origin is
+ * resolved from the same variables (PUBLIC_SITE_URL, then CONSOLE_URL).
  */
-const PRODUCTION = process.env.SITE_INDEXABLE === "true";
-const SITE_URL = process.env.PUBLIC_SITE_URL ?? "";
-const SITE_HOST = PRODUCTION ? new URL(SITE_URL).host : null;
+const SITE = resolveSiteConfig(process.env);
+const PRODUCTION = SITE.indexable;
+const SITE_URL = SITE.origin;
+const SITE_HOST = PRODUCTION ? SITE.host : null;
 const NOINDEX = "noindex, nofollow";
 const GOOGLEBOT = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
 const GPTBOT =
@@ -51,7 +55,6 @@ test.describe("public pages are server-rendered for crawlers", () => {
   for (const page of SITE_PAGES) {
     test(`${page.path}: title, description, canonical, robots, h1 and JSON-LD in the HTML`, async ({
       request,
-      baseURL,
     }) => {
       const { res, html, head } = await fetchHtml(request, page.path, {
         host: SITE_HOST ?? undefined,
@@ -63,7 +66,7 @@ test.describe("public pages are server-rendered for crawlers", () => {
       expect(decode(attr(head, /<meta name="description" content="([^"]+)"/) ?? "")).toBe(
         page.description,
       );
-      const origin = PRODUCTION ? SITE_URL.replace(/\/$/, "") : new URL(baseURL!).origin;
+      const origin = SITE_URL;
       expect(canonicalOf(head)).toBe(`${origin}${page.path}`);
       expect(attr(head, /<meta property="og:url" content="([^"]+)"/)).toBe(`${origin}${page.path}`);
       expect(attr(head, /<meta property="og:image" content="([^"]+)"/)).toBe(
@@ -213,7 +216,7 @@ test.describe("robots.txt, sitemap.xml and llms.txt", () => {
       expect(body).toContain(rule);
     }
     expect(body).not.toMatch(/Disallow: \/\s*$/m);
-    if (PRODUCTION) expect(body).toContain(`Sitemap: ${SITE_URL.replace(/\/$/, "")}/sitemap.xml`);
+    if (PRODUCTION) expect(body).toContain(`Sitemap: ${SITE_URL}/sitemap.xml`);
     else expect(body).not.toContain("Sitemap:");
   });
 
@@ -267,6 +270,6 @@ test.describe("production host check", () => {
     expect(res.headers()["x-robots-tag"]).toBe(NOINDEX);
     expect(robotsMetaOf(head)).toBe("noindex, nofollow");
     // The canonical still names the production page.
-    expect(canonicalOf(head)).toBe(`${SITE_URL.replace(/\/$/, "")}/pricing`);
+    expect(canonicalOf(head)).toBe(`${SITE_URL}/pricing`);
   });
 });
