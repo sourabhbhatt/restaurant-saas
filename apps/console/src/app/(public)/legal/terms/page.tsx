@@ -1,12 +1,16 @@
-import type { Metadata } from "next";
-
 import { TermsOfService } from "@ros/web-core/features/site/legal/terms";
+import { publicPageMetadata } from "@ros/web-core/features/site/seo/page-metadata";
+import { PageStructuredData } from "@ros/web-core/features/site/seo/page-structured-data";
 
-export const metadata: Metadata = {
-  title: "Terms of service",
-  description: "The terms for using the service.",
-};
+export function generateMetadata() {
+  return publicPageMetadata("/legal/terms");
+}
 
 export default function Page() {
-  return <TermsOfService />;
+  return (
+    <>
+      <TermsOfService />
+      <PageStructuredData path="/legal/terms" />
+    </>
+  );
 }

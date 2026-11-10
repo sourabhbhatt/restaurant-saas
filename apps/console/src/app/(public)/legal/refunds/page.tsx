@@ -1,12 +1,16 @@
-import type { Metadata } from "next";
-
 import { RefundPolicy } from "@ros/web-core/features/site/legal/refunds";
+import { publicPageMetadata } from "@ros/web-core/features/site/seo/page-metadata";
+import { PageStructuredData } from "@ros/web-core/features/site/seo/page-structured-data";
 
-export const metadata: Metadata = {
-  title: "Cancellation & refund policy",
-  description: "How subscription cancellation and refunds work.",
-};
+export function generateMetadata() {
+  return publicPageMetadata("/legal/refunds");
+}
 
 export default function Page() {
-  return <RefundPolicy />;
+  return (
+    <>
+      <RefundPolicy />
+      <PageStructuredData path="/legal/refunds" />
+    </>
+  );
 }

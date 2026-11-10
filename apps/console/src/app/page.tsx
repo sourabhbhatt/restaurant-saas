@@ -1,13 +1,16 @@
-import type { Metadata } from "next";
-
-import { BRAND } from "@ros/web-core/features/site/brand";
 import { LandingPage } from "@ros/web-core/features/site/landing/landing-page";
+import { publicPageMetadata } from "@ros/web-core/features/site/seo/page-metadata";
+import { PageStructuredData } from "@ros/web-core/features/site/seo/page-structured-data";
 
-export const metadata: Metadata = {
-  title: { absolute: `${BRAND.name} — QR ordering, kitchen display and billing for restaurants` },
-  description: BRAND.description,
-};
+export function generateMetadata() {
+  return publicPageMetadata("/");
+}
 
 export default function HomePage() {
-  return <LandingPage />;
+  return (
+    <>
+      <LandingPage />
+      <PageStructuredData path="/" />
+    </>
+  );
 }

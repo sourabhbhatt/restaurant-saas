@@ -11,6 +11,7 @@ export function FaqPage() {
   return (
     <>
       <PageIntro
+        breadcrumbs="/faq"
         eyebrow="FAQ"
         title="Frequently asked questions"
         description={`Honest answers about how ${BRAND.name} works — and what it doesn't do yet.`}

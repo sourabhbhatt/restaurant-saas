@@ -1,12 +1,16 @@
-import type { Metadata } from "next";
-
 import { ContactPage } from "@ros/web-core/features/site/contact-page";
+import { publicPageMetadata } from "@ros/web-core/features/site/seo/page-metadata";
+import { PageStructuredData } from "@ros/web-core/features/site/seo/page-structured-data";
 
-export const metadata: Metadata = {
-  title: "Contact",
-  description: "Get in touch about plans, onboarding or custom pricing.",
-};
+export function generateMetadata() {
+  return publicPageMetadata("/contact");
+}
 
 export default function Page() {
-  return <ContactPage />;
+  return (
+    <>
+      <ContactPage />
+      <PageStructuredData path="/contact" />
+    </>
+  );
 }

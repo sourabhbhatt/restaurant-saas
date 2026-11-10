@@ -11,6 +11,7 @@ export function ContactPage() {
   return (
     <>
       <PageIntro
+        breadcrumbs="/contact"
         eyebrow="Contact"
         title="Talk to a human"
         description="Questions about plans, setting up your restaurant or custom pricing? Email us and we'll get back to you."

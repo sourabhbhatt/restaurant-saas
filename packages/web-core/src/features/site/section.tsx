@@ -2,6 +2,9 @@ import type { ReactNode } from "react";
 
 import { cn } from "@ros/ui/utils";
 
+import { Breadcrumbs } from "./breadcrumbs";
+import type { SitePath } from "./seo/site-pages";
+
 export function Section({
   id,
   children,
@@ -84,18 +87,28 @@ export function PageIntro({
   eyebrow,
   title,
   description,
+  breadcrumbs,
   children,
 }: {
   eyebrow?: ReactNode;
   title: ReactNode;
   description?: ReactNode;
+  /** Breadcrumb trail for this page (also published as BreadcrumbList JSON-LD). */
+  breadcrumbs?: SitePath;
   children?: ReactNode;
 }) {
   return (
-    <div className="relative overflow-hidden border-b px-4 pt-16 pb-14 sm:px-6 md:pt-24 md:pb-20">
+    <div className="relative overflow-hidden border-b px-4 pt-10 pb-14 sm:px-6 md:pt-14 md:pb-20">
       <Backdrop />
       <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center gap-6">
-        <SectionHeading as="h1" eyebrow={eyebrow} title={title} description={description} />
+        {breadcrumbs && <Breadcrumbs path={breadcrumbs} className="self-start" />}
+        <SectionHeading
+          as="h1"
+          eyebrow={eyebrow}
+          title={title}
+          description={description}
+          className={breadcrumbs ? "md:mt-4" : "mt-6 md:mt-10"}
+        />
         {children}
       </div>
     </div>
