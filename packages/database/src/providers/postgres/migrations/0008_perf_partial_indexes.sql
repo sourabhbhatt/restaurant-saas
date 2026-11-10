@@ -1,0 +1,3 @@
+CREATE INDEX "bills_branch_open_idx" ON "bills" USING btree ("workspace_id","branch_id","issued_at") WHERE "bills"."status" = 'ISSUED';--> statement-breakpoint
+CREATE INDEX "orders_branch_done_recent_idx" ON "orders" USING btree ("workspace_id","branch_id",coalesce("served_at", "completed_at", "updated_at")) WHERE "orders"."status" in ('SERVED', 'COMPLETED');--> statement-breakpoint
+CREATE INDEX "orders_branch_cancelled_recent_idx" ON "orders" USING btree ("workspace_id","branch_id","cancelled_at") WHERE "orders"."status" = 'CANCELLED' and "orders"."accepted_at" is not null;

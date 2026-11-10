@@ -57,6 +57,13 @@
       "when": 1794116383559,
       "tag": "0007_runtime_reads_migration_journal",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794300208814,
+      "tag": "0008_perf_partial_indexes",
+      "breakpoints": true
     }
   ]
 }
