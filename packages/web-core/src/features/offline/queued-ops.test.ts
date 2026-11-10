@@ -285,6 +285,29 @@ describe("queued kitchen operations", () => {
     expect(calls[2]!.body?.expectedVersion).toBe(9);
   });
 
+  it("after Retry with latest on the head tap, the taps behind it follow the version the retry returned", async () => {
+    const first = await engine.enqueue(
+      kitchenItemStatusMutation({ branchId: BRANCH, order: ORDER, item: ITEM, status: "PREPARING" }),
+    );
+    await engine.enqueue(
+      kitchenItemStatusMutation({ branchId: BRANCH, order: ORDER, item: ITEM, status: "READY" }),
+    );
+    // Another device changed the order (version 7): the head tap conflicts.
+    responder = () => apiError(409, "STALE_VERSION", { status: "PREPARING", version: 7 });
+    await engine.syncNow();
+    expect(calls).toHaveLength(1);
+
+    responder = (call) =>
+      call.body?.status === "PREPARING" ? orderResponse(8) : orderResponse(9, "READY");
+    expect(await engine.retryWithLatest(first.id)).toBe(true);
+    await engine.syncNow();
+    expect(calls.slice(1).map((c) => [c.body?.status, c.body?.expectedVersion])).toEqual([
+      ["PREPARING", 7],
+      ["READY", 8], // not a second conflict on the stale 4
+    ]);
+    expect((await db.outbox.toArray()).map((i) => i.status)).toEqual(["synced", "synced"]);
+  });
+
   it("a 409 on a later tap stays a conflict: never shown as done, later taps wait behind it", async () => {
     await engine.enqueue(
       kitchenItemStatusMutation({
