@@ -16,6 +16,7 @@ import { Button } from "@ros/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ros/ui/ui/card";
 import { Skeleton } from "@ros/ui/ui/skeleton";
 import { branchConsoles } from "../navigation/nav-config";
+import { SetupChecklist } from "../onboarding/setup-checklist";
 import { useAppLinks } from "../../app-links";
 import { permissionChecker, useBranchContext } from "../session/queries";
 import { ApiError, errorMessage } from "@ros/api-client";
@@ -192,6 +193,10 @@ export function BranchOverview() {
           </Button>
         ))}
       />
+
+      {can("workspace.update") && (
+        <SetupChecklist workspaceId={b.workspaceId} branchId={branchId} />
+      )}
 
       {live.isError ? (
         <ErrorState
