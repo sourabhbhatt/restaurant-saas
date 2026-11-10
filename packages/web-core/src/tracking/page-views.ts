@@ -29,8 +29,10 @@ function firstPageOfSession(): boolean {
 export function trackPageView(pathname: string): boolean {
   if (!trackingActive() || pathname === lastPathname) return false;
   const group = contentGroupFor(pathname);
-  if (group === null) return false;
+  // An unmeasured stop (guest QR page, print sheet) still counts as leaving: coming back to
+  // the page before it is a new view.
   lastPathname = pathname;
+  if (group === null) return false;
 
   const pageLocation = sanitizeUrl(window.location.href);
   const pagePath = sanitizePath(pathname);

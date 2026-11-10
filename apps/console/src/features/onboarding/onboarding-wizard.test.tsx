@@ -5,8 +5,26 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { MeResponse } from "@ros/contracts/auth";
 import { sessionKeys } from "@ros/web-core/features/session/queries";
+import { startApiTracking } from "@ros/web-core/tracking/api-events";
+import { useTrackingStore } from "@ros/web-core/tracking/consent";
+import { configureGtag } from "@ros/web-core/tracking/gtag";
+import {
+  TEST_ID,
+  events,
+  resetTracking,
+  setConsentCookie,
+} from "@ros/web-core/tracking/test-helpers";
 
 import { OnboardingWizard } from "./onboarding-wizard";
+
+/** A visitor who allowed analytics, with the server-confirmed event observer running. */
+let stopTracking: (() => void) | null = null;
+function optInToAnalytics() {
+  setConsentCookie("granted");
+  useTrackingStore.setState({ measurementId: TEST_ID, consent: "granted" });
+  configureGtag(TEST_ID, { debug: false });
+  stopTracking = startApiTracking();
+}
 
 const WS = "11111111-1111-4111-8111-111111111111";
 const R1 = "22222222-2222-4222-8222-222222222222";
@@ -52,6 +70,9 @@ const ok = (data: unknown) => () => ({ status: 200, body: { data } });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  stopTracking?.();
+  stopTracking = null;
+  resetTracking();
 });
 
 describe("OnboardingWizard restaurant step", () => {
@@ -191,6 +212,7 @@ describe("OnboardingWizard tables step", () => {
       defaultOptions: { queries: { retry: false, staleTime: Infinity } },
     });
     qc.setQueryData(sessionKeys.me, me);
+    optInToAnalytics();
     render(
       <QueryClientProvider client={qc}>
         <OnboardingWizard />
@@ -208,6 +230,8 @@ describe("OnboardingWizard tables step", () => {
       `/api/v1/tables/${TA}/qr`,
       `/api/v1/tables/${TB}/qr`,
     ]);
+    // One user action, one key event: only the code the API accepted is counted.
+    expect(events("qr_generated")).toEqual([{ name: "qr_generated", params: { count: 1 } }]);
   });
 });
 
@@ -253,6 +277,7 @@ describe("OnboardingWizard QR codes for many tables", () => {
       defaultOptions: { queries: { retry: false, staleTime: Infinity } },
     });
     qc.setQueryData(sessionKeys.me, me);
+    optInToAnalytics();
     render(
       <QueryClientProvider client={qc}>
         <OnboardingWizard />
@@ -266,5 +291,7 @@ describe("OnboardingWizard QR codes for many tables", () => {
     expect(calls.filter((c) => c.method === "POST" && c.path.endsWith("/qr"))).toHaveLength(10);
     expect(maxInFlight).toBeGreaterThan(1);
     expect(maxInFlight).toBeLessThanOrEqual(4);
+    // Ten codes from one click: one qr_generated (a GA4 key event), not ten.
+    expect(events("qr_generated")).toEqual([{ name: "qr_generated", params: { count: 10 } }]);
   });
 });

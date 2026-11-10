@@ -122,6 +122,15 @@ describe("validateTrackingEvent", () => {
     ).toEqual({ ok: false, reason: "invalid_params" });
   });
 
+  it("counts QR codes per user action: one event carrying how many were generated", () => {
+    expect(validateTrackingEvent("client", "qr_generated", { count: 10 })).toEqual({
+      ok: true,
+      params: { count: 10 },
+    });
+    for (const params of [{}, { count: 0 }, { count: 1.5 }, { count: 1001 }])
+      expect(validateTrackingEvent("client", "qr_generated", params).ok).toBe(false);
+  });
+
   it.each([
     ["two characters", "ab"],
     ["a leading digit", "2026-pro"],
