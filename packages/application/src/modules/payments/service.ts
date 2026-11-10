@@ -13,6 +13,8 @@ import { DomainError, notFound } from "@ros/domain/shared/errors";
 import type { BillingCycle } from "@ros/domain/subscriptions/entitlements";
 import type { TransactionRunner } from "@ros/database/interfaces/transaction";
 import type { PaymentGateway } from "../../ports/payment-gateway";
+import { noServerTracking, trackSafely, type ServerTracking } from "../../ports/server-tracking";
+import { majorUnits, trackingBillingCycle } from "@ros/contracts/tracking-events";
 
 import { recordAudit } from "../../audit/audit-service";
 import { auditActorFor, type AuditActor, type RequestMeta, type UserActor } from "../../context";
@@ -30,6 +32,8 @@ export interface PaymentServiceDeps {
   keyId: string | null;
   clock: Clock;
   logger: Logger;
+  /** Growth events, sent once per order on its first activation. Default: none. */
+  tracking?: ServerTracking;
 }
 
 /** Webhook events that confirm money reached us; everything else is acknowledged and ignored. */
@@ -95,7 +99,41 @@ export function createPaymentService({
   keyId,
   clock,
   logger,
+  tracking = noServerTracking,
 }: PaymentServiceDeps) {
+  /** Called after the activating transaction committed; replays never reach it. */
+  function trackActivation(order: PaymentOrderRow, analytics: RequestMeta["analytics"]): void {
+    const cycle = trackingBillingCycle(order.billingCycle);
+    const context = { analytics };
+    trackSafely(
+      tracking,
+      logger,
+      {
+        name: "payment_succeeded",
+        params: {
+          plan_key: order.planKey,
+          billing_cycle: cycle,
+          value: majorUnits(order.amountMinor, order.currency),
+          currency: order.currency,
+        },
+      },
+      context,
+    );
+    trackSafely(
+      tracking,
+      logger,
+      {
+        name: "subscription_activated",
+        params: {
+          plan_key: order.planKey,
+          billing_cycle: cycle,
+          activation_source: "online_payment",
+        },
+      },
+      context,
+    );
+  }
+
   function requireGateway(): PaymentGateway {
     // Hidden, not forbidden: with no provider the endpoints do not exist.
     if (!gateway || !keyId) throw notFound("Online payment");
@@ -420,7 +458,9 @@ export function createPaymentService({
         existing.status === "PAID" ? [] : await gw.fetchOrderPayments(input.razorpayOrderId);
       const captured = payments.filter((p) => p.status === "captured");
 
-      return tx.run(async (r) => {
+      const won: { order?: PaymentOrderRow } = {};
+      const result = await tx.run(async (r) => {
+        won.order = undefined;
         const order = await r.payments.lockOrder(gw.name, input.razorpayOrderId);
         if (!order) throw notFound("Payment order");
         const current = async (status: CheckoutVerifyDto["status"], periodEnd: Date | null) => ({
@@ -440,8 +480,11 @@ export function createPaymentService({
           return current("PENDING", null);
         }
         const { periodEnd } = await activateInTx(r, order, match.paymentId, actorFor);
+        won.order = order;
         return current("ACTIVE", periodEnd);
       });
+      if (won.order) trackActivation(won.order, meta.analytics);
+      return result;
     },
 
     /**
@@ -471,7 +514,9 @@ export function createPaymentService({
       const payment = readWebhookPayment(payload);
       const actor: AuditActor = { type: "SYSTEM", userId: null, requestId: meta.requestId };
 
+      const won: { order?: PaymentOrderRow } = {};
       const outcome = await tx.run(async (r): Promise<WebhookResultDto["outcome"]> => {
+        won.order = undefined;
         // The order row is locked FOR UPDATE before the event is recorded, so a webhook
         // and the verify endpoint (or two deliveries) serialise on one order.
         const order =
@@ -508,8 +553,12 @@ export function createPaymentService({
           return "mismatch";
         }
         await activateInTx(r, order, payment.paymentId, actor);
+        won.order = order;
         return "activated";
       });
+      // Only `activated`: duplicate, already_paid, mismatch and replays never emit. The provider's
+      // request carries no browser, so the event is anonymous.
+      if (outcome === "activated" && won.order) trackActivation(won.order, null);
       logger.info("payment_webhook_handled", { type, outcome, requestId: meta.requestId });
       return { received: true, outcome };
     },

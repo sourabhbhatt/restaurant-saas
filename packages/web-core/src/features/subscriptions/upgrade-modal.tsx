@@ -26,6 +26,7 @@ import type { PublicPlanDto } from "@ros/contracts/platform";
 import { BILLING_CYCLES } from "@ros/domain/subscriptions/entitlements";
 import { applyFieldErrors, errorMessage } from "@ros/api-client";
 import { cn } from "@ros/ui/utils";
+import { useTrackOnMount } from "../../tracking/track";
 
 import { useCancelUpgrade, useRequestUpgrade, useSubscriptionOverview } from "./queries";
 import { PayWithRazorpayButton } from "./razorpay-checkout";
@@ -69,6 +70,7 @@ function UpgradeBody({
   initialPlanKey?: string;
   onDone: () => void;
 }) {
+  useTrackOnMount("upgrade_clicked", { plan_key: initialPlanKey });
   const overview = useSubscriptionOverview(workspaceId);
   const request = useRequestUpgrade(workspaceId);
   const cancel = useCancelUpgrade(workspaceId);

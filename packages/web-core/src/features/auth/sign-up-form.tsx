@@ -19,6 +19,7 @@ import { signUpSchema } from "@ros/contracts/auth";
 import { BRAND } from "../site/brand";
 import { useMe } from "../session/queries";
 import { api, ApiError, applyFieldErrors, errorMessage } from "@ros/api-client";
+import { trackOnce } from "../../tracking/track";
 
 import { AuthCard } from "./auth-card";
 import { PasswordInput } from "./password-input";
@@ -108,7 +109,15 @@ export function SignUpForm() {
         </>
       }
     >
-      <form noValidate onSubmit={onSubmit} className="flex flex-col gap-5" aria-busy={pending}>
+      <form
+        noValidate
+        onSubmit={onSubmit}
+        onFocusCapture={() =>
+          trackOnce("signup_started", { invited: target.startsWith("/invite/") })
+        }
+        className="flex flex-col gap-5"
+        aria-busy={pending}
+      >
         {blocked && (
           <Alert variant="destructive">
             <TriangleAlertIcon />

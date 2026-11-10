@@ -12,7 +12,8 @@ import type { TransactionRunner } from "@ros/database/interfaces/transaction";
 import { recordAudit } from "../../audit/audit-service";
 import type { WorkspaceScope } from "../../authz/access-service";
 import { auditActorFor, type RequestMeta, type UserActor } from "../../context";
-import type { Clock } from "../../ports/observability";
+import type { Clock, Logger } from "../../ports/observability";
+import { noServerTracking, trackSafely, type ServerTracking } from "../../ports/server-tracking";
 import type { EntitlementService } from "../../subscriptions/entitlement-service";
 import type { WorkspaceRepos } from "./ports";
 
@@ -50,6 +51,9 @@ export interface WorkspaceServiceDeps {
   }>;
   clock: Clock;
   entitlements: EntitlementService;
+  /** Growth events (`trial_started`). Default: none. */
+  tracking?: ServerTracking;
+  logger?: Logger;
 }
 
 export function createWorkspaceService({
@@ -57,6 +61,8 @@ export function createWorkspaceService({
   bootstrap,
   clock,
   entitlements,
+  tracking = noServerTracking,
+  logger,
 }: WorkspaceServiceDeps) {
   type Bootstrap = Parameters<Parameters<WorkspaceServiceDeps["bootstrap"]["run"]>[0]>[0];
 
@@ -84,7 +90,7 @@ export function createWorkspaceService({
         "You have already used a free trial. Upgrade your existing organization to add workspaces.",
       );
     }
-    return bootstrap.run(async (r) => {
+    const created = await bootstrap.run(async (r) => {
       const org = await r.workspaces.insertOrganization({
         name: input.name,
         createdBy: actor.userId,
@@ -128,8 +134,19 @@ export function createWorkspaceService({
         { workspaceId: ws.id, targetType: "workspace", targetId: ws.id },
         { organizationId: org.id, trialDays: settings.trialDays, planKey: plan.key },
       );
-      return ws;
+      return { ws, planKey: plan.key };
     });
+    // Committed: one trial per person, so this fires once per trial.
+    trackSafely(
+      tracking,
+      logger,
+      {
+        name: "trial_started",
+        params: { plan_key: created.planKey, trial_days: settings.trialDays },
+      },
+      { analytics: meta.analytics },
+    );
+    return created.ws;
   }
 
   return {

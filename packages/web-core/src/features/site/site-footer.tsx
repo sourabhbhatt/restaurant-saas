@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PrivacyChoicesLink } from "../../tracking/privacy-choices";
 import { BRAND, LEGAL_NAV, SITE_NAV } from "./brand";
 import { BrandLogo } from "./logo";
 
@@ -35,6 +36,7 @@ export function SiteFooter() {
             {BRAND.jurisdiction}.
           </p>
           <p>
+            <PrivacyChoicesLink className="mr-4 hover:text-foreground" />
             <Link href="/sign-in" className="hover:text-foreground">
               Staff sign in
             </Link>

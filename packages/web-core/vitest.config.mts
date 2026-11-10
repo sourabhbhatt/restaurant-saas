@@ -9,7 +9,7 @@ export default defineConfig({
       serverProject({ name: "web-core:node", include: ["src/*.test.ts"] }),
       uiProject({
         name: "web-core:ui",
-        include: ["src/**/*.test.tsx", "src/features/**/*.test.ts"],
+        include: ["src/**/*.test.tsx", "src/features/**/*.test.ts", "src/tracking/**/*.test.ts"],
       }),
     ],
   },

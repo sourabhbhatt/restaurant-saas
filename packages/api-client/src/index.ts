@@ -60,6 +60,32 @@ function buildUrl(path: string, query?: ApiRequestOptions["query"]): string {
   return qs ? `${url}${url.includes("?") ? "&" : "?"}${qs}` : url;
 }
 
+/** A mutation the server accepted (2xx), for observers such as growth tracking. */
+export interface ApiSuccess {
+  method: string;
+  /** Request path without the query string, e.g. `/api/v1/workspaces`. */
+  url: string;
+  data: unknown;
+}
+
+const successListeners = new Set<(success: ApiSuccess) => void>();
+
+/** Observe accepted mutations. Returns the unsubscribe function. A throwing listener is ignored. */
+export function onApiSuccess(listener: (success: ApiSuccess) => void): () => void {
+  successListeners.add(listener);
+  return () => successListeners.delete(listener);
+}
+
+function notifySuccess(success: ApiSuccess): void {
+  for (const listener of successListeners) {
+    try {
+      listener(success);
+    } catch {
+      // An observer must never turn a successful call into a failure.
+    }
+  }
+}
+
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const method = options.method ?? (options.body !== undefined ? "POST" : "GET");
   const headers: Record<string, string> = { accept: "application/json", ...options.headers };
@@ -106,7 +132,9 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       requestId: res.headers.get("x-request-id"),
     });
   }
-  return (payload as { data: T }).data;
+  const data = (payload as { data: T }).data;
+  if (method !== "GET") notifySuccess({ method, url: buildUrl(path), data });
+  return data;
 }
 
 export const api = {

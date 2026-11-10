@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { DomainError, isDomainError } from "@ros/domain/shared/errors";
 import { hashToken, isWellFormedToken } from "@ros/domain/shared/tokens";
+import { consentedAnalyticsIds } from "@ros/contracts/tracking-events";
 
 import type { RequestMeta, UserActor } from "../context";
 import { getContainer, type Container } from "../container";
@@ -218,6 +219,7 @@ export function route<
           onRejected: (reason) => c.logger.warn("client_ip_signature_rejected", { reason }),
         }),
         userAgent: req.headers.get("user-agent"),
+        analytics: consentedAnalyticsIds(req.headers.get("cookie"), c.env.GA_MEASUREMENT_ID),
       };
       if (MUTATING.has(req.method) && !config.skipOriginCheck)
         assertSameOrigin(req, c.env.ALLOWED_ORIGINS);

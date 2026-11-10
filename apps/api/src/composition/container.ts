@@ -41,11 +41,13 @@ import { createRazorpayGateway } from "@ros/adapters/payments/providers/razorpay
 import { createLocalStorage } from "@ros/adapters/storage/providers/local-storage";
 import { createGcsStorage } from "@ros/adapters/storage/providers/gcs-storage";
 import { createS3Storage } from "@ros/adapters/storage/providers/s3-storage";
+import { createGa4MeasurementProtocolTracking } from "@ros/adapters/tracking/providers/ga4-measurement-protocol";
 
 import { createAccessService } from "@ros/application/authz/access-service";
 import { appOriginAllowed, getEnv, tenantRole, type ServerEnv } from "@ros/application/config/env";
 import type { Logger } from "@ros/application/ports/observability";
 import type { PaymentGateway } from "@ros/application/ports/payment-gateway";
+import { noServerTracking, type ServerTracking } from "@ros/application/ports/server-tracking";
 import { createEntitlementService } from "@ros/application/subscriptions/entitlement-service";
 import {
   createAdjustableClock,
@@ -117,10 +119,24 @@ export function selectPaymentGateway(env: ServerEnv): PaymentGateway | null {
   });
 }
 
+export function selectTracking(env: ServerEnv, logger: Logger): ServerTracking {
+  if (env.TRACKING_PROVIDER !== "ga4") return noServerTracking;
+  // getEnv() already refuses ga4 without both values; the check stays for injected envs (tests).
+  if (!env.GA_MEASUREMENT_ID || !env.GA_API_SECRET)
+    throw new Error("TRACKING_PROVIDER=ga4 requires GA_MEASUREMENT_ID and GA_API_SECRET");
+  return createGa4MeasurementProtocolTracking({
+    measurementId: env.GA_MEASUREMENT_ID,
+    apiSecret: env.GA_API_SECRET,
+    logger,
+  });
+}
+
 export interface BuildOptions {
   env?: ServerEnv;
   /** Inject a gateway (tests use the fake); undefined selects by env. */
   payments?: PaymentGateway | null;
+  /** Inject a tracking adapter (tests use the memory one); undefined selects by env. */
+  tracking?: ServerTracking;
   /** Inject an existing database (tests). */
   database?: DatabaseHandle;
   migrate?: boolean;
@@ -139,6 +155,7 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
   const email = selectEmail(env, logger);
   const storage = selectStorage(env, logger);
   const payments = options.payments !== undefined ? options.payments : selectPaymentGateway(env);
+  const tracking = options.tracking ?? selectTracking(env, logger);
   const ownsHandle = !options.database;
   const handle =
     options.database ??
@@ -192,6 +209,7 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
       realtime,
       push: createNoopPushSender(),
       payments,
+      tracking,
       access,
       entitlements,
       isReady: async () => {
@@ -208,6 +226,8 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
       },
       close: async () => {
         try {
+          // In-flight analytics sends are bounded by their own timeout.
+          await tracking.flush();
           await realtime?.close?.();
         } finally {
           await handle.close();

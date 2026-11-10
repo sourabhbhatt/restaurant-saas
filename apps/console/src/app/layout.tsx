@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { AppProviders } from "@ros/web-core/app-providers";
 import { RuntimeAppLinks } from "@ros/web-core/runtime-app-links";
+import { Tracking } from "@ros/web-core/tracking/tracking";
 import "./globals.css";
 
 const APP_NAME = "RestaurantOS";
@@ -59,6 +60,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Suspense fallback={null}>
             <RuntimeAppLinks />
           </Suspense>
+          <Tracking />
           {children}
         </AppProviders>
       </body>
