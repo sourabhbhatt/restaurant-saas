@@ -26,6 +26,7 @@ import { PaymentHistory } from "./payment-history";
 import { ReasonConfirmDialog } from "./reason-confirm-dialog";
 import { RefundDialog } from "./refund-dialog";
 import { NeedsConnectionNote, useIsOffline } from "../../offline";
+import { appHref, useAppLinks } from "../../../app-links";
 
 interface Props {
   bill: BillDto;
@@ -66,6 +67,7 @@ export function BillDetail({
   children,
   onClosed,
 }: Props) {
+  const links = useAppLinks();
   const [refundOpen, setRefundOpen] = useState(false);
   const [voidOpen, setVoidOpen] = useState(false);
   const [paidOpen, setPaidOpen] = useState(false);
@@ -89,7 +91,12 @@ export function BillDetail({
           <BillStatusBadges bill={bill} />
         </div>
         <Button asChild variant="outline" size="sm">
-          <Link href={`/print/bills/${bill.id}`} target="_blank" rel="noopener">
+          {/* The receipt page is a console page; this panel also renders in the ops cashier. */}
+          <Link
+            href={appHref(links.console, `/print/bills/${bill.id}`)}
+            target="_blank"
+            rel="noopener"
+          >
             <Printer aria-hidden /> Print receipt
           </Link>
         </Button>

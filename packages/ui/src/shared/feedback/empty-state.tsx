@@ -10,8 +10,8 @@ type EmptyStateProps = Omit<React.ComponentProps<"div">, "title"> & {
   /** Call to action, e.g. a `<Button>`. */
   action?: React.ReactNode;
   size?: "default" | "compact";
-  /** Heading level of the title; use 2 when the empty state is the page's main content. */
-  headingLevel?: 2 | 3 | 4;
+  /** Heading level of the title; 2 under a page's h1, 1 when it is the whole page. */
+  headingLevel?: 1 | 2 | 3 | 4;
 };
 
 function EmptyState({
