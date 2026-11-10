@@ -86,6 +86,14 @@ test.describe("public pages are server-rendered for crawlers", () => {
       const h1s = [...html.matchAll(/<h1[\s>][\s\S]*?<\/h1>/g)];
       expect(h1s).toHaveLength(1);
 
+      // Heading levels never skip (h1 → h3 without an h2 in between).
+      const levels = [...html.matchAll(/<h([1-6])[\s>]/g)].map((m) => Number(m[1]));
+      expect(levels[0]).toBe(1);
+      const skips = levels.flatMap((level, i) =>
+        i > 0 && level > levels[i - 1]! + 1 ? [`h${levels[i - 1]} → h${level}`] : [],
+      );
+      expect(skips).toEqual([]);
+
       // Fragment links (#no-app, #offline …) need unique element ids.
       const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
       expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
@@ -116,11 +124,20 @@ test.describe("public pages are server-rendered for crawlers", () => {
     const graph = jsonLdBlocks(html).flatMap((b) => b["@graph"] as Record<string, unknown>[]);
     const app = graph.find((n) => n["@type"] === "WebApplication");
     expect(app).toBeDefined();
+    // The E2E API is seeded with plans, so the server render must have loaded them
+    // (if it fell back to the browser fetch, offers would be missing).
     const offers = (app!.offers ?? []) as { price: number }[];
-    // Without a reachable API the page falls back to client-side loading and offers are omitted.
+    expect(offers.length).toBeGreaterThan(0);
+    // Next streams dynamic responses for every user agent, bots included: the
+    // skeleton comes first and the cards follow later in the same HTML (a hidden
+    // segment an inline script swaps in). The prices must be in those
+    // server-rendered cards, not only in the JSON-LD.
+    const body = html.slice(html.indexOf("<body"));
+    const firstCard = body.indexOf('<article aria-labelledby="plan-');
+    expect(firstCard).toBeGreaterThan(-1);
     for (const offer of offers) {
       const shown = `₹${offer.price.toLocaleString("en-IN")}`;
-      expect(html).toContain(shown);
+      expect(body.indexOf(shown, firstCard)).toBeGreaterThan(firstCard);
     }
   });
 
@@ -151,6 +168,13 @@ test.describe("browsers see the same metadata after streaming", () => {
       "/features",
     );
     await expect(crumbs.locator('[aria-current="page"]')).toHaveText("Kitchen display system");
+  });
+
+  test("the streamed plan cards replace the pricing skeleton", async ({ page }) => {
+    await page.goto("/pricing");
+    await expect(page.locator("article[aria-labelledby^='plan-']").first()).toBeVisible();
+    await expect(page.getByText(/₹\d/).first()).toBeVisible();
+    await expect(page.getByRole("status", { name: "Loading plans" })).toHaveCount(0);
   });
 
   test("feature pages are reachable from the features page and footer", async ({ page }) => {
@@ -190,6 +214,16 @@ test.describe("private routes are never indexable", () => {
   test("the API proxy carries noindex", async ({ request }) => {
     const res = await request.get("/api/v1/health");
     expect(res.headers()["x-robots-tag"]).toBe(NOINDEX);
+  });
+
+  test("app icons and optimised copies of non-site images carry noindex", async ({ request }) => {
+    const headers: Record<string, string> = SITE_HOST ? { host: SITE_HOST } : {};
+    const icon = await request.get("/icons/icon-192.png", { headers });
+    expect(icon.headers()["x-robots-tag"]).toBe(NOINDEX);
+    const optimised = await request.get("/_next/image?url=%2Ficons%2Ficon-192.png&w=64&q=75", {
+      headers,
+    });
+    expect(optimised.headers()["x-robots-tag"]).toBe(NOINDEX);
   });
 
   test("unknown URLs return a noindex 404 with links back to the site", async ({ page }) => {
@@ -251,8 +285,11 @@ test.describe("robots.txt, sitemap.xml and llms.txt", () => {
       ["/og-image.png", 1200, 630],
       ["/logo.png", 512, 512],
     ] as const) {
-      const res = await request.get(path);
+      const res = await request.get(path, { headers: SITE_HOST ? { host: SITE_HOST } : {} });
       expect(res.headers()["content-type"]).toBe("image/png");
+      // Google requires the Organization logo to be indexable: only on the production site.
+      if (PRODUCTION) expect(res.headers()["x-robots-tag"]).toBeUndefined();
+      else expect(res.headers()["x-robots-tag"]).toBe(NOINDEX);
       const png = await res.body();
       expect(png.readUInt32BE(16)).toBe(width);
       expect(png.readUInt32BE(20)).toBe(height);
@@ -271,5 +308,8 @@ test.describe("production host check", () => {
     expect(robotsMetaOf(head)).toBe("noindex, nofollow");
     // The canonical still names the production page.
     expect(canonicalOf(head)).toBe(`${SITE_URL}/pricing`);
+    for (const path of ["/logo.png", "/og-image.png"]) {
+      expect((await request.get(path)).headers()["x-robots-tag"]).toBe(NOINDEX);
+    }
   });
 });
