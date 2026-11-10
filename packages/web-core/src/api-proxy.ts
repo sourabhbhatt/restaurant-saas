@@ -92,6 +92,18 @@ function relayedHeaders(upstream: Response): Headers {
   return headers;
 }
 
+/**
+ * Next.js does not compress route handler responses, so JSON relayed to a
+ * browser that accepts gzip is compressed here (a 300-item guest menu is
+ * ~190 KB raw, ~30 KB gzip). Event streams are never compressed: that would
+ * buffer them.
+ */
+function shouldGzip(req: Request, upstream: Response): boolean {
+  if (upstream.body === null || req.method === "HEAD") return false;
+  if (!/\bgzip\b/i.test(req.headers.get("accept-encoding") ?? "")) return false;
+  return /\bjson\b/i.test(upstream.headers.get("content-type") ?? "");
+}
+
 export function createApiProxy(config: ApiProxyConfig): ApiProxy {
   const doFetch = config.fetch ?? fetch;
 
@@ -117,10 +129,19 @@ export function createApiProxy(config: ApiProxyConfig): ApiProxy {
       return Response.json(UNAVAILABLE, { status: 502 });
     }
     // The body is passed through as a stream, so SSE and large downloads are never buffered.
-    return new Response(upstream.body, {
-      status: upstream.status,
-      headers: relayedHeaders(upstream),
-    });
+    const headers = relayedHeaders(upstream);
+    const gzip = shouldGzip(req, upstream);
+    if (gzip) {
+      headers.set("content-encoding", "gzip");
+      headers.append("vary", "accept-encoding");
+    }
+    return new Response(
+      gzip ? upstream.body!.pipeThrough(new CompressionStream("gzip")) : upstream.body,
+      {
+        status: upstream.status,
+        headers,
+      },
+    );
   };
 
   return { GET: handler, POST: handler, PUT: handler, PATCH: handler, DELETE: handler };
