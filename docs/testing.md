@@ -32,7 +32,35 @@ Local Postgres for them: `docker run -d --name ros-pg -e POSTGRES_PASSWORD=dev -
 
 ## Browser tests
 
-`pnpm exec playwright install chromium && pnpm test:e2e`. Without `E2E_BASE_URL`, Playwright builds and starts the API on :4100 (`ALLOWED_ORIGINS` = the console origin, `TRUSTED_PROXY_HOPS=1`) and the console on :3100 (`API_INTERNAL_URL` pointing at it). With `E2E_BASE_URL` it tests an existing deployment (for example the compose stack on `http://localhost:3000`). Specs: `site.spec.ts` (public site), `app-shell.spec.ts` (home page and web app manifest), `offline.spec.ts` (service worker and offline page).
+`pnpm exec playwright install chromium && pnpm test:e2e`. Without `E2E_BASE_URL`, Playwright
+runs `tests/e2e/support/serve-api.ts`, which builds the four apps (turbo cache), recreates a
+throwaway PGlite database under `.data/e2e-<api port>` with the demo seed and serves the API
+(`NODE_ENV=test`, test hooks on, never `.env.local` or a Postgres server), then starts console,
+ops and admin as production builds proxying `/api/v1` to it. Ports: console 3100, ops 3101,
+admin 3102, API 4100 (`E2E_PORT`, `E2E_OPS_PORT`, `E2E_ADMIN_PORT`, `E2E_API_PORT`). With
+`E2E_BASE_URL` (+ `E2E_OPS_URL`, `E2E_ADMIN_URL`) it tests running servers instead.
+
+- Global setup signs each demo account in once and saves its cookies under `.data/e2e-auth`
+  (sign-in is rate limited); a saved session the server still accepts is reused.
+- Every API and browser context gets its own `X-Forwarded-For` address, so the per-IP rate
+  limits never couple parallel tests.
+- Tests never share a table: `freshTable()` creates one (with its QR code) per test, so a repeat
+  or a CI retry never meets an earlier attempt's session or bill. Orders are found by a unique
+  note.
+- Animations are off (`reducedMotion: "reduce"`; the UI kit only animates `motion-safe`) and the
+  test timeout is 60 s, so slow shared runners do not cause flakes.
+- `page.route()` does not see requests the service worker makes (GET `/api/*` once it controls
+  the page): a test that stubs API reads opens its context with `serviceWorkers: "block"`.
+
+| Spec                       | Project | Covers                                                                                                                                                                                                                                                                                            |
+| -------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `site.spec.ts`             | both    | public pages, sign-up validation, sign-in error, reset without token                                                                                                                                                                                                                              |
+| `app-shell.spec.ts`        | both    | home page, web app manifest, service worker, offline fallback page                                                                                                                                                                                                                                |
+| `owner-onboarding.spec.ts` | desktop | sign-up form, onboarding wizard (workspace, restaurant and branch, first dish, tables), QR codes generated on the print sheet, a guest opens the first QR menu                                                                                                                                    |
+| `guest.spec.ts`            | mobile  | QR menu, search, customisation, order and re-order, two guests on one bill, bill request, invalid/rotated QR, lost session cookie, offline and lost-response retries                                                                                                                              |
+| `waiter.spec.ts`           | mobile  | approve and serve a QR order, reject with a reason (guest sees it), staff-entered order, bill requests                                                                                                                                                                                            |
+| `operations.spec.ts`       | desktop | kitchen start and item-level ready, cashier bill with split UPI + cash payment and change, two waiters racing on one order (409), dashboard history/tables/bills, ops back links                                                                                                                  |
+| `offline.spec.ts`          | desktop | staff order queued offline and sent once, kitchen updates queued, reloaded offline and synced, two screens converging, refused change kept as a conflict, session-changed hold and "Retry with latest", lost answer + 503 replayed with one idempotency key, online-only actions disabled offline |
 
 ## Smoke run
 
@@ -40,7 +68,7 @@ Local Postgres for them: `docker run -d --name ros-pg -e POSTGRES_PASSWORD=dev -
 
 ## Not covered yet
 
-- Browser end-to-end workflows beyond the three specs (onboarding, customer ordering, waiter/kitchen, billing, multi-customer, offline reconnect across apps).
+- Browser end-to-end journeys for staff invitations, the super-admin console and subscription upgrades (covered by API integration tests only).
 - Docker images and the compose stack are not exercised by tests (CI builds the affected images only).
 - Load and accessibility audits.
 

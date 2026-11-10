@@ -122,8 +122,10 @@ A small custom persister over Dexie (no extra dependency):
 
 - Persisted: `["me"]`, `["branch", id, "context"]`, `["workspace", id, "structure"]` and any query
   with `meta: { persist: true }` (the notification bell uses this).
-- Successful **network** results are written (debounced 300 ms) with the server-confirmed user id.
-  Results put in with `setQueryData` are not written back.
+- Successful **network** results are written with the server-confirmed user id: the first result
+  of each query on a page load at once (a screen that loses its connection or is reloaded right
+  after it loaded still has its data), later ones debounced 300 ms. Pending debounced writes are
+  flushed when the tab is hidden. Results put in with `setQueryData` are not written back.
 - On startup the last confirmed user's rows (max 7 days old) are restored with
   `setQueryData(key, data, { updatedAt })`. The original timestamp keeps them stale, so they
   are refetched as soon as the network allows. Fresher in-memory data is never overwritten.
@@ -209,7 +211,9 @@ On startup, on the `online` event, when the tab becomes visible, every 30 s whil
 while items are waiting, when a backed-off item is due, right after `enqueueMutation`, and on
 manual **Sync now** (which ignores backoff timers). Each trigger first probes
 `GET /api/v1/sync/ping` (public, `no-store`) because `navigator.onLine` can say "online" on dead
-Wi-Fi. Background Sync API is not used.
+Wi-Fi. The `online` event often fires before the network carries traffic, so a probe that fails
+while the browser reports a connection is repeated after 1, 2, 4 and 8 s (`REPROBE_DELAYS_MS`)
+before the 30 s interval takes over. Background Sync API is not used.
 
 ## Service worker (`apps/console/src/app/sw.ts` and `apps/ops/src/app/sw.ts`, Serwist 9)
 
