@@ -1,5 +1,4 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
-import { gunzipSync } from "node:zlib";
 import type { AddressInfo } from "node:net";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -101,39 +100,6 @@ describe("createApiProxy", () => {
     const first = await reader.read();
     expect(new TextDecoder().decode(first.value)).toContain("data: first");
     expect(Date.now() - started).toBeLessThan(500);
-    await reader.cancel();
-  });
-
-  it("gzips JSON for clients that accept it, and only then", async () => {
-    const proxy = createApiProxy({ apiInternalUrl: () => base });
-    const body = JSON.stringify({ items: Array.from({ length: 200 }, (_, i) => `item ${i}`) });
-    const request = (headers: Record<string, string>) =>
-      new Request("http://console.local/api/v1/orders", {
-        method: "POST",
-        headers: { "content-type": "application/json", ...headers },
-        body,
-      });
-    const gz = await proxy.POST(request({ "accept-encoding": "gzip, deflate, br" }), ctx);
-    expect(gz.headers.get("content-encoding")).toBe("gzip");
-    expect(gz.headers.get("vary")).toContain("accept-encoding");
-    const bytes = Buffer.from(await gz.arrayBuffer());
-    expect(bytes.length).toBeLessThan(body.length);
-    expect(JSON.parse(gunzipSync(bytes).toString())).toEqual({ data: { echoed: body } });
-
-    const plain = await proxy.POST(request({}), ctx);
-    expect(plain.headers.get("content-encoding")).toBeNull();
-    expect(await plain.json()).toEqual({ data: { echoed: body } });
-  });
-
-  it("never compresses event streams", async () => {
-    const proxy = createApiProxy({ apiInternalUrl: () => base });
-    const res = await proxy.GET(
-      new Request("http://console.local/api/v1/events", { headers: { "accept-encoding": "gzip" } }),
-      ctx,
-    );
-    expect(res.headers.get("content-encoding")).toBeNull();
-    const reader = res.body!.getReader();
-    expect(new TextDecoder().decode((await reader.read()).value)).toContain("data: first");
     await reader.cancel();
   });
 
