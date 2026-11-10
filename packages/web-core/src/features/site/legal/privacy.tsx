@@ -110,13 +110,21 @@ const SECTIONS: LegalSection[] = [
         <p>
           <strong>Optional analytics (Google Analytics).</strong> Used only if you choose
           &ldquo;Allow analytics&rdquo; on our website, sign-in pages or dashboard. Nothing is sent
-          to Google before that, and nothing if you decline or ignore the question.
+          to Google before that, and nothing if you decline or ignore the question. The choice
+          belongs to the browser you make it in: on another browser or device you are asked
+          separately.
         </p>
         <ul>
           <li>
             Cookies: Google Analytics cookies (<code>_ga</code> and <code>_ga_…</code>, up to 180
             days) holding a random identifier for your browser, and a marker for the first page of
             each visit kept in the tab until it closes.
+          </li>
+          <li>
+            Collected by Google Analytics itself with each page view: the type of device and
+            browser, operating system, screen size and language, and an approximate location
+            (country, region and city) that Google works out from your IP address. Google states
+            that Google Analytics does not log or store IP addresses.
           </li>
           <li>
             From your browser: the pages you visit (with account, restaurant and invitation
@@ -131,24 +139,25 @@ const SECTIONS: LegalSection[] = [
             an active plan) and activated your subscription. These are linked to the random
             identifier in your <code>_ga</code> cookie. So that a payment confirmed by our payment
             provider after you have left the page can still be counted, we keep that identifier with
-            the payment record until the payment is confirmed (at most 48 hours if it never is), and
-            then delete it.
+            the payment record and use it only within 48 hours of starting the checkout; it is
+            deleted when the payment is confirmed, or by the next cleanup run after those 48 hours.
           </li>
           <li>
-            Never sent: your name, email address, phone number, password, payment details, your
-            restaurant&apos;s menu, orders or sales, or account and restaurant identifiers.
-            Advertising features and Google signals are switched off, and Google states that Google
-            Analytics does not log or store IP addresses. Google keeps this data for up to 14
-            months.
+            Never sent by us: your name, email address, phone number, password, payment details,
+            your restaurant&apos;s menu, orders or sales, or account and restaurant identifiers.
+            Advertising features and Google signals are switched off. Google keeps this data for up
+            to 14 months.
           </li>
         </ul>
         <p>
           You can withdraw at any time from &ldquo;Cookie settings&rdquo; at the bottom of the
-          website and sign-in pages, or in your account menu once signed in. Withdrawing deletes the
-          Google Analytics cookies on that device, stops every open tab, and stops our servers from
-          sending further events about you (a payment for a checkout you started while analytics was
-          allowed may still be counted once). Guests ordering from a table QR code are never asked
-          and never get analytics cookies.
+          website and sign-in pages, or in your account menu once signed in. Withdrawing in a
+          browser deletes the Google Analytics cookies in that browser, stops every open tab of ours
+          in it, and stops our servers from sending further events from that browser (a payment for
+          a checkout started there while analytics was allowed may still be counted once, within
+          those 48 hours). It does not change the choice made in your other browsers or devices;
+          withdraw there too. Guests ordering from a table QR code are never asked and never get
+          analytics cookies.
         </p>
       </>
     ),
