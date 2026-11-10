@@ -137,6 +137,12 @@ comparison file). The pool change is W1's `POSTGRES_POOL_OPTIONS.idleTimeoutMill
 The API output grew only because other workstreams' code was merged. An earlier "+5.8 MB" figure
 compared a Turbo cache replay with a real build; forced builds removed that artefact.
 
+The precache saving for marketing and guest visitors applies to new visitors only. A browser
+that already installed the earlier worker keeps it: the scope is `/`, shared with `/app`, and
+nothing unregisters it. It checks for updates as usual, installs the new build's worker and
+precaches that build's chunks. Old and new chunks are content-hashed and the runtime cache rules
+are unchanged, so no page is served stale.
+
 ## What W6 changed
 
 | Change                                                                                                                                                                                                                                       | Evidence                                                                                            |
