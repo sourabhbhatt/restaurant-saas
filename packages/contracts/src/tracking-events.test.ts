@@ -7,6 +7,7 @@ import {
   consentedAnalyticsIds,
   majorUnits,
   piiKind,
+  storedAnalyticsIds,
   validateTrackingEvent,
   type TrackingParams,
 } from "./tracking-events";
@@ -57,8 +58,15 @@ describe("tracking event catalog", () => {
     expect(keyEvents.length).toBeLessThanOrEqual(30);
   });
 
-  it("never sends database-derived diner and kitchen events", () => {
-    for (const name of ["qr_menu_viewed", "order_submitted", "order_accepted", "order_completed"]) {
+  it("never sends database-derived diner, kitchen and Super Admin events", () => {
+    for (const name of [
+      "qr_menu_viewed",
+      "order_submitted",
+      "order_accepted",
+      "order_completed",
+      // Cancelled by a Super Admin: no consented browser of the customer behind it.
+      "subscription_cancelled",
+    ]) {
       expect(validateTrackingEvent("client", name, {})).toEqual({
         ok: false,
         reason: "unknown_event",
@@ -79,11 +87,78 @@ describe("validateTrackingEvent", () => {
         billing_cycle: "monthly",
         value: 1499,
         currency: "INR",
+        renewal: false,
       }),
     ).toEqual({
       ok: true,
-      params: { plan_key: "pro", billing_cycle: "monthly", value: 1499, currency: "INR" },
+      params: {
+        plan_key: "pro",
+        billing_cycle: "monthly",
+        value: 1499,
+        currency: "INR",
+        renewal: false,
+      },
     });
+  });
+
+  it("labels renewals on payments and counts only first activations", () => {
+    const paid = { plan_key: "pro", billing_cycle: "annual", value: 14990, currency: "INR" };
+    expect(
+      validateTrackingEvent("server", "payment_succeeded", { ...paid, renewal: true }),
+    ).toEqual({ ok: true, params: { ...paid, renewal: true } });
+    expect(
+      validateTrackingEvent("server", "subscription_activated", {
+        plan_key: "pro",
+        billing_cycle: "annual",
+      }).ok,
+    ).toBe(true);
+    // Manual (Super Admin) activations are no longer sent, so there is no source to label.
+    expect(
+      validateTrackingEvent("server", "subscription_activated", {
+        plan_key: "pro",
+        billing_cycle: "annual",
+        activation_source: "manual",
+      }),
+    ).toEqual({ ok: false, reason: "invalid_params" });
+  });
+
+  it.each([
+    ["two characters", "ab"],
+    ["a leading digit", "2026-pro"],
+    ["40 characters", "a".repeat(40)],
+    ["a 24+ character slug", "professional-annual-plan"],
+    ["eight digits", "pro-20261110"],
+    ["underscores", "chain_annual_v2"],
+  ])("accepts every plan key the platform accepts: %s", (_label, planKey) => {
+    expect(validateTrackingEvent("client", "upgrade_clicked", { plan_key: planKey })).toEqual({
+      ok: true,
+      params: { plan_key: planKey },
+    });
+  });
+
+  it.each([
+    ["one character", "a"],
+    ["41 characters", "a".repeat(41)],
+    ["upper case", "Pro"],
+    // Valid slugs on the platform, but shaped like personal data: never sent.
+    ["a mobile number", "9845012345"],
+    ["a dashed mobile number", "98450-12345"],
+    ["a uuid", "0b3c6c2e-5d0e-4f43-9d55-0a4c3f0e5c11"],
+  ])(
+    "drops a plan key the platform would refuse or that looks like personal data: %s",
+    (_label, planKey) => {
+      expect(validateTrackingEvent("client", "upgrade_clicked", { plan_key: planKey }).ok).toBe(
+        false,
+      );
+    },
+  );
+
+  it("keeps a long, sanitized marketing path as the landing page", () => {
+    expect(
+      validateTrackingEvent("client", "landing_page_view", {
+        landing_page: "/restaurant-billing-software-india",
+      }),
+    ).toEqual({ ok: true, params: { landing_page: "/restaurant-billing-software-india" } });
   });
 
   it("rejects names outside the allowlist and events from the wrong source", () => {
@@ -146,8 +221,12 @@ describe("piiKind", () => {
     ["owner@demo.local", "email"],
     ["98450 12345", "phone"],
     ["eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0", "jwt"],
+    ["GYw3TEwFZ7bpHJOKMnagBoWJxEwV-PffDfEFKcigOg4", "token"],
+    ["5f4dcc3b5aa765d61d8327deb882cf99", "token"],
     ["pro", null],
     ["/app/w/:id/restaurants", null],
+    // Long lowercase words are prose, not secrets.
+    ["/restaurant-billing-software-india", null],
   ])("%s → %s", (text, kind) => {
     expect(piiKind(text)).toBe(kind);
   });
@@ -181,6 +260,19 @@ describe("consentedAnalyticsIds", () => {
 
   it("is null when no Measurement ID is configured", () => {
     expect(consentedAnalyticsIds(`${consent}; _ga=GA1.1.1.1700000000`, undefined)).toBeNull();
+  });
+});
+
+describe("storedAnalyticsIds", () => {
+  it("rebuilds the ids from a client id kept with a checkout (no session)", () => {
+    expect(storedAnalyticsIds("987654321.1790000000")).toEqual({
+      clientId: "987654321.1790000000",
+      sessionId: null,
+    });
+  });
+
+  it.each([null, "", "not-an-id", "987654321.1790000000; drop table"])("is null for %j", (v) => {
+    expect(storedAnalyticsIds(v)).toBeNull();
   });
 });
 

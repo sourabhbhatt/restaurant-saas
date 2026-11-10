@@ -28,6 +28,7 @@ function toOrderRow({ order, planKey }: OrderJoin): PaymentOrderRow {
     status: order.status,
     providerPaymentId: order.providerPaymentId,
     createdBy: order.createdBy,
+    analyticsClientId: order.analyticsClientId,
     createdAt: order.createdAt,
     paidAt: order.paidAt,
   };
@@ -104,6 +105,7 @@ export function paymentRepository(db: Executor): PaymentRepository {
       const set: Partial<typeof paymentOrders.$inferInsert> = { status: patch.status };
       if (patch.providerPaymentId !== undefined) set.providerPaymentId = patch.providerPaymentId;
       if (patch.paidAt !== undefined) set.paidAt = patch.paidAt;
+      if (patch.analyticsClientId !== undefined) set.analyticsClientId = patch.analyticsClientId;
       await db.update(paymentOrders).set(set).where(eq(paymentOrders.id, id));
     },
     async insertEvent(input) {

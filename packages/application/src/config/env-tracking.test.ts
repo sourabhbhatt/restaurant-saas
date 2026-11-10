@@ -30,10 +30,20 @@ describe("server tracking configuration", () => {
     expect(() => getEnv()).toThrow(/GA_MEASUREMENT_ID and GA_API_SECRET/);
   });
 
-  it("rejects something that is not a GA4 Measurement ID", () => {
+  it("ignores a malformed Measurement ID while tracking is off, so a console typo cannot stop the API", () => {
     process.env.GA_MEASUREMENT_ID = "UA-12345-1";
     resetEnvCache();
-    expect(() => getEnv()).toThrow(/GA_MEASUREMENT_ID/);
+    const env = getEnv();
+    expect(env.GA_MEASUREMENT_ID).toBeUndefined();
+    expect(env.GA_MEASUREMENT_ID_MALFORMED).toBe(true);
+  });
+
+  it("refuses a malformed Measurement ID when ga4 is on", () => {
+    process.env.TRACKING_PROVIDER = "ga4";
+    process.env.GA_MEASUREMENT_ID = "UA-12345-1";
+    process.env.GA_API_SECRET = "secret-value";
+    resetEnvCache();
+    expect(() => getEnv()).toThrow(/GA_MEASUREMENT_ID: Expected a GA4 Measurement ID/);
   });
 
   it("accepts a complete ga4 configuration", () => {

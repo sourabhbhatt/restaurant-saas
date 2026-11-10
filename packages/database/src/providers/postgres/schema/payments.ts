@@ -34,6 +34,12 @@ export const paymentOrders = pgTable(
     status: text("status").$type<PaymentOrderStatus>().notNull().default("CREATED"),
     providerPaymentId: text("provider_payment_id"),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    /**
+     * The buyer's GA4 client id, recorded only when they had opted in to
+     * analytics at checkout, so a webhook-confirmed payment's growth events
+     * respect that choice. Null otherwise; cleared when the order is paid.
+     */
+    analyticsClientId: text("analytics_client_id"),
     paidAt: tstz("paid_at"),
     ...timestamps,
   },

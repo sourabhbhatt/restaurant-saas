@@ -1,5 +1,3 @@
-import { randomInt } from "node:crypto";
-
 import type { Logger } from "@ros/application/ports/observability";
 import type { ServerTracking } from "@ros/application/ports/server-tracking";
 import { validateTrackingEvent } from "@ros/contracts/tracking-events";
@@ -20,15 +18,11 @@ export interface Ga4MeasurementProtocolConfig {
 
 const DEFAULT_ENDPOINT = "https://www.google-analytics.com/mp/collect";
 
-/** A one-off GA-shaped client id for an event with no consented browser behind it. */
-function anonymousClientId(now: Date): string {
-  return `${randomInt(1, 2_147_483_647)}.${Math.floor(now.getTime() / 1000)}`;
-}
-
 /**
  * GA4 Measurement Protocol sender. Every event is checked against the shared
- * catalog first; the request carries no user id, no user data, no IP and
- * ad consent DENIED. Measurement Protocol answers 2xx even for a malformed
+ * catalog first and must carry the GA4 client id of a person who opted in
+ * (there are no anonymous server events); the request carries no user id,
+ * no user data, no IP and ad consent DENIED. Measurement Protocol answers 2xx even for a malformed
  * payload, so a non-2xx is an HTTP-level problem worth a warning.
  */
 export function createGa4MeasurementProtocolTracking(
@@ -76,15 +70,26 @@ export function createGa4MeasurementProtocolTracking(
           });
           return;
         }
+        const ids = context?.analytics;
+        if (!ids?.clientId) {
+          config.logger.warn("server_tracking_event_rejected", {
+            event: event.name,
+            reason: "no_consent",
+          });
+          return;
+        }
         const at = now();
-        const ids = context?.analytics ?? null;
         const params: Record<string, string | number | boolean> = {
           ...checked.params,
           content_group: "product",
         };
-        if (ids?.sessionId) params.session_id = ids.sessionId;
+        if (ids.sessionId) {
+          params.session_id = ids.sessionId;
+          // GA4 places an event in a session only with an engagement time (MP reference).
+          params.engagement_time_msec = 1;
+        }
         const body = {
-          client_id: ids?.clientId ?? anonymousClientId(at),
+          client_id: ids.clientId,
           timestamp_micros: at.getTime() * 1000,
           consent: { ad_user_data: "DENIED", ad_personalization: "DENIED" },
           events: [{ name: event.name, params }],

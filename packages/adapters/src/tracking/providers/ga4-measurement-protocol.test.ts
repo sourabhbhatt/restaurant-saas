@@ -9,8 +9,16 @@ import { createMemoryServerTracking } from "./memory";
 const SECRET = "mp-secret-for-tests";
 const PAID: ServerTrackingEvent = {
   name: "payment_succeeded",
-  params: { plan_key: "pro", billing_cycle: "monthly", value: 1499, currency: "INR" },
+  params: {
+    plan_key: "pro",
+    billing_cycle: "monthly",
+    value: 1499,
+    currency: "INR",
+    renewal: false,
+  },
 };
+/** A browser that opted in, without a readable session (e.g. a webhook-confirmed payment). */
+const CONSENTED = { analytics: { clientId: "1234567890.1700000000", sessionId: null } };
 
 function recordingLogger() {
   const lines: { level: string; message: string; fields?: LogFields }[] = [];
@@ -71,8 +79,11 @@ describe("GA4 Measurement Protocol adapter", () => {
             billing_cycle: "monthly",
             value: 1499,
             currency: "INR",
+            renewal: false,
             content_group: "product",
             session_id: "1700000500",
+            // With session_id, GA4 needs an engagement time to place the event in the session.
+            engagement_time_msec: 1,
           },
         },
       ],
@@ -83,37 +94,48 @@ describe("GA4 Measurement Protocol adapter", () => {
     expect(body).not.toHaveProperty("ip_override");
   });
 
-  it("uses a fresh anonymous client id when no consented browser is behind the event", async () => {
+  it("sends nothing without a consented browser's ids: no anonymous server events", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 204 }));
-    const { tracking } = setup(fetchMock);
+    const { tracking, lines } = setup(fetchMock);
 
-    tracking.track(PAID);
-    tracking.track(PAID, { analytics: null });
+    tracking.track(PAID, { analytics: null } as never);
+    tracking.track(PAID, {} as never);
     await tracking.flush();
 
-    const ids = fetchMock.mock.calls.map(
-      ([, init]) => (JSON.parse(String(init?.body)) as { client_id: string }).client_id,
-    );
-    const seconds = Date.parse("2026-11-10T10:00:00.000Z") / 1000;
-    for (const id of ids) expect(id).toMatch(new RegExp(`^\\d+\\.${seconds}$`));
-    expect(new Set(ids).size).toBe(2);
-    const events = fetchMock.mock.calls.map(
-      ([, init]) =>
-        (JSON.parse(String(init?.body)) as { events: { params: object }[] }).events[0]!.params,
-    );
-    for (const params of events) expect(params).not.toHaveProperty("session_id");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(lines.map((l) => l.fields)).toEqual([
+      { event: "payment_succeeded", reason: "no_consent" },
+      { event: "payment_succeeded", reason: "no_consent" },
+    ]);
+  });
+
+  it("omits session_id and engagement time when the session is unknown", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 204 }));
+    const { tracking } = setup(fetchMock);
+    tracking.track(PAID, CONSENTED);
+    await tracking.flush();
+    const body = JSON.parse(String(fetchMock.mock.calls[0]![1]?.body)) as {
+      client_id: string;
+      events: { params: object }[];
+    };
+    expect(body.client_id).toBe("1234567890.1700000000");
+    expect(body.events[0]!.params).not.toHaveProperty("session_id");
+    expect(body.events[0]!.params).not.toHaveProperty("engagement_time_msec");
   });
 
   it("refuses an event outside the catalog or carrying personal data, without sending", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 204 }));
     const { tracking, lines } = setup(fetchMock);
 
-    tracking.track({
-      name: "payment_succeeded",
-      // Simulates a caller bypassing the types.
-      params: { ...PAID.params, email: "owner@demo.local" } as never,
-    });
-    tracking.track({ name: "purchase", params: {} } as never);
+    tracking.track(
+      {
+        name: "payment_succeeded",
+        // Simulates a caller bypassing the types.
+        params: { ...PAID.params, email: "owner@demo.local" } as never,
+      },
+      CONSENTED,
+    );
+    tracking.track({ name: "purchase", params: {} } as never, CONSENTED);
     await tracking.flush();
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -142,7 +164,7 @@ describe("GA4 Measurement Protocol adapter", () => {
     const { tracking, lines } = setup(fetchMock, { timeoutMs: 25 });
 
     const started = performance.now();
-    tracking.track(PAID);
+    tracking.track(PAID, CONSENTED);
     expect(performance.now() - started).toBeLessThan(25);
     await tracking.flush();
 
@@ -163,7 +185,7 @@ describe("GA4 Measurement Protocol adapter", () => {
       );
     });
     const first = setup(failing);
-    expect(() => first.tracking.track(PAID)).not.toThrow();
+    expect(() => first.tracking.track(PAID, CONSENTED)).not.toThrow();
     await first.tracking.flush();
     expect(first.lines).toEqual([
       {
@@ -175,7 +197,7 @@ describe("GA4 Measurement Protocol adapter", () => {
     expect(JSON.stringify(first.lines)).not.toContain(SECRET);
 
     const erroring = setup(vi.fn<typeof fetch>(async () => new Response("no", { status: 500 })));
-    erroring.tracking.track(PAID);
+    erroring.tracking.track(PAID, CONSENTED);
     await erroring.tracking.flush();
     expect(erroring.lines[0]?.fields).toEqual({ event: "payment_succeeded", status: 500 });
   });
@@ -185,12 +207,16 @@ describe("memory adapter", () => {
   it("records valid events and the reason for refused ones", () => {
     const memory = createMemoryServerTracking();
     memory.track(PAID, { analytics: { clientId: "1.1700000000", sessionId: null } });
-    memory.track({ name: "payment_succeeded", params: { plan_key: "x@y.co" } as never });
+    memory.track({ name: "payment_succeeded", params: { plan_key: "x@y.co" } as never }, CONSENTED);
+    memory.track(PAID, { analytics: null } as never);
 
     expect(memory.events).toEqual([
       { event: PAID, context: { analytics: { clientId: "1.1700000000", sessionId: null } } },
     ]);
-    expect(memory.rejected).toEqual([{ name: "payment_succeeded", reason: "invalid_params" }]);
+    expect(memory.rejected).toEqual([
+      { name: "payment_succeeded", reason: "invalid_params" },
+      { name: "payment_succeeded", reason: "no_consent" },
+    ]);
     memory.clear();
     expect(memory.events).toHaveLength(0);
   });

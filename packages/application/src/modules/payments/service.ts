@@ -14,7 +14,12 @@ import type { BillingCycle } from "@ros/domain/subscriptions/entitlements";
 import type { TransactionRunner } from "@ros/database/interfaces/transaction";
 import type { PaymentGateway } from "../../ports/payment-gateway";
 import { noServerTracking, trackSafely, type ServerTracking } from "../../ports/server-tracking";
-import { majorUnits, trackingBillingCycle } from "@ros/contracts/tracking-events";
+import {
+  majorUnits,
+  storedAnalyticsIds,
+  trackingBillingCycle,
+  type AnalyticsIds,
+} from "@ros/contracts/tracking-events";
 
 import { recordAudit } from "../../audit/audit-service";
 import { auditActorFor, type AuditActor, type RequestMeta, type UserActor } from "../../context";
@@ -101,10 +106,17 @@ export function createPaymentService({
   logger,
   tracking = noServerTracking,
 }: PaymentServiceDeps) {
-  /** Called after the activating transaction committed; replays never reach it. */
-  function trackActivation(order: PaymentOrderRow, analytics: RequestMeta["analytics"]): void {
+  /**
+   * Called after the activating transaction committed; replays never reach
+   * it. Sends nothing unless the buyer opted in (`analytics`). A renewal is
+   * labelled on the payment and is not counted as a new activation.
+   */
+  function trackActivation(
+    order: PaymentOrderRow,
+    analytics: AnalyticsIds | null | undefined,
+    renewal: boolean,
+  ): void {
     const cycle = trackingBillingCycle(order.billingCycle);
-    const context = { analytics };
     trackSafely(
       tracking,
       logger,
@@ -115,23 +127,21 @@ export function createPaymentService({
           billing_cycle: cycle,
           value: majorUnits(order.amountMinor, order.currency),
           currency: order.currency,
+          renewal,
         },
       },
-      context,
+      analytics,
     );
-    trackSafely(
-      tracking,
-      logger,
-      {
-        name: "subscription_activated",
-        params: {
-          plan_key: order.planKey,
-          billing_cycle: cycle,
-          activation_source: "online_payment",
+    if (!renewal)
+      trackSafely(
+        tracking,
+        logger,
+        {
+          name: "subscription_activated",
+          params: { plan_key: order.planKey, billing_cycle: cycle },
         },
-      },
-      context,
-    );
+        analytics,
+      );
   }
 
   function requireGateway(): PaymentGateway {
@@ -166,7 +176,7 @@ export function createPaymentService({
     order: PaymentOrderRow,
     paymentId: string,
     actor: AuditActor,
-  ): Promise<{ subscriptionId: string; periodEnd: Date }> {
+  ): Promise<{ subscriptionId: string; periodEnd: Date; renewal: boolean }> {
     const now = clock.now();
     const plan = await r.platform.findPlanById(order.planId);
     if (!plan) throw new Error(`payment order ${order.id}: plan ${order.planId} missing`);
@@ -210,6 +220,8 @@ export function createPaymentService({
       status: "PAID",
       providerPaymentId: paymentId,
       paidAt: now,
+      // Only needed until this activation's growth events are sent (from the row in memory).
+      analyticsClientId: null,
     });
     await recordAudit(
       r.audit,
@@ -241,7 +253,8 @@ export function createPaymentService({
         data: { workspaceId: ws.id, planKey: plan.key },
       },
     );
-    return { subscriptionId, periodEnd: period.end };
+    // Already on an active paid plan: a renewal (or a plan change), not a new activation.
+    return { subscriptionId, periodEnd: period.end, renewal: old?.status === "ACTIVE" };
   }
 
   async function auditMismatch(
@@ -393,6 +406,8 @@ export function createPaymentService({
           amountMinor,
           currency: plan.currency,
           createdBy: actor.userId,
+          // Kept only with the buyer's opt-in, for a payment the webhook confirms.
+          analyticsClientId: meta.analytics?.clientId ?? null,
         });
         await recordAudit(
           r.audit,
@@ -458,7 +473,7 @@ export function createPaymentService({
         existing.status === "PAID" ? [] : await gw.fetchOrderPayments(input.razorpayOrderId);
       const captured = payments.filter((p) => p.status === "captured");
 
-      const won: { order?: PaymentOrderRow } = {};
+      const won: { order?: PaymentOrderRow; renewal?: boolean } = {};
       const result = await tx.run(async (r) => {
         won.order = undefined;
         const order = await r.payments.lockOrder(gw.name, input.razorpayOrderId);
@@ -479,11 +494,13 @@ export function createPaymentService({
           if (wrong) await auditMismatch(r, order, actorFor, wrong, "verify");
           return current("PENDING", null);
         }
-        const { periodEnd } = await activateInTx(r, order, match.paymentId, actorFor);
+        const { periodEnd, renewal } = await activateInTx(r, order, match.paymentId, actorFor);
         won.order = order;
+        won.renewal = renewal;
         return current("ACTIVE", periodEnd);
       });
-      if (won.order) trackActivation(won.order, meta.analytics);
+      // This browser's current choice decides: nothing if it has declined since the checkout.
+      if (won.order) trackActivation(won.order, meta.analytics, won.renewal === true);
       return result;
     },
 
@@ -514,7 +531,7 @@ export function createPaymentService({
       const payment = readWebhookPayment(payload);
       const actor: AuditActor = { type: "SYSTEM", userId: null, requestId: meta.requestId };
 
-      const won: { order?: PaymentOrderRow } = {};
+      const won: { order?: PaymentOrderRow; renewal?: boolean } = {};
       const outcome = await tx.run(async (r): Promise<WebhookResultDto["outcome"]> => {
         won.order = undefined;
         // The order row is locked FOR UPDATE before the event is recorded, so a webhook
@@ -552,13 +569,18 @@ export function createPaymentService({
           await auditMismatch(r, order, actor, payment, "webhook");
           return "mismatch";
         }
-        await activateInTx(r, order, payment.paymentId, actor);
+        won.renewal = (await activateInTx(r, order, payment.paymentId, actor)).renewal;
         won.order = order;
         return "activated";
       });
       // Only `activated`: duplicate, already_paid, mismatch and replays never emit. The provider's
-      // request carries no browser, so the event is anonymous.
-      if (outcome === "activated" && won.order) trackActivation(won.order, null);
+      // request carries no browser: the opt-in recorded with the checkout decides (none: nothing).
+      if (outcome === "activated" && won.order)
+        trackActivation(
+          won.order,
+          storedAnalyticsIds(won.order.analyticsClientId),
+          won.renewal === true,
+        );
       logger.info("payment_webhook_handled", { type, outcome, requestId: meta.requestId });
       return { received: true, outcome };
     },

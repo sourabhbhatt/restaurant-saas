@@ -100,14 +100,12 @@ const fields = z.object({
 
   /** Server-side growth events: `none` sends nothing; `ga4` uses the GA4 Measurement Protocol. */
   TRACKING_PROVIDER: z.enum(["none", "ga4"]).default("none"),
-  /** This environment's GA4 web stream (the console's), so server events join browser data. */
-  GA_MEASUREMENT_ID: z.preprocess(
-    (v) => (v === "" ? undefined : v),
-    z
-      .string()
-      .regex(/^G-[A-Z0-9]{4,20}$/, "Expected a GA4 Measurement ID (G-XXXXXXX)")
-      .optional(),
-  ),
+  /**
+   * This environment's GA4 web stream (the console's), so server events join
+   * browser data. Checked in the transform below: a malformed value stops
+   * startup only when TRACKING_PROVIDER=ga4.
+   */
+  GA_MEASUREMENT_ID: z.preprocess((v) => (v === "" ? undefined : v), z.string().optional()),
   /** Measurement Protocol API secret of that stream; with `ga4` both are required. */
   GA_API_SECRET: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).optional()),
 
@@ -120,11 +118,35 @@ const fields = z.object({
   ENABLE_TEST_HOOKS: booleanish.default(false),
 });
 
-const schema = fields.transform((env) => ({
-  ...env,
-  ALLOWED_ORIGINS: env.ALLOWED_ORIGINS ?? [new URL(env.APP_URL).origin],
-  QR_BASE_URL: env.QR_BASE_URL ?? env.APP_URL,
-}));
+const GA_MEASUREMENT_ID = /^G-[A-Z0-9]{4,20}$/;
+
+const schema = fields
+  .superRefine((env, ctx) => {
+    if (
+      env.TRACKING_PROVIDER === "ga4" &&
+      env.GA_MEASUREMENT_ID &&
+      !GA_MEASUREMENT_ID.test(env.GA_MEASUREMENT_ID)
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["GA_MEASUREMENT_ID"],
+        message: "Expected a GA4 Measurement ID (G-XXXXXXX)",
+      });
+  })
+  .transform((env) => {
+    // Tracking off: the root .env.local is shared with the console, so a typo meant for the
+    // console is ignored here (logged at startup) instead of stopping every API operation.
+    const malformed = Boolean(
+      env.GA_MEASUREMENT_ID && !GA_MEASUREMENT_ID.test(env.GA_MEASUREMENT_ID),
+    );
+    return {
+      ...env,
+      GA_MEASUREMENT_ID: malformed ? undefined : env.GA_MEASUREMENT_ID,
+      GA_MEASUREMENT_ID_MALFORMED: malformed,
+      ALLOWED_ORIGINS: env.ALLOWED_ORIGINS ?? [new URL(env.APP_URL).origin],
+      QR_BASE_URL: env.QR_BASE_URL ?? env.APP_URL,
+    };
+  });
 
 export type ServerEnv = z.output<typeof schema>;
 
