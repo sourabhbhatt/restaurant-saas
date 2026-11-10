@@ -22,6 +22,14 @@ import { countItems, EMPTY_COUNTS, setSyncState, useSyncStore } from "./sync-sto
 
 export const SYNC_INTERVAL_MS = 30_000;
 export const PING_PATH = "/api/v1/sync/ping";
+/**
+ * After a probe fails while the browser reports a connection, probe again
+ * after these delays (ms) before leaving it to the interval: `online` often
+ * fires before the network carries traffic (Wi-Fi still joining), and the
+ * screen would otherwise say "Offline" and hold queued changes for up to
+ * SYNC_INTERVAL_MS after the device is back.
+ */
+export const REPROBE_DELAYS_MS = [1_000, 2_000, 4_000, 8_000] as const;
 const LOCK_NAME = "restaurantos-outbox-sync";
 
 /** Device user: owner of new local changes (may come from cached data while offline). */
@@ -312,16 +320,38 @@ export function startOfflineRuntime(queryClient: QueryClient): () => void {
   void sync.recoverStuck().catch(() => {});
   watchOutbox(db);
 
+  let reprobeTimer: ReturnType<typeof setTimeout> | null = null;
+  let reprobeAttempt = 0;
+  const cancelReprobe = () => {
+    if (reprobeTimer) clearTimeout(reprobeTimer);
+    reprobeTimer = null;
+  };
   const syncSoon = () => {
+    cancelReprobe();
     void probeConnectivity().then((reachable) => {
-      if (reachable) void sync.syncNow();
+      if (reachable) {
+        reprobeAttempt = 0;
+        void sync.syncNow();
+        return;
+      }
+      // Network failure although the browser says it is connected: try again soon.
+      const delay = REPROBE_DELAYS_MS[reprobeAttempt];
+      if (!useSyncStore.getState().online && navigator.onLine !== false && delay !== undefined) {
+        reprobeAttempt += 1;
+        cancelReprobe();
+        reprobeTimer = setTimeout(syncSoon, delay);
+      }
     });
   };
   const onOnline = () => {
     resetSessionBackoff();
+    reprobeAttempt = 0;
     syncSoon();
   };
-  const onOffline = () => setOnline(false);
+  const onOffline = () => {
+    cancelReprobe();
+    setOnline(false);
+  };
   const onVisible = () => {
     if (document.visibilityState !== "visible") return;
     resetSessionBackoff();
@@ -339,6 +369,7 @@ export function startOfflineRuntime(queryClient: QueryClient): () => void {
     window.removeEventListener("offline", onOffline);
     document.removeEventListener("visibilitychange", onVisible);
     clearInterval(interval);
+    cancelReprobe();
   });
 
   syncSoon();

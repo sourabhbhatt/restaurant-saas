@@ -1,12 +1,17 @@
+import { QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getOfflineDb } from "./db";
 import {
   clearDeviceUserData,
   enqueueMutation,
+  PING_PATH,
+  REPROBE_DELAYS_MS,
   resetSessionBackoff,
   setCurrentUser,
+  startOfflineRuntime,
   stopOfflineRuntime,
+  SYNC_INTERVAL_MS,
 } from "./runtime";
 import { initialSyncState, setSyncState, useSyncStore } from "./sync-store";
 
@@ -120,5 +125,70 @@ describe("sign-out", () => {
     expect(state.otherUserPending).toBe(1);
     expect(await getOfflineDb()!.outbox.count()).toBe(1);
     await expect(enqueueMutation(change("Start #2"))).rejects.toThrow(/Sign in/);
+  });
+});
+
+describe("reconnecting", () => {
+  /** Ping answers in order: `false` is a network failure (the `online` event can fire before the network carries traffic). */
+  function stubPing(answers: boolean[]) {
+    const pings: number[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === PING_PATH) {
+          pings.push(Date.now());
+          if (!(answers.shift() ?? true)) throw new TypeError("Failed to fetch");
+          return new Response(null, { status: 204 });
+        }
+        return new Response(JSON.stringify({ error: { code: "X", message: "x" } }), {
+          status: 500,
+        });
+      }),
+    );
+    return pings;
+  }
+  const fastWindow = REPROBE_DELAYS_MS.reduce((a, b) => a + b, 0);
+
+  it("probes again within seconds after a failed probe, not only on the 30 s interval", async () => {
+    const pings = stubPing([false, false, true]);
+    startOfflineRuntime(new QueryClient());
+    await settle();
+    expect(pings).toHaveLength(1);
+    expect(useSyncStore.getState().online).toBe(false);
+
+    await advance(REPROBE_DELAYS_MS[0]!);
+    expect(pings).toHaveLength(2);
+    expect(useSyncStore.getState().online).toBe(false);
+
+    await advance(REPROBE_DELAYS_MS[1]!);
+    expect(pings).toHaveLength(3);
+    expect(useSyncStore.getState().online).toBe(true);
+
+    await advance(SYNC_INTERVAL_MS - 1);
+    expect(pings).toHaveLength(3); // reachable: no further fast probes
+  });
+
+  it("stops fast probing after a few attempts and leaves it to the interval", async () => {
+    const pings = stubPing(Array<boolean>(20).fill(false));
+    startOfflineRuntime(new QueryClient());
+    await settle();
+    await advance(fastWindow);
+    expect(pings).toHaveLength(1 + REPROBE_DELAYS_MS.length);
+    // setInterval is not faked here, so only the fast probes could add pings.
+    await advance(SYNC_INTERVAL_MS);
+    expect(pings).toHaveLength(1 + REPROBE_DELAYS_MS.length);
+  });
+
+  it("a new `online` event starts fast probing again", async () => {
+    const pings = stubPing(Array<boolean>(20).fill(false));
+    startOfflineRuntime(new QueryClient());
+    await settle();
+    await advance(fastWindow);
+    const before = pings.length;
+    window.dispatchEvent(new Event("online"));
+    await settle();
+    expect(pings).toHaveLength(before + 1);
+    await advance(REPROBE_DELAYS_MS[0]!);
+    expect(pings).toHaveLength(before + 2);
   });
 });
