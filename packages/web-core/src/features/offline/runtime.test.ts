@@ -6,6 +6,7 @@ import {
   clearDeviceUserData,
   enqueueMutation,
   PING_PATH,
+  probeConnectivity,
   REPROBE_DELAYS_MS,
   resetSessionBackoff,
   setCurrentUser,
@@ -190,5 +191,22 @@ describe("reconnecting", () => {
     expect(pings).toHaveLength(before + 1);
     await advance(REPROBE_DELAYS_MS[0]!);
     expect(pings).toHaveLength(before + 2);
+  });
+});
+
+describe("connectivity probe", () => {
+  it("releases the ping response instead of holding the request open until its timeout", async () => {
+    const cancel = vi.fn(async () => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const body = new ReadableStream({ cancel });
+        return new Response(body, { status: 200, headers: { "content-type": "application/json" } });
+      }),
+    );
+    await expect(probeConnectivity()).resolves.toBe(true);
+    await settle();
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(useSyncStore.getState().online).toBe(true);
   });
 });

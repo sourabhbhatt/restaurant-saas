@@ -180,6 +180,8 @@ export async function probeConnectivity(): Promise<boolean> {
     });
     // Any HTTP response means the server is reachable.
     setOnline(true);
+    // The body is never needed: release it, or the request stays open until the 5 s abort.
+    void res.body?.cancel().catch(() => undefined);
     return res.ok;
   } catch {
     setOnline(false);
