@@ -167,6 +167,13 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm db:migrate && pnpm db:seed
       - run: pnpm test:e2e
+      # The consent flow with a fake GA4 stream id, on the builds above. Every request to a
+      # Google host is answered inside the browser context (context.route): nothing is sent.
+      - name: Analytics consent (fake GA4 stream)
+        env:
+          GA_MEASUREMENT_ID: G-E2ETEST01
+          E2E_SKIP_BUILD: "1"
+        run: pnpm test:e2e tests/e2e/analytics-consent.spec.ts
 
   # Build-only image check for pull requests; deploys build and push their own.
   images:
