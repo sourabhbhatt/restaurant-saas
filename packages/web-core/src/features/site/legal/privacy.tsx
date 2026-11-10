@@ -96,7 +96,12 @@ const SECTIONS: LegalSection[] = [
           </li>
         </ul>
         <p>
-          We do not use advertising cookies. [Update this section if analytics tools are added.]
+          We do not use advertising cookies. On our website and dashboard we use Google Analytics
+          cookies only if you choose &ldquo;Allow analytics&rdquo;: they tell us which pages and
+          features are used, without your name, email, phone number or your restaurant&apos;s data,
+          and with advertising features switched off. You can withdraw that choice at any time from
+          &ldquo;Cookie settings&rdquo; in the footer. Guests ordering from a table QR code never
+          get analytics cookies.
         </p>
       </>
     ),
