@@ -19,8 +19,8 @@ import {
 import type {
   AuditLogDto,
   Paginated,
+  SubscriptionJobResult,
   SubscriptionOverviewDto,
-  SubscriptionSweepResult,
   SupportRequestDetailDto,
   SupportRequestDto,
   TestClockDto,
@@ -62,7 +62,7 @@ afterAll(async () => {
 });
 
 const job = (authorization?: string) =>
-  call<SubscriptionSweepResult>(runJob, {
+  call<SubscriptionJobResult>(runJob, {
     method: "POST",
     headers: authorization ? { authorization } : {},
   });
@@ -86,6 +86,9 @@ describe("subscription sweep job", () => {
     const ok = await job(`Bearer ${SECRET}`);
     expect(ok.status).toBe(200);
     expect(ok.body.data!.scanned).toBeGreaterThanOrEqual(0);
+    // The job's answer is the sweep plus the analytics cleanup, as the contract declares.
+    expect(typeof ok.body.data!.analyticsIdsCleared).toBe("number");
+    expect(ok.body.data!.housekeeping).toBeDefined();
   });
 
   it("sends reminders and the trial-ended notice exactly once", async () => {
