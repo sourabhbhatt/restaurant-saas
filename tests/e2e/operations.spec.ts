@@ -51,7 +51,7 @@ function waiterCard(scope: Page | Locator, order: Pick<OrderLike, "orderNumber">
   });
 }
 
-test("kitchen starts a ticket, marks items ready and the waiter sees it ready", async ({
+test("kitchen starts a ticket from its first line, marks items ready and the waiter sees it ready", async ({
   newContext,
   ownerApi,
   demo,
@@ -68,9 +68,26 @@ test("kitchen starts a ticket, marks items ready and the waiter sees it ready", 
     ],
     note,
   );
-  await transition(ownerApi, order.id, "accept");
+  const accepted = await transition(ownerApi, order.id, "accept");
 
   const kitchen = await newContext("kitchen");
+  // Every item update the screen sends, and every answer, in the order they happen.
+  const itemPath = `/api/v1/orders/${order.id}/items/`;
+  const wire: { kind: "sent" | "answered"; status?: string; version?: number }[] = [];
+  kitchen.page.on("request", (req) => {
+    if (req.method() !== "PATCH" || !req.url().includes(itemPath)) return;
+    const body = req.postDataJSON() as { status: string; expectedVersion?: number };
+    wire.push({ kind: "sent", status: body.status, version: body.expectedVersion });
+  });
+  kitchen.page.on("response", (res) => {
+    if (res.request().method() !== "PATCH" || !res.url().includes(itemPath)) return;
+    const entry: (typeof wire)[number] = { kind: "answered" };
+    wire.push(entry);
+    void res
+      .json()
+      .then((body: { data?: { version?: number } }) => (entry.version = body.data?.version))
+      .catch(() => undefined);
+  });
   await kitchen.page.goto(ops(`/kitchen/${demo.branchId}`));
   const ticket = kitchen.page.getByRole("article", {
     name: `Order ${order.orderNumber}, ${table.name}`,
@@ -78,25 +95,35 @@ test("kitchen starts a ticket, marks items ready and the waiter sees it ready", 
   await expect(ticket).toBeVisible();
   await expect(ticket.getByText(note)).toBeVisible();
 
-  await ticket.getByRole("button", { name: "Start" }).click();
-  await expect
-    .poll(async () => (await ordersWithNote(ownerApi, demo.branchId, note))[0]!.status)
-    .toBe("PREPARING");
-
   // Item-level progress: pending → preparing → ready, one tap per step. Each tap targets the
   // line by the step it will take, so a tap can never land on a line that moved on.
   const line = (item: string, state: string, next: "preparing" | "ready") =>
     ticket.getByRole("button", { name: new RegExp(`^${item}: ${state}\\. Tap to mark ${next}$`) });
   const notSaved = ticket.getByText("A change to this ticket was not saved");
 
-  // Two quick taps: the second is made before the first reaches the server. Both must
-  // arrive, in order (the second on the version the first returned).
+  // Two quick taps on the first line: the first starts the ticket (ACCEPTED → PREPARING,
+  // a new order version); the second is made before the first reaches the server. Both
+  // must arrive, in order: the second on the version the first returned.
   await line("1 Paneer Tikka", "pending", "preparing").click();
   await line("1 Paneer Tikka", "(waiting to sync|preparing)", "ready").click();
   await expect(line("1 Paneer Tikka", "ready", "preparing")).toBeVisible();
+  // On the wire: the second update left only after the first was answered, and carried the
+  // version that answer returned (a direct request per tap had no order and no version).
+  await expect.poll(() => wire.filter((w) => w.kind === "answered" && w.version).length).toBe(2);
+  const firstAnswer = wire[1]!;
+  expect(wire.map((w) => w.kind)).toEqual(["sent", "answered", "sent", "answered"]);
+  expect(wire[0]).toMatchObject({ status: "PREPARING", version: accepted.version });
+  expect(firstAnswer.version).toBeGreaterThan(accepted.version);
+  expect(wire[2]).toMatchObject({ status: "READY", version: firstAnswer.version });
+  const started = (await ordersWithNote(ownerApi, demo.branchId, note))[0]!;
+  expect(started.status).toBe("PREPARING");
+  // Starting the ticket put every line on the stove.
+  expect(started.items.map((i) => [i.itemName, i.status])).toEqual([
+    ["Paneer Tikka", "READY"],
+    ["Masala Chai", "PREPARING"],
+  ]);
 
-  // Waiting for the server between taps works the same way.
-  await line("2 Masala Chai", "pending", "preparing").click();
+  // A tap made on the server-confirmed state.
   await expect(line("2 Masala Chai", "preparing", "ready")).toBeVisible();
   await line("2 Masala Chai", "preparing", "ready").click();
   await expect(notSaved).toHaveCount(0);
