@@ -25,7 +25,15 @@ import type {
   SupportRequestDto,
   TestClockDto,
 } from "@ros/contracts/platform";
-import { emailOutbox, notifications, subscriptions } from "@ros/database/providers/postgres/schema";
+import {
+  authTokens,
+  emailOutbox,
+  idempotencyRecords,
+  notifications,
+  rateLimitBuckets,
+  sessions,
+  subscriptions,
+} from "@ros/database/providers/postgres/schema";
 import type { Container } from "@/composition/container";
 import {
   addStaffMember,
@@ -132,6 +140,84 @@ describe("subscription sweep job", () => {
     expect(templates.filter((t) => t === "trial_reminder")).toHaveLength(2);
     expect(templates.filter((t) => t === "trial_expired")).toHaveLength(1);
     expect(templates.filter((t) => t === "subscription_restricted")).toHaveLength(1);
+  });
+});
+
+describe("housekeeping in the sweep job", () => {
+  it("removes expired plumbing rows and keeps live ones", async () => {
+    c.env.CRON_SECRET = SECRET;
+    const now = c.clock.now();
+    const daysAgo = (d: number) => new Date(now.getTime() - d * 86_400_000);
+    const user = await signUpUser("Housekeeping User");
+    await c.db.insert(rateLimitBuckets).values([
+      { key: "hk:stale", count: 3, resetAt: daysAgo(2) },
+      { key: "hk:live", count: 3, resetAt: new Date(now.getTime() + 60_000) },
+    ]);
+    await c.db.insert(idempotencyRecords).values([
+      { scope: "hk", key: "stale-key-0001", requestHash: "h", statusCode: 200, response: {} },
+      { scope: "hk", key: "live-key-00001", requestHash: "h", statusCode: 200, response: {} },
+    ]);
+    await c.db
+      .update(idempotencyRecords)
+      .set({ createdAt: daysAgo(31) })
+      .where(eq(idempotencyRecords.key, "stale-key-0001"));
+    await c.db.insert(sessions).values([
+      { userId: user.userId, tokenHash: "hk-stale-session", expiresAt: daysAgo(31) },
+      { userId: user.userId, tokenHash: "hk-live-session", expiresAt: daysAgo(-1) },
+    ]);
+    await c.db.insert(authTokens).values([
+      {
+        userId: user.userId,
+        purpose: "PASSWORD_RESET",
+        tokenHash: "hk-stale-token",
+        expiresAt: daysAgo(8),
+      },
+      {
+        userId: user.userId,
+        purpose: "PASSWORD_RESET",
+        tokenHash: "hk-live-token",
+        expiresAt: daysAgo(-1),
+      },
+    ]);
+
+    const res = await job(`Bearer ${SECRET}`);
+    expect(res.status).toBe(200);
+    const hk = res.body.data!.housekeeping;
+    expect(hk.rateLimitBuckets).toBeGreaterThanOrEqual(1);
+    expect(hk.idempotencyRecords).toBeGreaterThanOrEqual(1);
+    expect(hk.sessions).toBeGreaterThanOrEqual(1);
+    expect(hk.authTokens).toBeGreaterThanOrEqual(1);
+
+    const keys = (await c.db.select({ key: rateLimitBuckets.key }).from(rateLimitBuckets)).map(
+      (r) => r.key,
+    );
+    expect(keys).toContain("hk:live");
+    expect(keys).not.toContain("hk:stale");
+    const idem = (await c.db.select({ key: idempotencyRecords.key }).from(idempotencyRecords)).map(
+      (r) => r.key,
+    );
+    expect(idem).toContain("live-key-00001");
+    expect(idem).not.toContain("stale-key-0001");
+    const sess = (
+      await c.db
+        .select({ tokenHash: sessions.tokenHash })
+        .from(sessions)
+        .where(eq(sessions.userId, user.userId))
+    ).map((r) => r.tokenHash);
+    expect(sess).toContain("hk-live-session");
+    expect(sess).not.toContain("hk-stale-session");
+    const tokens = (
+      await c.db
+        .select({ tokenHash: authTokens.tokenHash })
+        .from(authTokens)
+        .where(eq(authTokens.userId, user.userId))
+    ).map((r) => r.tokenHash);
+    expect(tokens).toContain("hk-live-token");
+    expect(tokens).not.toContain("hk-stale-token");
+    // The user's real session (issued at sign-up) survives.
+    expect(
+      (await call(getSubscription, { params: { workspaceId: "x" }, cookie: user.cookie })).status,
+    ).not.toBe(401);
   });
 });
 

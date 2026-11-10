@@ -588,6 +588,14 @@ export const deleteOverrideQuerySchema = z.object({
 
 // ------------------------------------------------------------------ jobs & test clock
 
+/** Expired request plumbing removed by the job; tenant data is never touched. */
+export interface HousekeepingResult {
+  rateLimitBuckets: number;
+  idempotencyRecords: number;
+  sessions: number;
+  authTokens: number;
+}
+
 export interface SubscriptionSweepResult {
   now: string;
   scanned: number;
@@ -595,6 +603,7 @@ export interface SubscriptionSweepResult {
   trialExpired: number;
   periodExpired: number;
   graceEnded: number;
+  housekeeping: HousekeepingResult;
 }
 
 export const testClockSchema = z.object({
