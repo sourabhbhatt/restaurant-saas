@@ -37,6 +37,37 @@ function checkoutParams(data: unknown) {
   };
 }
 
+/** API-confirmed events counted once per user action, however many requests it takes. */
+type PerActionEvent = "qr_generated";
+
+/** Open bulk actions: how many requests the API accepted so far in each. */
+const openActions = new Map<PerActionEvent, number>();
+
+function countAccepted(name: PerActionEvent): void {
+  const open = openActions.get(name);
+  if (open !== undefined) openActions.set(name, open + 1);
+  else track(name, { count: 1 });
+}
+
+/**
+ * Runs a bulk user action (onboarding creating every table's QR code, the
+ * print sheet's "Generate missing") as ONE event: each accepted request inside
+ * `fn` is counted, and a single `name` event with `count` is sent when it ends,
+ * or nothing if none was accepted. A nested call joins the outer action.
+ * `qr_generated` is a GA4 key event, so ten tables must not be ten conversions.
+ */
+export async function asOneAction<T>(name: PerActionEvent, fn: () => Promise<T>): Promise<T> {
+  if (openActions.has(name)) return fn();
+  openActions.set(name, 0);
+  try {
+    return await fn();
+  } finally {
+    const count = openActions.get(name) ?? 0;
+    openActions.delete(name);
+    if (count > 0) track(name, { count: Math.min(count, 1000) });
+  }
+}
+
 /**
  * Product events confirmed by the server: each fires when the API accepted
  * the mutation (2xx), whichever screen sent it (dialog, onboarding wizard, a
@@ -53,7 +84,7 @@ export const API_EVENT_RULES: readonly { route: string; emit: (data: unknown) =>
   { route: "/workspaces/:id/restaurants", emit: () => track("restaurant_created") },
   { route: "/restaurants/:id/branches", emit: () => track("branch_created") },
   { route: "/restaurants/:id/menu/items", emit: () => track("menu_item_created") },
-  { route: "/tables/:id/qr", emit: () => track("qr_generated") },
+  { route: "/tables/:id/qr", emit: () => countAccepted("qr_generated") },
   {
     route: "/organizations/:id/checkout",
     emit: (data) => {

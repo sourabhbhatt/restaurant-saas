@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@ros/ui/ui/alert";
 import { Button } from "@ros/ui/ui/button";
 import { Spinner } from "@ros/ui/ui/spinner";
 import { errorMessage } from "@ros/api-client";
+import { asOneAction } from "@ros/web-core/tracking/api-events";
 
 import { svgDataUrl } from "./qr-download";
 import { useGenerateQr, useQrSheet } from "./queries";
@@ -55,7 +56,10 @@ export function QrPrintSheet() {
   const generateMissing = async () => {
     setGenerating(true);
     try {
-      for (const t of data.missing) await generate.mutateAsync(t.id);
+      // One user action: counted as one qr_generated (a key event), with the number made.
+      await asOneAction("qr_generated", async () => {
+        for (const t of data.missing) await generate.mutateAsync(t.id);
+      });
       toast.success(`${data.missing.length} QR codes generated`);
     } catch (error) {
       toast.error(errorMessage(error));

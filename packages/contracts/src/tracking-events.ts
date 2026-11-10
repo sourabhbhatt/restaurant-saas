@@ -69,7 +69,15 @@ export const TRACKING_EVENTS = {
   restaurant_created: { source: "client", keyEvent: false, params: z.strictObject({}) },
   branch_created: { source: "client", keyEvent: false, params: z.strictObject({}) },
   menu_item_created: { source: "client", keyEvent: false, params: z.strictObject({}) },
-  qr_generated: { source: "client", keyEvent: true, params: z.strictObject({}) },
+  /**
+   * One per user action: a single generate/regenerate (count 1), or one for a
+   * bulk run such as onboarding's tables or "Generate missing" (count = codes).
+   */
+  qr_generated: {
+    source: "client",
+    keyEvent: true,
+    params: z.strictObject({ count: z.number().int().min(1).max(1000) }),
+  },
   qr_menu_viewed: { source: "database", keyEvent: false, params: null },
   order_submitted: { source: "database", keyEvent: false, params: null },
   order_accepted: { source: "database", keyEvent: false, params: null },
