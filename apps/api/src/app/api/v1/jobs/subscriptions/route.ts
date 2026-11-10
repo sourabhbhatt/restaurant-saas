@@ -1,4 +1,5 @@
 import { DomainError } from "@ros/domain/shared/errors";
+import { paymentService } from "@/composition/payments";
 import { platformService } from "@/composition/platform";
 import { route } from "@ros/application/http/route";
 import { isAuthorizedCron } from "@ros/application/modules/platform/cron-auth";
@@ -13,6 +14,8 @@ export const POST = route({ auth: "public", skipOriginCheck: true }, async ({ re
     throw new DomainError("UNAUTHENTICATED", "Invalid or missing job credentials");
   }
   const result = await platformService(c).runSubscriptionSweep();
-  c.logger.info("subscription_sweep_completed", { ...result });
-  return { data: result };
+  // Growth analytics: unpaid checkouts forget their buyer's GA4 client id after 48 hours.
+  const analytics = await paymentService(c).forgetAbandonedAnalyticsIds();
+  c.logger.info("subscription_sweep_completed", { ...result, ...analytics });
+  return { data: { ...result, ...analytics } };
 });

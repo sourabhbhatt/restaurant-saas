@@ -47,6 +47,8 @@ const PAID_EVENTS = new Set(["order.paid", "payment.captured"]);
 const FAILED_EVENT = "payment.failed";
 /** Every event type that names one of our orders and so takes the order lock. */
 const ORDER_EVENTS = new Set([...PAID_EVENTS, FAILED_EVENT]);
+/** How long an unpaid checkout keeps its buyer's GA4 client id (privacy policy: at most 48 hours). */
+const ANALYTICS_ID_RETENTION_MS = 48 * 60 * 60 * 1000;
 
 interface WebhookPayment {
   paymentId: string | null;
@@ -332,6 +334,17 @@ export function createPaymentService({
   ) => seen.amountMinor === order.amountMinor && seen.currency === order.currency;
 
   return {
+    /**
+     * Scheduled with the subscription sweep: a checkout that was never paid
+     * keeps its buyer's GA4 client id for at most 48 hours (longer than the
+     * provider retries a webhook), then forgets it. Works without a gateway.
+     */
+    async forgetAbandonedAnalyticsIds(): Promise<{ analyticsIdsCleared: number }> {
+      const cutoff = new Date(clock.now().getTime() - ANALYTICS_ID_RETENTION_MS);
+      const analyticsIdsCleared = await tx.run((r) => r.payments.forgetAnalyticsIds(cutoff));
+      return { analyticsIdsCleared };
+    },
+
     /**
      * Creates a provider order for one billing period of `planKey`. The amount
      * is the plan's own price; the client never sends one.

@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lt, type SQL } from "drizzle-orm";
 
 import type { PaymentOrderRow, PaymentRepository } from "@ros/application/modules/payments/ports";
 
@@ -107,6 +107,19 @@ export function paymentRepository(db: Executor): PaymentRepository {
       if (patch.paidAt !== undefined) set.paidAt = patch.paidAt;
       if (patch.analyticsClientId !== undefined) set.analyticsClientId = patch.analyticsClientId;
       await db.update(paymentOrders).set(set).where(eq(paymentOrders.id, id));
+    },
+    async forgetAnalyticsIds(createdBefore) {
+      const rows = await db
+        .update(paymentOrders)
+        .set({ analyticsClientId: null })
+        .where(
+          and(
+            isNotNull(paymentOrders.analyticsClientId),
+            lt(paymentOrders.createdAt, createdBefore),
+          ),
+        )
+        .returning({ id: paymentOrders.id });
+      return rows.length;
     },
     async insertEvent(input) {
       const rows = await db

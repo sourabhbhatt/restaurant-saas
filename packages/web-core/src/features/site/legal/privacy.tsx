@@ -131,7 +131,8 @@ const SECTIONS: LegalSection[] = [
             an active plan) and activated your subscription. These are linked to the random
             identifier in your <code>_ga</code> cookie. So that a payment confirmed by our payment
             provider after you have left the page can still be counted, we keep that identifier with
-            the payment record until the payment is confirmed, and then delete it.
+            the payment record until the payment is confirmed (at most 48 hours if it never is), and
+            then delete it.
           </li>
           <li>
             Never sent: your name, email address, phone number, password, payment details, your

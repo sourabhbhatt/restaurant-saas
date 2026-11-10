@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { POST as activate } from "@/app/api/v1/admin/workspaces/[workspaceId]/subscription/activate/route";
 import { POST as cancel } from "@/app/api/v1/admin/workspaces/[workspaceId]/subscription/cancel/route";
+import { POST as runJob } from "@/app/api/v1/jobs/subscriptions/route";
 import { POST as checkout } from "@/app/api/v1/organizations/[organizationId]/checkout/route";
 import { POST as verify } from "@/app/api/v1/organizations/[organizationId]/checkout/verify/route";
 import { POST as webhook } from "@/app/api/v1/webhooks/razorpay/route";
@@ -302,6 +303,33 @@ describe("Super Admin actions", () => {
     expect(cancelled.status).toBe(200);
     expect(tracking.events).toEqual([]);
     expect(tracking.rejected).toEqual([]);
+  });
+});
+
+describe("retention of a stored opt-in", () => {
+  it("the scheduled sweep forgets an unpaid checkout's client id after 48 hours", async () => {
+    const { user, organizationId } = await owner("Abandoned");
+    const s = await startCheckout(user, organizationId, GA_COOKIES);
+    const previousSecret = c.env.CRON_SECRET;
+    c.env.CRON_SECRET = "cron-secret-for-tracking-tests";
+    const sweep = () =>
+      call<{ analyticsIdsCleared: number }>(runJob, {
+        method: "POST",
+        headers: { authorization: `Bearer ${c.env.CRON_SECRET}` },
+      });
+    try {
+      expect((await sweep()).status).toBe(200);
+      // A checkout still within its payment window keeps the id for the webhook.
+      expect(await storedClientId(s)).toBe(BROWSER.clientId);
+
+      c.clock.setOffsetMs(49 * 3_600_000);
+      const later = await sweep();
+      expect(later.body.data!.analyticsIdsCleared).toBeGreaterThanOrEqual(1);
+      expect(await storedClientId(s)).toBeNull();
+    } finally {
+      c.clock.setOffsetMs(0);
+      c.env.CRON_SECRET = previousSecret;
+    }
   });
 });
 

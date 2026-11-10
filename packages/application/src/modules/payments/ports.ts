@@ -58,6 +58,8 @@ export interface PaymentRepository {
       analyticsClientId?: null;
     },
   ): Promise<void>;
+  /** Clears the stored GA4 client id of orders created before `createdBefore`; returns how many. */
+  forgetAnalyticsIds(createdBefore: Date): Promise<number>;
   /** False when the provider already delivered this event (unique on provider + event id). */
   insertEvent(input: {
     provider: string;

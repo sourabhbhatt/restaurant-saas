@@ -37,7 +37,8 @@ export const paymentOrders = pgTable(
     /**
      * The buyer's GA4 client id, recorded only when they had opted in to
      * analytics at checkout, so a webhook-confirmed payment's growth events
-     * respect that choice. Null otherwise; cleared when the order is paid.
+     * respect that choice. Null otherwise; cleared when the order is paid, or
+     * after 48 hours by the scheduled sweep (jobs/subscriptions) if it never is.
      */
     analyticsClientId: text("analytics_client_id"),
     paidAt: tstz("paid_at"),
