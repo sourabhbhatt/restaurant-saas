@@ -1,4 +1,4 @@
-import { cacheCurrentPage } from "./cache-current-page";
+import { cacheCurrentPage, isCacheableStaffPage } from "./cache-current-page";
 
 function setup(options: { cached?: boolean; online?: boolean; active?: boolean } = {}) {
   const postMessage = vi.fn();
@@ -32,6 +32,32 @@ describe("cacheCurrentPage", () => {
       const { env, postMessage } = setup(options);
       await expect(cacheCurrentPage(env)).resolves.toBe(false);
       expect(postMessage).not.toHaveBeenCalled();
+    }
+  });
+
+  it("caches only staff screens, never public, auth or guest pages or token URLs", async () => {
+    const cases: [string, string, boolean][] = [
+      ["/app/b/b1/orders", "", true],
+      ["/app", "", true],
+      ["/waiter/b1", "", true],
+      ["/cashier/b1", "?tab=bills", true],
+      ["/", "", false],
+      ["/pricing", "", false],
+      ["/sign-in", "?next=%2Fapp", false],
+      ["/reset-password", "?token=abc", false],
+      ["/verify-email", "?token=abc", false],
+      ["/invite/abc123", "", false],
+      ["/t/abc123", "", false],
+      ["/application", "", false],
+      ["/app/b/b1", "?token=abc", false],
+    ];
+    for (const [pathname, search, cached] of cases) {
+      const { env, postMessage } = setup();
+      await expect(cacheCurrentPage({ ...env, location: { pathname, search } })).resolves.toBe(
+        cached,
+      );
+      expect(postMessage).toHaveBeenCalledTimes(cached ? 1 : 0);
+      expect(isCacheableStaffPage(pathname, search), `${pathname}${search}`).toBe(cached);
     }
   });
 });
