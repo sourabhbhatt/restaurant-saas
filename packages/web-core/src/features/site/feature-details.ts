@@ -274,6 +274,8 @@ export const FEATURE_DETAILS: FeatureDetail[] = [
         points: [
           "Queued changes are sent one after another, in the order they were made",
           "Each change carries an idempotency key, so a retry never creates a duplicate order",
+          "A waiter order queued more than 10 minutes ago asks “Send it now?” before it goes",
+          "If the table was closed or reopened meanwhile, the server refuses the old order",
           "Conflicts are shown with the server's message; nothing pending is silently discarded",
           "On a shared device, one person's unsent changes are never sent with another person's account",
         ],

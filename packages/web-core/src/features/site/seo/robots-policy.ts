@@ -25,7 +25,7 @@ export const CONSOLE_DISALLOW = [
   "/verify-email",
   "/~offline",
   "/serwist/",
-  "/healthz",
+  "/health",
 ];
 
 /**
