@@ -23,5 +23,6 @@ export function paymentService(c: Container) {
     keyId: c.env.RAZORPAY_KEY_ID ?? null,
     clock: c.clock,
     logger: c.logger,
+    tracking: c.tracking,
   });
 }

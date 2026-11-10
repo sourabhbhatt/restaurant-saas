@@ -18,5 +18,7 @@ export function workspaceService(c: Container) {
     bootstrap: createSystemRunner(c.db, build),
     clock: c.clock,
     entitlements: c.entitlements,
+    tracking: c.tracking,
+    logger: c.logger,
   });
 }

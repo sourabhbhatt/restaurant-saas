@@ -19,6 +19,7 @@ export function platformService(c: Container) {
     appUrl: c.env.APP_URL,
     logger: c.logger,
     paymentsEnabled: c.payments !== null,
+    tracking: c.tracking,
     mailer: {
       send: (to, template, subject, text) => sendEmail(c, { to, template, subject, text }),
     },
