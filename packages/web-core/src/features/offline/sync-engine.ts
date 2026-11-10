@@ -202,12 +202,17 @@ export class SyncEngine {
       syncedAt: null,
       invalidateKeys: input.invalidateKeys,
     };
-    // Keep FIFO stable even when two items are queued in the same millisecond.
-    const last = await this.deps.db.outbox.orderBy("createdAt").last();
-    if (last && last.createdAt >= item.createdAt) {
-      item.createdAt = last.createdAt + 1;
-    }
-    await this.deps.db.outbox.add(item);
+    // Keep FIFO stable even when two items are queued in the same millisecond. One rw
+    // transaction: concurrent enqueues (a quick double tap) are serialised, so the second
+    // reads the first one's row and never ties on createdAt (ties sort by random id).
+    const { db } = this.deps;
+    await db.transaction("rw", db.outbox, async () => {
+      const last = await db.outbox.orderBy("createdAt").last();
+      if (last && last.createdAt >= item.createdAt) {
+        item.createdAt = last.createdAt + 1;
+      }
+      await db.outbox.add(item);
+    });
     return item;
   }
 
