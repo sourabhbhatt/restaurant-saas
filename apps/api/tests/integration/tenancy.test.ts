@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -34,6 +34,7 @@ import {
   auditLogs,
   branchSettings,
   menus,
+  restaurants,
   restaurantSettings,
   subscriptionPlans,
   subscriptions,
@@ -356,6 +357,29 @@ describe("plan limits", () => {
     });
     expect(b2.status).toBe(402);
     expect(b2.body.error!.code).toBe("LIMIT_REACHED");
+  });
+
+  it("concurrent creates on the last restaurant slot yield one success and one LIMIT_REACHED", async () => {
+    const owner = await signUpUser();
+    const ws = await createWorkspaceAs(owner);
+    await switchPlan(ws.id, "starter"); // maxRestaurants: 1
+    const attempt = (name: string) =>
+      call<RestaurantDto>(createRestaurant, {
+        params: { workspaceId: ws.id },
+        body: { name },
+        cookie: owner.cookie,
+      });
+    const results = await Promise.all([attempt("Race A"), attempt("Race B"), attempt("Race C")]);
+    const statuses = results.map((r) => r.status).sort();
+    expect(statuses).toEqual([201, 402, 402]);
+    for (const refused of results.filter((r) => r.status === 402)) {
+      expect(refused.body.error!.code).toBe("LIMIT_REACHED");
+    }
+    const rows = await c.db
+      .select({ id: restaurants.id })
+      .from(restaurants)
+      .where(and(eq(restaurants.workspaceId, ws.id), isNull(restaurants.deletedAt)));
+    expect(rows).toHaveLength(1);
   });
 
   it("requires multi_branch for a second branch even when the branch limit allows it", async () => {

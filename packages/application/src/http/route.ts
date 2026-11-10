@@ -3,11 +3,11 @@ import "server-only";
 import { z } from "zod";
 
 import { DomainError, isDomainError } from "@ros/domain/shared/errors";
-import { hashToken } from "@ros/domain/shared/tokens";
+import { hashToken, isWellFormedToken } from "@ros/domain/shared/tokens";
 
 import type { RequestMeta, UserActor } from "../context";
 import { getContainer, type Container } from "../container";
-import { clientIpFrom } from "./client-ip";
+import { resolveClientIp } from "./client-ip";
 import { toErrorResponse } from "./errors";
 import { readCookie, SESSION_COOKIE } from "./cookies";
 import { bindUser, runWithDbContext } from "../db-context";
@@ -92,8 +92,24 @@ export function json(
   });
 }
 
+/**
+ * Request paths in error logs with capability tokens (QR, invitation) masked:
+ * a token is the whole credential, and logs are read by more people than the
+ * database.
+ */
+export function loggablePath(pathname: string): string {
+  return pathname
+    .split("/")
+    .map((segment) => (isWellFormedToken(segment) ? "[token]" : segment))
+    .join("/");
+}
+
+/** Client-supplied ids are echoed in headers and logs, so only a plain token is accepted. */
+const REQUEST_ID = /^[A-Za-z0-9._:-]{1,64}$/;
+
 export function requestIdFrom(req: Request): string {
-  return req.headers.get("x-request-id")?.slice(0, 64) || crypto.randomUUID();
+  const supplied = req.headers.get("x-request-id");
+  return supplied && REQUEST_ID.test(supplied) ? supplied : crypto.randomUUID();
 }
 
 /** Same-origin check for cookie-authenticated mutations (CSRF defence with SameSite=Lax cookies). */
@@ -195,7 +211,12 @@ export function route<
     async function serve(c: Container): Promise<Response> {
       const meta: RequestMeta = {
         requestId,
-        ip: clientIpFrom(req.headers, c.env.TRUSTED_PROXY_HOPS),
+        ip: await resolveClientIp(req.headers, {
+          trustedHops: c.env.TRUSTED_PROXY_HOPS,
+          proxySecret: c.env.PROXY_SHARED_SECRET,
+          now: c.clock.now(),
+          onRejected: (reason) => c.logger.warn("client_ip_signature_rejected", { reason }),
+        }),
         userAgent: req.headers.get("user-agent"),
       };
       if (MUTATING.has(req.method) && !config.skipOriginCheck)
@@ -291,7 +312,7 @@ export function route<
       if (status >= 500 && !isDomainError(error)) {
         c?.errors.capture(error, {
           requestId,
-          path: new URL(req.url).pathname,
+          path: loggablePath(new URL(req.url).pathname),
           method: req.method,
         });
         if (!c)
@@ -306,7 +327,7 @@ export function route<
       }
       const headers: Record<string, string> = {};
       const retry = body.error.details?.retryAfterSeconds;
-      if (status === 429 && typeof retry === "number")
+      if ((status === 429 || status === 503) && typeof retry === "number")
         headers["retry-after"] = String(Math.max(retry, 1));
       return json(status, body, requestId, headers);
     }

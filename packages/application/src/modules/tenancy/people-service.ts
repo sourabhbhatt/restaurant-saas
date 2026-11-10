@@ -23,6 +23,7 @@ import {
 } from "@ros/domain/shared/errors";
 import { generateToken, hashToken, isWellFormedToken } from "@ros/domain/shared/tokens";
 import { addDays } from "@ros/domain/subscriptions/entitlements";
+import { reserveLimit } from "../../subscriptions/limit-guard";
 import { UniqueViolationError } from "@ros/database/interfaces/transaction";
 
 import { recordAudit } from "../../audit/audit-service";
@@ -163,10 +164,16 @@ export function createPeopleService({
         r.tenancy.findMembership(scope.workspaceId, membershipId),
       );
       if (!target) throw notFound("Member");
-      if (input.status === "ACTIVE" && target.status === "DISABLED") {
-        await entitlements.assertCanAdd(scope.workspaceId, "maxStaff");
-      }
+      const reactivating = input.status === "ACTIVE" && target.status === "DISABLED";
+      if (reactivating) await entitlements.assertCanAdd(scope.workspaceId, "maxStaff");
       return tx.run(async (r) => {
+        if (reactivating) {
+          await reserveLimit(r, {
+            entitlements: scope.entitlements,
+            workspaceId: scope.workspaceId,
+            key: "maxStaff",
+          });
+        }
         let newRole: RoleRecord | null = null;
         if (input.roleId && input.roleId !== target.roleId) {
           newRole = await r.tenancy.findRole(scope.workspaceId, input.roleId);
@@ -618,14 +625,23 @@ export function createPeopleService({
           r.tenancy.findMembershipByUser(found.workspaceId, actor.userId),
         ),
       };
-      if (
+      const takesSeat =
         pre.inv.status === "PENDING" &&
         pre.inv.email.toLowerCase() === actor.email.trim().toLowerCase() &&
-        (!pre.existing || pre.existing.status === "DISABLED")
-      ) {
-        await entitlements.assertCanAdd(pre.inv.workspaceId, "maxStaff");
-      }
+        (!pre.existing || pre.existing.status === "DISABLED");
+      const seatEntitlements = takesSeat
+        ? await entitlements
+            .assertCanAdd(pre.inv.workspaceId, "maxStaff")
+            .then(() => entitlements.getWorkspaceEntitlements(pre.inv.workspaceId))
+        : null;
       return tx.run(async (r) => {
+        if (seatEntitlements) {
+          await reserveLimit(r, {
+            entitlements: seatEntitlements,
+            workspaceId: pre.inv.workspaceId,
+            key: "maxStaff",
+          });
+        }
         const inv = await r.tenancy.findInvitationByTokenHash(tokenHash, true);
         if (!inv) throw notFound("Invitation");
         if (inv.status === "ACCEPTED") throw conflict("This invitation has already been accepted");

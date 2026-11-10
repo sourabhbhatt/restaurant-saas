@@ -48,7 +48,7 @@ Internal packages have no build step: `exports: { "./*": ["./src/*.ts", "./src/*
 
 `route({ auth, params, query, body, rateLimit, idempotency }, handler)` in `packages/application/src/http/route.ts`:
 
-1. request id → 2. same-origin check for mutations (CSRF: `Sec-Fetch-Site: same-origin`, or an `Origin` listed in `ALLOWED_ORIGINS`) → 3. rate limit (DB-backed fixed window, client IP from `X-Forwarded-For` per `TRUSTED_PROXY_HOPS`) → 4. session → `UserActor` → 5. Zod validation (422 with field errors) → 6. optional `Idempotency-Key` replay → 7. handler, inside a request DB context → 8. `{ data }` envelope or `{ error: { code, message, fieldErrors, requestId } }`.
+1. request id → 2. same-origin check for mutations (CSRF: `Sec-Fetch-Site: same-origin`, or an `Origin` listed in `ALLOWED_ORIGINS`) → 3. rate limit (DB-backed fixed window, client IP from the frontend proxy's signed `x-ros-client-ip` when `PROXY_SHARED_SECRET` is set, else from `X-Forwarded-For` per `TRUSTED_PROXY_HOPS`) → 4. session → `UserActor` → 5. Zod validation (422 with field errors) → 6. optional `Idempotency-Key` replay → 7. handler, inside a request DB context → 8. `{ data }` envelope or `{ error: { code, message, fieldErrors, requestId } }`.
 
 Inside the handler, authorization:
 

@@ -4,6 +4,7 @@ import type {
   AnnouncementInput,
   AuditLogDto,
   EntitlementOverrideDto,
+  HousekeepingResult,
   Paginated,
   PlanInput,
   PublicAnnouncementDto,
@@ -110,6 +111,19 @@ export interface RestaurantTreeRow {
 export interface SweepCandidate {
   subscription: SubscriptionRow;
   workspaceName: string;
+}
+
+/** Rows removed by the scheduled housekeeping pass (see `HousekeepingResult` in contracts). */
+export interface HousekeepingInput {
+  now: Date;
+  /** Rate-limit buckets whose window ended before this. */
+  rateLimitBefore: Date;
+  /** Idempotency records created before this (replays older than that re-execute). */
+  idempotencyBefore: Date;
+  /** Sessions expired or revoked before this. */
+  sessionsBefore: Date;
+  /** Auth tokens (reset, verification) that expired or were used before this. */
+  authTokensBefore: Date;
 }
 
 export interface SupportFilter {
@@ -274,6 +288,8 @@ export interface PlatformRepository extends UpgradeRepository {
   }): Promise<void>;
   listSubscriptionEvents(workspaceId: string, limit: number): Promise<SubscriptionEventDto[]>;
   listSweepCandidates(): Promise<SweepCandidate[]>;
+  /** Deletes expired request plumbing (never tenant data); returns the rows removed per table. */
+  pruneExpired(input: HousekeepingInput): Promise<HousekeepingResult>;
 
   // workspaces (Super Admin)
   listWorkspacesForAdmin(filter: {

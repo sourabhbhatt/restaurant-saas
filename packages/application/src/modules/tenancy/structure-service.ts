@@ -22,6 +22,7 @@ import { UniqueViolationError } from "@ros/database/interfaces/transaction";
 import { recordAudit } from "../../audit/audit-service";
 import type { BranchScope, RestaurantScope, WorkspaceScope } from "../../authz/access-service";
 import { auditActorFor, type RequestMeta } from "../../context";
+import { reserveLimit } from "../../subscriptions/limit-guard";
 import { slugify } from "../workspaces/service";
 import type { TenancyServiceDeps } from "./deps";
 import type { BranchPatch, RestaurantPatch, TenancyRepos } from "./ports";
@@ -162,6 +163,11 @@ export function createStructureService({ tx, clock, entitlements }: TenancyServi
       assertOwnImageKeys(scope.workspaceId, input);
       await entitlements.assertCanAdd(scope.workspaceId, "maxRestaurants");
       return tx.run(async (r) => {
+        await reserveLimit(r, {
+          entitlements: scope.entitlements,
+          workspaceId: scope.workspaceId,
+          key: "maxRestaurants",
+        });
         const slug = await uniqueRestaurantSlug(r, scope.workspaceId, input.name);
         const restaurant = await r.tenancy.insertRestaurant(scope.workspaceId, {
           name: input.name,
@@ -279,6 +285,11 @@ export function createStructureService({ tx, clock, entitlements }: TenancyServi
       if (existing >= 1) await entitlements.assertFeature(scope.workspaceId, "multi_branch");
       try {
         return await tx.run(async (r) => {
+          await reserveLimit(r, {
+            entitlements: scope.entitlements,
+            workspaceId: scope.workspaceId,
+            key: "maxBranches",
+          });
           const ws = await r.tenancy.findWorkspace(scope.workspaceId);
           if (!ws) throw notFound("Workspace");
           const taken = await r.tenancy.listBranchCodes(scope.workspaceId, scope.restaurantId);

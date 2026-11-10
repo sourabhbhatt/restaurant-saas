@@ -38,12 +38,16 @@ import type { Executor } from "../client";
 import {
   announcements,
   auditLogs,
+  authTokens,
   branches,
+  idempotencyRecords,
   notificationPreferences,
   organizations,
   platformSettings,
+  rateLimitBuckets,
   restaurants,
   roles,
+  sessions,
   subscriptionEvents,
   subscriptionPlans,
   subscriptions,
@@ -565,6 +569,45 @@ export function platformRepository(db: Executor): PlatformRepository {
         subscription: { ...toSubscriptionRow(r.sub, r), workspaceId: r.workspaceId },
         workspaceName: r.workspaceName,
       }));
+    },
+    async pruneExpired(input) {
+      const removed = async (rows: Promise<{ id: unknown }[]>) => (await rows).length;
+      return {
+        rateLimitBuckets: await removed(
+          db
+            .delete(rateLimitBuckets)
+            .where(lt(rateLimitBuckets.resetAt, input.rateLimitBefore))
+            .returning({ id: rateLimitBuckets.key }),
+        ),
+        idempotencyRecords: await removed(
+          db
+            .delete(idempotencyRecords)
+            .where(lt(idempotencyRecords.createdAt, input.idempotencyBefore))
+            .returning({ id: idempotencyRecords.id }),
+        ),
+        sessions: await removed(
+          db
+            .delete(sessions)
+            .where(
+              or(
+                lt(sessions.expiresAt, input.sessionsBefore),
+                lt(sessions.revokedAt, input.sessionsBefore),
+              ),
+            )
+            .returning({ id: sessions.id }),
+        ),
+        authTokens: await removed(
+          db
+            .delete(authTokens)
+            .where(
+              or(
+                lt(authTokens.expiresAt, input.authTokensBefore),
+                lt(authTokens.usedAt, input.authTokensBefore),
+              ),
+            )
+            .returning({ id: authTokens.id }),
+        ),
+      };
     },
 
     // ---------------------------------------------------------------- Super Admin workspaces

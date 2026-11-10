@@ -4,7 +4,7 @@ Base path: `/api/v1`. JSON only. Success: `{ "data": ... }`. Error: `{ "error": 
 
 Auth: `ros_session` httpOnly cookie (staff/owners). Guests: `ros_guest` httpOnly cookie bound to one table session. Mutations must be same-origin. Money = integer minor units; rates = basis points.
 
-Error codes → HTTP: `VALIDATION_FAILED` 422, `BAD_REQUEST` 400, `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `WORKSPACE_RESTRICTED` 403, `NOT_FOUND` 404 (also for other tenants' resources), `CONFLICT` / `INVALID_STATE_TRANSITION` / `STALE_VERSION` 409, `ENTITLEMENT_REQUIRED` / `LIMIT_REACHED` 402, `TRIAL_ALREADY_USED` 409, `MAINTENANCE` 503, `RATE_LIMITED` 429, `IDEMPOTENCY_MISMATCH` / `PAYMENT_REJECTED` 422, `QR_INVALID` 404, `INTERNAL_ERROR` 500.
+Error codes → HTTP: `VALIDATION_FAILED` 422, `BAD_REQUEST` 400, `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `WORKSPACE_RESTRICTED` 403, `NOT_FOUND` 404 (also for other tenants' resources), `CONFLICT` / `INVALID_STATE_TRANSITION` / `STALE_VERSION` 409, `ENTITLEMENT_REQUIRED` / `LIMIT_REACHED` 402, `TRIAL_ALREADY_USED` 409, `MAINTENANCE` 503, `RATE_LIMITED` 429, `IDEMPOTENCY_MISMATCH` / `PAYMENT_REJECTED` 422, `QR_INVALID` 404, `SERVICE_UNAVAILABLE` 503 (database or another dependency did not answer; `Retry-After` is set), `INTERNAL_ERROR` 500.
 
 `Idempotency-Key` header is honoured on endpoints marked **idem**: a repeat with the same key and body returns the stored response (`idempotent-replay: true`).
 

@@ -22,6 +22,7 @@ import type { AccessService, BranchScope } from "../../authz/access-service";
 import { auditActorFor, type RequestMeta, type UserActor } from "../../context";
 import type { Clock } from "../../ports/observability";
 import type { EntitlementService } from "../../subscriptions/entitlement-service";
+import { reserveLimit } from "../../subscriptions/limit-guard";
 import type {
   BranchTenant,
   QrTokenRecord,
@@ -151,6 +152,11 @@ export function createTableService(deps: TableServiceDeps) {
       return mapUnique(
         () =>
           tx.run(async (r) => {
+            await reserveLimit(r, {
+              entitlements: scope.entitlements,
+              workspaceId: t.workspaceId,
+              key: "maxTables",
+            });
             if ((await r.tables.existingNames(t, [input.name])).length > 0) {
               throw duplicateName(input.name);
             }
@@ -204,6 +210,12 @@ export function createTableService(deps: TableServiceDeps) {
       return mapUnique(
         () =>
           tx.run(async (r) => {
+            await reserveLimit(r, {
+              entitlements: scope.entitlements,
+              workspaceId: t.workspaceId,
+              key: "maxTables",
+              adding: names.length,
+            });
             const taken = await r.tables.existingNames(t, names);
             if (taken.length > 0) {
               const list = taken.slice(0, 5).join(", ");

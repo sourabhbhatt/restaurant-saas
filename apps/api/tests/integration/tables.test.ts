@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { POST as bulkCreate } from "@/app/api/v1/branches/[branchId]/tables/bulk/route";
@@ -20,6 +20,7 @@ import {
 import type { QrSheetDto, TableDto, TableQrDto } from "@ros/contracts/tables";
 import {
   auditLogs,
+  diningTables,
   tableQrTokens,
   tableSessions,
   workspaceEntitlements,
@@ -178,6 +179,27 @@ describe("tables CRUD", () => {
       cookie: owner.cookie,
     });
     expect(one.status).toBe(402);
+  });
+
+  it("concurrent table creates cannot race past maxTables", async () => {
+    const w = await createSiblingWorkspaceAs(c, owner, "Racy WS");
+    const r = await insertRestaurantWithBranch(c, w.id, { name: "Racy" });
+    await c.db
+      .insert(workspaceEntitlements)
+      .values({ workspaceId: w.id, key: "maxTables", value: 2 });
+    const attempt = (name: string) =>
+      call<TableDto>(createTable, {
+        params: { branchId: r.branchId },
+        body: { name, capacity: 2 },
+        cookie: owner.cookie,
+      });
+    const results = await Promise.all(["R1", "R2", "R3", "R4"].map(attempt));
+    expect(results.map((x) => x.status).sort()).toEqual([201, 201, 402, 402]);
+    const rows = await c.db
+      .select({ id: diningTables.id })
+      .from(diningTables)
+      .where(and(eq(diningTables.workspaceId, w.id), isNull(diningTables.deletedAt)));
+    expect(rows).toHaveLength(2);
   });
 });
 

@@ -97,3 +97,26 @@ describe("PAYMENT_PROVIDER", () => {
     expect(getEnv().PAYMENT_PROVIDER).toBe("none");
   });
 });
+
+describe("PROXY_SHARED_SECRET", () => {
+  afterEach(() => {
+    delete process.env.PROXY_SHARED_SECRET;
+    resetEnvCache();
+  });
+
+  it("is optional (signed client IP off)", () => {
+    expect(getEnv().PROXY_SHARED_SECRET).toBeUndefined();
+  });
+
+  it("rejects a short secret", () => {
+    process.env.PROXY_SHARED_SECRET = "too-short";
+    resetEnvCache();
+    expect(() => getEnv()).toThrow(/PROXY_SHARED_SECRET/);
+  });
+
+  it("accepts a 16+ character secret", () => {
+    process.env.PROXY_SHARED_SECRET = "a-long-enough-shared-secret";
+    resetEnvCache();
+    expect(getEnv().PROXY_SHARED_SECRET).toBe("a-long-enough-shared-secret");
+  });
+});

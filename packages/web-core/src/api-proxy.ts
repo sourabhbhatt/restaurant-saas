@@ -1,9 +1,18 @@
+import { isIP } from "node:net";
+
+import { signClientIp } from "@ros/domain/shared/signed-client-ip";
+
 /**
  * Runtime reverse proxy for `/api/v1/*`: each frontend forwards API calls to
  * the API service so the session cookie stays first-party on every origin.
  * It is a route handler, not a `rewrites()` entry, because rewrites are
  * serialised at build time and the API URL must come from the runtime
  * environment.
+ *
+ * With `PROXY_SHARED_SECRET` set, the browser's address (this proxy's own
+ * trusted `X-Forwarded-For` entry, see `TRUSTED_PROXY_HOPS`) is forwarded in a
+ * signed header, so the API's per-IP rate limits and audit entries see the
+ * real client instead of this proxy's egress address.
  */
 
 /** Request headers copied to the upstream call. Everything else is dropped. */
@@ -36,6 +45,10 @@ export interface ApiProxyConfig {
   apiInternalUrl: () => string;
   /** Whether /api/v1/test/* and /api/v1/dev/* may pass through (default: never). */
   allowTestHooks?: () => boolean;
+  /** `PROXY_SHARED_SECRET`; undefined (default) sends no signed client IP. */
+  clientIpSecret?: () => string | undefined;
+  /** Proxies in front of this frontend that append to X-Forwarded-For (default 1). */
+  trustedProxyHops?: () => number;
   /** Overridable for tests. */
   fetch?: typeof fetch;
 }
@@ -43,6 +56,32 @@ export interface ApiProxyConfig {
 /** Internal hook routes are relayed only when the frontend opts in explicitly. */
 const TEST_HOOK_PATH = /^\/api\/v1\/(test|dev)(\/|$)/;
 const NOT_FOUND = { error: { code: "NOT_FOUND", message: "Not found" } };
+
+/**
+ * Next.js fills X-Forwarded-For from the socket when no proxy set it, so one
+ * hop is right both behind a single platform front end (Cloud Run, Caddy) and
+ * with none at all.
+ */
+export const DEFAULT_TRUSTED_PROXY_HOPS = 1;
+
+/** The address a trusted proxy chain saw: the n-th X-Forwarded-For entry from the right. */
+export function trustedClientIp(headers: Headers, trustedHops: number): string | null {
+  if (trustedHops <= 0) return null;
+  const entries = (headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (entries.length < trustedHops) return null;
+  const candidate = entries[entries.length - trustedHops]!;
+  return isIP(candidate) ? candidate : null;
+}
+
+export function parseTrustedProxyHops(raw: string | undefined): number {
+  const n = Number(raw);
+  return raw !== undefined && raw !== "" && Number.isInteger(n) && n >= 0 && n <= 5
+    ? n
+    : DEFAULT_TRUSTED_PROXY_HOPS;
+}
 
 type Handler = (req: Request, ctx: { params: Promise<{ path: string[] }> }) => Promise<Response>;
 
@@ -65,7 +104,7 @@ function upstreamUrl(base: string, req: Request): URL {
   return url;
 }
 
-function upstreamHeaders(req: Request): Headers {
+async function upstreamHeaders(req: Request, config: ApiProxyConfig): Promise<Headers> {
   const headers = new Headers();
   for (const name of FORWARDED_REQUEST_HEADERS) {
     const value = req.headers.get(name);
@@ -75,6 +114,16 @@ function upstreamHeaders(req: Request): Headers {
   headers.set("x-forwarded-host", req.headers.get("host") ?? incoming.host);
   if (!headers.has("x-forwarded-proto"))
     headers.set("x-forwarded-proto", incoming.protocol.replace(":", ""));
+  // Client-supplied x-ros-client-ip* headers never pass the allowlist above; only our own are set.
+  const secret = config.clientIpSecret?.();
+  if (secret) {
+    const hops = config.trustedProxyHops?.() ?? DEFAULT_TRUSTED_PROXY_HOPS;
+    const ip = trustedClientIp(req.headers, hops);
+    if (ip) {
+      for (const [name, value] of Object.entries(await signClientIp({ ip, secret })))
+        headers.set(name, value);
+    }
+  }
   return headers;
 }
 
@@ -100,11 +149,12 @@ export function createApiProxy(config: ApiProxyConfig): ApiProxy {
       return Response.json(NOT_FOUND, { status: 404 });
     const base = config.apiInternalUrl();
     const hasBody = req.method !== "GET" && req.method !== "HEAD" && req.body !== null;
+    const headers = await upstreamHeaders(req, config);
     let upstream: Response;
     try {
       upstream = await doFetch(upstreamUrl(base, req), {
         method: req.method,
-        headers: upstreamHeaders(req),
+        headers,
         body: hasBody ? req.body : undefined,
         // Required by undici when streaming a request body.
         ...(hasBody ? { duplex: "half" as const } : {}),
@@ -136,4 +186,6 @@ export const DEFAULT_API_INTERNAL_URL = "http://localhost:4000";
 export const apiProxy = createApiProxy({
   apiInternalUrl: () => process.env.API_INTERNAL_URL || DEFAULT_API_INTERNAL_URL,
   allowTestHooks: () => /^(1|true|yes)$/i.test(process.env.ENABLE_TEST_HOOKS ?? ""),
+  clientIpSecret: () => process.env.PROXY_SHARED_SECRET || undefined,
+  trustedProxyHops: () => parseTrustedProxyHops(process.env.TRUSTED_PROXY_HOPS),
 });

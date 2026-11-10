@@ -13,6 +13,7 @@ Validated once at startup by `packages/application/src/config/env.ts` (Zod). Inv
 | `ALLOWED_ORIGINS`                                                    | `APP_URL`'s origin                                                     | **yes** (3 origins)         | Comma-separated origins allowed to send cookie-authenticated writes (CSRF check). List the console, ops and admin origins. `http(s)` only, no wildcards. A warning is logged when it omits `APP_URL`'s origin      |
 | `QR_BASE_URL`                                                        | `APP_URL`                                                              | no                          | Base of the links printed on table QR codes (`<base>/t/<token>`)                                                                                                                                                   |
 | `TRUSTED_PROXY_HOPS`                                                 | `0`                                                                    | **yes**                     | Number of proxies you operate in front of the API. The client IP is the n-th `X-Forwarded-For` entry from the right; `0` ignores the header. Startup fails in production when unset. See below                     |
+| `PROXY_SHARED_SECRET`                                                | —                                                                      | Cloud Run                   | 16+ chars, shared with the frontends. Their `/api/v1` proxy signs the browser's address with it (`x-ros-client-ip`); a valid, fresh signature wins over `X-Forwarded-For`. Unset: the header is ignored. See below |
 | `APP_NAME`                                                           | `RestaurantOS`                                                         | no                          | Product name in emails                                                                                                                                                                                             |
 | `APP_VERSION`                                                        | —                                                                      | no                          | Build or release id reported by `/api/v1/health`                                                                                                                                                                   |
 | `DATABASE_PROVIDER`                                                  | `postgres`                                                             | no                          | `postgres` or `pglite` (embedded Postgres 18, dev/test only, one process at a time)                                                                                                                                |
@@ -55,19 +56,31 @@ Browser requests reach the API through a frontend's `/api/v1` proxy, which forwa
 
 With a wrong value, every per-IP rate limit (sign-up, guest ordering, uploads, checkout) can be bypassed by rotating the header and audit IPs are whatever the client chose.
 
+### `PROXY_SHARED_SECRET`: the client IP when the frontends reach the API over its public URL
+
+On Cloud Run the frontends call the API's public URL, so Google's front end appends the _frontend's_ egress address to `X-Forwarded-For` last: with `TRUSTED_PROXY_HOPS=1` every browser behind one frontend instance looks like one client (ten sign-ups per hour for everyone, one abusive client locks everyone out), and trusting one more hop would let anyone who knows the API URL (including webhook senders) choose their own address. Set `PROXY_SHARED_SECRET` to the same 16+ character value on the API and on every frontend instead:
+
+- The frontend proxy takes the browser's address from its own trusted hop (`TRUSTED_PROXY_HOPS` on the frontend, default `1`: Google's front end on Cloud Run, the Caddy edge in compose) and forwards it in `x-ros-client-ip` with an HMAC-SHA256 signature over the address and a timestamp (`x-ros-client-ip-signature`, `@ros/domain/shared/signed-client-ip`).
+- The API uses that address when the signature verifies and is at most 60 s old; otherwise (no secret, missing, forged, stale) it logs `client_ip_signature_rejected` for a present-but-invalid header and falls back to the `TRUSTED_PROXY_HOPS` rule. Client-supplied `x-ros-client-ip*` headers never pass the proxy's header allowlist.
+- Keep `TRUSTED_PROXY_HOPS=1` on the API: it stays the fallback for requests that do not come through a frontend.
+
+Local `pnpm dev` does not need it (nothing sits in front of the frontends, so there is no address to sign). The compose stack passes the one value from `.env.compose` to the API and the three frontends.
+
 ## Frontends (`apps/console`, `apps/ops`, `apps/admin`)
 
 Read at request time (`connection()` / per-request handlers), never inlined at build time, so one image runs in every environment. No `NEXT_PUBLIC_*` value is required.
 
-| Variable            | Default                 | Purpose                                                                                            |
-| ------------------- | ----------------------- | -------------------------------------------------------------------------------------------------- |
-| `API_INTERNAL_URL`  | `http://localhost:4000` | Where the `/api/v1/*` proxy sends requests (an internal URL such as `http://api:4000`)             |
-| `ENABLE_TEST_HOOKS` | `false`                 | Lets the proxy relay `/api/v1/test/*` and `/api/v1/dev/*` (local only; the API gates them too)     |
-| `CONSOLE_URL`       | `http://localhost:3000` | Public console origin for cross-app links (sign-up, password reset, dashboard)                     |
-| `OPS_URL`           | `http://localhost:3001` | Public ops origin for the Waiter / Kitchen / Cashier links                                         |
-| `ADMIN_URL`         | `http://localhost:3002` | Public admin origin for the Super Admin link                                                       |
-| `APP_VERSION`       | —                       | Reported by `/healthz`                                                                             |
-| `PORT`              | per app                 | Listening port of the standalone server (compose runs every frontend on 3000 inside its container) |
+| Variable              | Default                 | Purpose                                                                                                                                                                                                         |
+| --------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `API_INTERNAL_URL`    | `http://localhost:4000` | Where the `/api/v1/*` proxy sends requests (an internal URL such as `http://api:4000`)                                                                                                                          |
+| `ENABLE_TEST_HOOKS`   | `false`                 | Lets the proxy relay `/api/v1/test/*` and `/api/v1/dev/*` (local only; the API gates them too)                                                                                                                  |
+| `CONSOLE_URL`         | `http://localhost:3000` | Public console origin for cross-app links (sign-up, password reset, dashboard)                                                                                                                                  |
+| `OPS_URL`             | `http://localhost:3001` | Public ops origin for the Waiter / Kitchen / Cashier links                                                                                                                                                      |
+| `ADMIN_URL`           | `http://localhost:3002` | Public admin origin for the Super Admin link                                                                                                                                                                    |
+| `APP_VERSION`         | —                       | Reported by `/healthz`                                                                                                                                                                                          |
+| `PORT`                | per app                 | Listening port of the standalone server (compose runs every frontend on 3000 inside its container)                                                                                                              |
+| `PROXY_SHARED_SECRET` | —                       | Same value as the API's. When set, the `/api/v1` proxy forwards the browser's address in a signed header (see [above](#proxy_shared_secret-the-client-ip-when-the-frontends-reach-the-api-over-its-public-url)) |
+| `TRUSTED_PROXY_HOPS`  | `1`                     | Proxies in front of _this frontend_ that overwrite or append `X-Forwarded-For` (Cloud Run's front end, the Caddy edge: `1`). Only used to pick the address to sign; irrelevant without the secret               |
 
 Optional site text (console): `NEXT_PUBLIC_LEGAL_ENTITY` and `NEXT_PUBLIC_SUPPORT_EMAIL` fill the legal templates and contact details (`packages/web-core/src/features/site/brand.ts`); being `NEXT_PUBLIC_`, they are baked in at build time.
 
@@ -84,4 +97,4 @@ Optional site text (console): `NEXT_PUBLIC_LEGAL_ENTITY` and `NEXT_PUBLIC_SUPPOR
 
 ## Compose
 
-`infra/compose/.env.compose.example` lists the values the stack needs: `POSTGRES_PASSWORD`, `RUNTIME_PASSWORD` (login for `ros_runtime`), `MINIO_ROOT_PASSWORD`, `APP_SECRET`, plus optional `POSTGRES_USER`, `POSTGRES_DB`, `MINIO_ROOT_USER`, `S3_BUCKET`, `CONSOLE_URL`, `OPS_URL`, `ADMIN_URL`, `APP_VERSION`. The compose file sets the rest (`DATABASE_TENANT_ROLE=ros_tenant`, `REALTIME_PROVIDER=postgres`, `STORAGE_PROVIDER=s3` with `S3_FORCE_PATH_STYLE=true`, `TRUSTED_PROXY_HOPS=1`, `ALLOWED_ORIGINS` = the three frontend origins, `API_INTERNAL_URL=http://api:4000`).
+`infra/compose/.env.compose.example` lists the values the stack needs: `POSTGRES_PASSWORD`, `RUNTIME_PASSWORD` (login for `ros_runtime`), `MINIO_ROOT_PASSWORD`, `APP_SECRET`, `PROXY_SHARED_SECRET`, plus optional `POSTGRES_USER`, `POSTGRES_DB`, `MINIO_ROOT_USER`, `S3_BUCKET`, `CONSOLE_URL`, `OPS_URL`, `ADMIN_URL`, `APP_VERSION`. The compose file sets the rest (`DATABASE_TENANT_ROLE=ros_tenant`, `REALTIME_PROVIDER=postgres`, `STORAGE_PROVIDER=s3` with `S3_FORCE_PATH_STYLE=true`, `TRUSTED_PROXY_HOPS=1` on the API and the frontends, `ALLOWED_ORIGINS` = the three frontend origins, `API_INTERNAL_URL=http://api:4000`).

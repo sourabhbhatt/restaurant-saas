@@ -13,6 +13,10 @@ x-build: &build
 x-frontend-env: &frontend-env
   NODE_ENV: production
   API_INTERNAL_URL: http://api:4000
+  # The proxy signs the browser's address for the API's rate limits (same value as the API).
+  PROXY_SHARED_SECRET: ${PROXY_SHARED_SECRET:?set PROXY_SHARED_SECRET}
+  # Proxies in front of this frontend (a Caddy/TLS terminator on a VPS counts as the one hop).
+  TRUSTED_PROXY_HOPS: 1
   CONSOLE_URL: ${CONSOLE_URL:-http://localhost:3000}
   OPS_URL: ${OPS_URL:-http://localhost:3001}
   ADMIN_URL: ${ADMIN_URL:-http://localhost:3002}
@@ -100,8 +104,10 @@ services:
       ALLOWED_ORIGINS: ${CONSOLE_URL:-http://localhost:3000},${OPS_URL:-http://localhost:3001},${ADMIN_URL:-http://localhost:3002}
       APP_SECRET: ${APP_SECRET:?set APP_SECRET}
       APP_VERSION: ${APP_VERSION:-compose}
-      # Caddy (the only published entry point) sets x-forwarded-for; the frontends relay it unchanged.
+      # Caddy (the only published entry point) sets x-forwarded-for; the frontends relay it unchanged
+      # and, with the shared secret, add the signed x-ros-client-ip header (the browser's own address).
       TRUSTED_PROXY_HOPS: 1
+      PROXY_SHARED_SECRET: ${PROXY_SHARED_SECRET:?set PROXY_SHARED_SECRET}
       DATABASE_PROVIDER: postgres
       # Connects as the runtime role; tenant transactions switch to ros_tenant (RLS).
       DATABASE_URL: postgres://ros_runtime:${RUNTIME_PASSWORD}@postgres:5432/${POSTGRES_DB:-restaurantos}

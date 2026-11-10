@@ -198,6 +198,18 @@ export interface EntitlementRepository {
   countUsage(workspaceId: string): Promise<WorkspaceUsage>;
 }
 
+/**
+ * Plan-limit guard for the transaction that creates a limited resource
+ * (see `subscriptions/limit-guard.ts`). Bound to the tenant transaction, so
+ * the count sees the row being added and concurrent creators serialise on
+ * the lock instead of racing past the limit.
+ */
+export interface LimitRepository {
+  /** Transaction-scoped lock on the workspace; released at commit or rollback. */
+  lockWorkspace(workspaceId: string): Promise<void>;
+  countUsage(workspaceId: string): Promise<WorkspaceUsage>;
+}
+
 export interface IdempotencyRepository {
   find(
     scope: string,

@@ -1,5 +1,8 @@
 import { createSystemLookup, type Executor } from "@ros/database/providers/postgres/client";
-import { auditRepository } from "@ros/database/providers/postgres/repositories/core";
+import {
+  auditRepository,
+  limitRepository,
+} from "@ros/database/providers/postgres/repositories/core";
 import { menuRepository } from "@ros/database/providers/postgres/repositories/menu";
 import { uploadRepository } from "@ros/database/providers/postgres/repositories/uploads";
 
@@ -13,6 +16,7 @@ export function menuService(c: Container) {
   const build = (e: Executor) => ({
     menu: menuRepository(e),
     audit: auditRepository(e),
+    limits: limitRepository(e),
   });
   return createMenuService({
     tx: tenantRunner(c, build),

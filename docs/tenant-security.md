@@ -34,7 +34,7 @@
 **Request hygiene** — `packages/application/src/http/route.ts`
 
 - CSRF: mutations require `Sec-Fetch-Site: same-origin` (or `none`) or an `Origin` listed in `ALLOWED_ORIGINS` (the console, ops and admin origins); cookies are `SameSite=Lax`. Webhooks and cron endpoints opt out explicitly and authenticate by signature or bearer secret.
-- Client IP for rate limits and audit comes from `X-Forwarded-For`, trusting only `TRUSTED_PROXY_HOPS` proxies (`packages/application/src/http/client-ip.ts`); everything left of them is client-supplied and ignored.
+- Client IP for rate limits and audit comes from `X-Forwarded-For`, trusting only `TRUSTED_PROXY_HOPS` proxies (`packages/application/src/http/client-ip.ts`); everything left of them is client-supplied and ignored. Where the frontends reach the API over a public URL (Cloud Run), the frontend proxy forwards the browser's address in `x-ros-client-ip`, HMAC-signed with `PROXY_SHARED_SECRET` and a 60 s timestamp (`@ros/domain/shared/signed-client-ip`); the API accepts it only with a valid, fresh signature and otherwise falls back to the hop rule, so direct callers cannot pick their own address.
 - Rate limits (Postgres-backed, multi-instance safe) on sign-in, sign-up, forgot/reset, verify, public QR and order endpoints.
 - Each app has its own `ros_session` cookie on its own origin; the frontends relay it to the API through their `/api/v1` proxy, so it is never a third-party cookie. Signing out on one app does not sign out the others.
 - `Idempotency-Key` replay for payments, bills and orders, plus DB unique keys (`(branch_id, idempotency_key)`).

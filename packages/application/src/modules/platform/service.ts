@@ -896,9 +896,14 @@ export function createPlatformService(deps: PlatformServiceDeps) {
           });
         }
         const current = await r.platform.findCurrentSubscription(scope.workspaceId);
-        if (current?.planKey === plan.key && current.status === "ACTIVE") {
+        // Same plan on the other billing cycle is a real change (annual unlocks more workspaces).
+        if (
+          current?.planKey === plan.key &&
+          current.status === "ACTIVE" &&
+          current.billingCycle === input.billingCycle
+        ) {
           throw new DomainError("VALIDATION_FAILED", "You are already on this plan", {
-            fieldErrors: { planKey: ["You are already on this plan"] },
+            fieldErrors: { planKey: ["You are already on this plan and billing cycle"] },
           });
         }
         const open = await r.platform.listUpgradeRequests({
@@ -1556,8 +1561,11 @@ export function createPlatformService(deps: PlatformServiceDeps) {
      * Scheduled sweep (idempotent): sends due trial reminders, the one-time
      * "trial ended", "subscription ended" and "grace ended" notices. Access is
      * never changed here — it is computed from dates on every request — and no
-     * data is deleted. Each subscription's markers are updated with a
-     * compare-and-set, so overlapping runs can't double-send.
+     * tenant data is deleted. Each subscription's markers are updated with a
+     * compare-and-set, so overlapping runs can't double-send. It ends with a
+     * housekeeping pass that removes expired request plumbing (rate-limit
+     * buckets, idempotency records, dead sessions, spent auth tokens), which
+     * otherwise grow without bound.
      */
     async runSubscriptionSweep(): Promise<SubscriptionSweepResult> {
       const s = await settings();
@@ -1570,6 +1578,7 @@ export function createPlatformService(deps: PlatformServiceDeps) {
         trialExpired: 0,
         periodExpired: 0,
         graceEnded: 0,
+        housekeeping: { rateLimitBuckets: 0, idempotencyRecords: 0, sessions: 0, authTokens: 0 },
       };
       const system: AuditActor = { type: "SYSTEM", userId: null };
       const readOnly = s.restrictedMode === "READ_ONLY";
@@ -1697,10 +1706,32 @@ export function createPlatformService(deps: PlatformServiceDeps) {
           logger?.error("subscription_sweep_failed", { subscriptionId: sub.id, error });
         }
       }
+      try {
+        result.housekeeping = await tx.run((r) =>
+          r.platform.pruneExpired({
+            now,
+            rateLimitBefore: new Date(now.getTime() - HOUSEKEEPING.rateLimitDays * DAY_MS),
+            idempotencyBefore: new Date(now.getTime() - HOUSEKEEPING.idempotencyDays * DAY_MS),
+            sessionsBefore: new Date(now.getTime() - HOUSEKEEPING.sessionDays * DAY_MS),
+            authTokensBefore: new Date(now.getTime() - HOUSEKEEPING.authTokenDays * DAY_MS),
+          }),
+        );
+      } catch (error) {
+        logger?.error("housekeeping_failed", { error });
+      }
       return result;
     },
   };
   return service;
 }
+
+/** How long expired plumbing is kept before the sweep removes it. */
+export const HOUSEKEEPING = {
+  rateLimitDays: 1,
+  /** Replays older than this re-execute; every idempotent write also has a unique key of its own. */
+  idempotencyDays: 30,
+  sessionDays: 30,
+  authTokenDays: 7,
+} as const;
 
 export type PlatformService = ReturnType<typeof createPlatformService>;
