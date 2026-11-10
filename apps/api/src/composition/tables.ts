@@ -1,5 +1,8 @@
 import { createSystemLookup, type Executor } from "@ros/database/providers/postgres/client";
-import { auditRepository } from "@ros/database/providers/postgres/repositories/core";
+import {
+  auditRepository,
+  limitRepository,
+} from "@ros/database/providers/postgres/repositories/core";
 import { tableRepository } from "@ros/database/providers/postgres/repositories/tables";
 
 import type { Container } from "./container";
@@ -11,6 +14,7 @@ export function tableService(c: Container) {
   const build = (e: Executor) => ({
     tables: tableRepository(e),
     audit: auditRepository(e),
+    limits: limitRepository(e),
   });
   return createTableService({
     tx: tenantRunner(c, build),

@@ -23,6 +23,7 @@ import type { AccessService, BranchScope, RestaurantScope } from "../../authz/ac
 import { auditActorFor, type RequestMeta, type UserActor } from "../../context";
 import type { Clock } from "../../ports/observability";
 import type { EntitlementService } from "../../subscriptions/entitlement-service";
+import { reserveLimit } from "../../subscriptions/limit-guard";
 import type { ItemPatch, MenuItemRecord, MenuRepos, MenuRepository, Tenant } from "./ports";
 
 export interface MenuServiceDeps {
@@ -243,6 +244,11 @@ export function createMenuService(deps: MenuServiceDeps) {
       assertImageKey(t.workspaceId, input.imageKey);
       await entitlements.assertCanAdd(t.workspaceId, "maxMenuItems");
       return tx.run(async (r) => {
+        await reserveLimit(r, {
+          entitlements: scope.entitlements,
+          workspaceId: t.workspaceId,
+          key: "maxMenuItems",
+        });
         if (!(await r.menu.findCategory(t, input.categoryId))) {
           throw validationFailed("Choose a category", { categoryId: ["Choose a category"] });
         }

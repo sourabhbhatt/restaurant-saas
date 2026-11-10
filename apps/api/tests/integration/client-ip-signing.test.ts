@@ -67,7 +67,7 @@ describe("rate limiting keys on the signed client IP", () => {
   it("a direct caller cannot claim another address without the secret", async () => {
     // Unsigned header, forged signature, and a signature with the wrong secret all fall back to
     // X-Forwarded-For, i.e. the caller's own (egress) address: the same bucket for all three.
-    const attempts = [
+    const attempts: Record<string, string>[] = [
       { "x-forwarded-for": `9.9.9.9, ${egress}`, [CLIENT_IP_HEADER]: "198.51.100.1" },
       {
         "x-forwarded-for": `9.9.9.9, ${egress}`,

@@ -51,7 +51,10 @@ import {
 } from "@ros/database/providers/postgres/schema";
 import type { Executor } from "@ros/database/providers/postgres/client";
 import { createSystemLookup } from "@ros/database/providers/postgres/client";
-import { auditRepository } from "@ros/database/providers/postgres/repositories/core";
+import {
+  auditRepository,
+  limitRepository,
+} from "@ros/database/providers/postgres/repositories/core";
 import { tenancyRepository } from "@ros/database/providers/postgres/repositories/tenancy";
 import { silentLogger } from "@ros/adapters/logging/console-logger";
 import { tenantRunner } from "@/composition/runners";
@@ -728,7 +731,11 @@ describe("invitation delivery", () => {
     const owner = await signUpUser("Notice Owner");
     const existing = await signUpUser("Notice Invitee");
     const ws = await createWorkspaceAs(owner);
-    const build = (e: Executor) => ({ tenancy: tenancyRepository(e), audit: auditRepository(e) });
+    const build = (e: Executor) => ({
+      tenancy: tenancyRepository(e),
+      audit: auditRepository(e),
+      limits: limitRepository(e),
+    });
     const sent: string[] = [];
     const warnings: string[] = [];
     const failing = async () => {

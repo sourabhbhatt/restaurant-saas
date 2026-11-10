@@ -3,7 +3,10 @@ import {
   createSystemRunner,
   type Executor,
 } from "@ros/database/providers/postgres/client";
-import { auditRepository } from "@ros/database/providers/postgres/repositories/core";
+import {
+  auditRepository,
+  limitRepository,
+} from "@ros/database/providers/postgres/repositories/core";
 import { tenancyRepository } from "@ros/database/providers/postgres/repositories/tenancy";
 
 import type { Container } from "./container";
@@ -16,6 +19,7 @@ export function tenancyService(c: Container) {
   const build = (e: Executor) => ({
     tenancy: tenancyRepository(e),
     audit: auditRepository(e),
+    limits: limitRepository(e),
   });
   return createTenancyService({
     tx: tenantRunner(c, build),

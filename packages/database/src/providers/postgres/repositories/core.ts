@@ -7,6 +7,7 @@ import type {
   EntitlementRepository,
   IdempotencyRepository,
   IdentityRepository,
+  LimitRepository,
   MembershipGrants,
   RateLimitRepository,
   UserRecord,
@@ -308,6 +309,17 @@ export function auditRepository(db: Executor): AuditRepository {
         requestId: entry.requestId ?? null,
       });
     },
+  };
+}
+
+/** Bound to a tenant transaction: serialises limited inserts per workspace and counts within it. */
+export function limitRepository(db: Executor): LimitRepository {
+  return {
+    async lockWorkspace(workspaceId) {
+      // Advisory, transaction-scoped: no row is touched, and it is released with the transaction.
+      await db.execute(sql`select pg_advisory_xact_lock(hashtext(${workspaceId}))`);
+    },
+    countUsage: (workspaceId) => entitlementRepository(db).countUsage(workspaceId),
   };
 }
 

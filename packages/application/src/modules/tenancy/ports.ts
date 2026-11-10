@@ -15,7 +15,7 @@ import type {
 } from "@ros/contracts/tenancy";
 import type { Permission, RoleScope } from "@ros/domain/access/permissions";
 import type { PaymentMethod } from "@ros/domain/billing/payments";
-import type { AuditRepository } from "../../ports/core-repositories";
+import type { AuditRepository, LimitRepository } from "../../ports/core-repositories";
 
 /**
  * Tenancy module ports. Every method that reads or writes tenant data takes
@@ -311,4 +311,5 @@ export interface TenancyRepository {
 export interface TenancyRepos {
   tenancy: TenancyRepository;
   audit: AuditRepository;
+  limits: LimitRepository;
 }

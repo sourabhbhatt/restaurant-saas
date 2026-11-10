@@ -1,5 +1,5 @@
 import type { SessionStatus } from "@ros/domain/tables/table-status";
-import type { AuditRepository } from "../../ports/core-repositories";
+import type { AuditRepository, LimitRepository } from "../../ports/core-repositories";
 
 export interface BranchTenant {
   workspaceId: string;
@@ -78,4 +78,5 @@ export interface TableRepository {
 export interface TableRepos {
   tables: TableRepository;
   audit: AuditRepository;
+  limits: LimitRepository;
 }

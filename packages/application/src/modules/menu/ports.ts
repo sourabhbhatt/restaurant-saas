@@ -5,7 +5,7 @@ import type {
   MenuItemDto,
 } from "@ros/contracts/menu";
 import type { Allergen, DietaryType } from "@ros/domain/menu/pricing";
-import type { AuditRepository } from "../../ports/core-repositories";
+import type { AuditRepository, LimitRepository } from "../../ports/core-repositories";
 
 export type { BranchMenu };
 
@@ -144,6 +144,7 @@ export interface UploadRepository {
 export interface MenuRepos {
   menu: MenuRepository;
   audit: AuditRepository;
+  limits: LimitRepository;
 }
 
 export interface UploadRepos {
