@@ -1,0 +1,156 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import type { MeResponse } from "@ros/contracts/auth";
+import { sessionKeys } from "@ros/web-core/features/session/queries";
+
+import { OnboardingWizard } from "./onboarding-wizard";
+
+const WS = "11111111-1111-4111-8111-111111111111";
+const R1 = "22222222-2222-4222-8222-222222222222";
+const B1 = "33333333-3333-4333-8333-333333333333";
+
+const push = vi.fn();
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/app/onboarding",
+  useRouter: () => ({ push, replace: vi.fn(), prefetch: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+const me = {
+  user: { id: "u1", email: "o@example.in", name: "Priya", emailVerified: true },
+  activeWorkspaceId: WS,
+  workspaces: [{ id: WS, name: "Sharma Foods", slug: "s", status: "ACTIVE" }],
+} as unknown as MeResponse;
+
+type Handler = (body: unknown) => { status: number; body: unknown };
+
+function mockApi(routes: Record<string, Handler>) {
+  const calls: { method: string; path: string; body?: unknown }[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url, "http://localhost").pathname;
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      calls.push({ method, path, body });
+      const handler = routes[`${method} ${path}`];
+      const res = handler ? handler(body) : { status: 404, body: {} };
+      return new Response(JSON.stringify(res.body), {
+        status: res.status,
+        headers: { "content-type": "application/json" },
+      });
+    }),
+  );
+  return calls;
+}
+
+const ok = (data: unknown) => () => ({ status: 200, body: { data } });
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("OnboardingWizard restaurant step", () => {
+  it("shows a branch error under the branch field and does not create the restaurant twice", async () => {
+    let branchAttempts = 0;
+    const calls = mockApi({
+      [`GET /api/v1/workspaces/${WS}`]: ok({
+        workspace: {
+          id: WS,
+          onboarding: { completedSteps: ["business"], restaurantId: null, branchId: null },
+        },
+      }),
+      [`POST /api/v1/workspaces/${WS}/restaurants`]: ok({ id: R1, name: "Dosa Corner" }),
+      [`POST /api/v1/restaurants/${R1}/branches`]: () => {
+        branchAttempts += 1;
+        return branchAttempts === 1
+          ? {
+              status: 400,
+              body: {
+                error: {
+                  code: "VALIDATION_FAILED",
+                  message: "Check the highlighted fields",
+                  fieldErrors: { name: ["A branch with this name already exists"] },
+                },
+              },
+            }
+          : { status: 200, body: { data: { id: B1, name: "Baner" } } };
+      },
+      [`PUT /api/v1/workspaces/${WS}/onboarding`]: ok({}),
+    });
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    qc.setQueryData(sessionKeys.me, me);
+    render(
+      <QueryClientProvider client={qc}>
+        <OnboardingWizard />
+      </QueryClientProvider>,
+    );
+
+    const restaurant = await screen.findByLabelText(/Restaurant name/);
+    await userEvent.type(restaurant, "Dosa Corner");
+    await userEvent.click(screen.getByRole("button", { name: "Create restaurant and branch" }));
+
+    const branch = screen.getByLabelText(/First branch name/);
+    await waitFor(() => expect(branch).toHaveAccessibleDescription(/already exists/));
+    expect(screen.getByLabelText(/Restaurant name/)).not.toHaveAccessibleDescription(
+      /already exists/,
+    );
+    expect(screen.getByLabelText(/Restaurant name/)).toBeDisabled();
+
+    await userEvent.clear(branch);
+    await userEvent.type(branch, "Baner");
+    await userEvent.click(screen.getByRole("button", { name: "Create branch" }));
+
+    await screen.findByRole("heading", { name: /Add your first dish/ });
+    const created = calls.filter(
+      (c) => c.method === "POST" && c.path === `/api/v1/workspaces/${WS}/restaurants`,
+    );
+    expect(created).toHaveLength(1);
+    expect(branchAttempts).toBe(2);
+  });
+});
+
+describe("OnboardingWizard last step", () => {
+  it("hands over to the dashboard checklist instead of hiding it", async () => {
+    const calls = mockApi({
+      [`GET /api/v1/workspaces/${WS}`]: ok({
+        workspace: {
+          id: WS,
+          onboarding: {
+            completedSteps: ["business", "branch", "menu", "tables"],
+            restaurantId: R1,
+            branchId: B1,
+          },
+        },
+      }),
+      [`PUT /api/v1/workspaces/${WS}/onboarding`]: ok({}),
+    });
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    qc.setQueryData(sessionKeys.me, me);
+    render(
+      <QueryClientProvider client={qc}>
+        <OnboardingWizard />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByRole("heading", { name: "Your restaurant is set up" });
+    expect(screen.getByRole("link", { name: "Print QR codes" })).toHaveAttribute(
+      "href",
+      `/print/tables?branchId=${B1}`,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Go to my dashboard" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/app/b/${B1}`));
+    expect(calls).toContainEqual({
+      method: "PUT",
+      path: `/api/v1/workspaces/${WS}/onboarding`,
+      body: { completedStep: "done" },
+    });
+  });
+});
