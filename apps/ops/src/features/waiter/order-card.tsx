@@ -1,7 +1,6 @@
 "use client";
 
 import { Timer, UserRound } from "lucide-react";
-import { useId } from "react";
 
 import { Card } from "@ros/ui/ui/card";
 import type { OrderDto } from "@ros/contracts/orders";
@@ -32,7 +31,6 @@ export function WaiterOrderCard({
   onOpen?: (orderId: string) => void;
   highlight?: boolean;
 }) {
-  const nameId = useId();
   const since =
     order.status === "READY"
       ? order.readyAt
@@ -56,18 +54,11 @@ export function WaiterOrderCard({
           type="button"
           className="min-w-0 rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           onClick={() => onOpen?.(order.id)}
-          // Name from the visible table and number only, not the whole card (WCAG 2.5.3).
-          aria-labelledby={`${nameId}-do ${nameId}-table ${nameId}-no`}
         >
-          <span id={`${nameId}-do`} className="sr-only">
-            Open details of order
-          </span>
+          <span className="sr-only">Open details of order </span>
           <p className="text-lg leading-tight font-semibold">
-            <span id={`${nameId}-table`}>{order.tableName}</span>
-            <span
-              id={`${nameId}-no`}
-              className="ml-2 text-sm font-normal text-muted-foreground tabular-nums"
-            >
+            {order.tableName}
+            <span className="ml-2 text-sm font-normal text-muted-foreground tabular-nums">
               #{order.orderNumber}
             </span>
           </p>
