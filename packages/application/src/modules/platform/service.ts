@@ -896,9 +896,14 @@ export function createPlatformService(deps: PlatformServiceDeps) {
           });
         }
         const current = await r.platform.findCurrentSubscription(scope.workspaceId);
-        if (current?.planKey === plan.key && current.status === "ACTIVE") {
+        // Same plan on the other billing cycle is a real change (annual unlocks more workspaces).
+        if (
+          current?.planKey === plan.key &&
+          current.status === "ACTIVE" &&
+          current.billingCycle === input.billingCycle
+        ) {
           throw new DomainError("VALIDATION_FAILED", "You are already on this plan", {
-            fieldErrors: { planKey: ["You are already on this plan"] },
+            fieldErrors: { planKey: ["You are already on this plan and billing cycle"] },
           });
         }
         const open = await r.platform.listUpgradeRequests({

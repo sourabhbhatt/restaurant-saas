@@ -106,6 +106,27 @@ describe("upgrade requests", () => {
     expect((await request(owner, { planKey: "nope" })).status).toBe(422); // unknown plan
   });
 
+  it("the same plan on the other billing cycle is a valid request (annual unlocks workspaces)", async () => {
+    const other = await signUpUser("Cycle Owner");
+    const cycleWs = await createWorkspaceAs(other, "Cycle Foods");
+    const activated = await call(activateRoute, {
+      params: { workspaceId: cycleWs.id },
+      cookie: admin.cookie,
+      body: { planKey: "pro", billingCycle: "MONTHLY", periodEnd: future(30) },
+    });
+    expect(activated.status).toBe(200);
+    const same = await request(other, { planKey: "pro", billingCycle: "MONTHLY" }, cycleWs.id);
+    expect(same.status).toBe(422);
+    expect(same.body.error?.fieldErrors?.planKey).toBeDefined();
+    const annual = await request(other, { planKey: "pro", billingCycle: "ANNUAL" }, cycleWs.id);
+    expect(annual.status).toBe(201);
+    expect(annual.body.data).toMatchObject({
+      status: "PENDING",
+      requestedPlan: { key: "pro" },
+      billingCycle: "ANNUAL",
+    });
+  });
+
   it("only people who manage the subscription can ask, and other tenants cannot see or cancel it", async () => {
     expect((await request(stranger, { planKey: "pro" })).status).toBe(404); // not a member
     const mine = await call<UpgradeRequestDto[]>(listMineRoute, {
