@@ -1,192 +1,219 @@
 # Performance report
 
-Audit of 2026-11-10 (workstream W6), base commit `97467e8`. Every number below comes from
-`pnpm perf` (`scripts/perf/`), run locally on an Apple M4 Pro (12 cores, 24 GB), Node 24.4.1,
-with nothing sent to any cloud service.
+Audit of 2026-11-10, workstream W6 (performance). Base commit `97467e8`. "Final" is the
+integration branch at `8d32091` (all six audit workstreams) merged with the W6 branch at
+`6b0fabf`. Every number here comes from `pnpm perf` (`scripts/perf/`) or one of the probe
+scripts named below, run locally on an Apple M4 Pro (12 cores, 24 GB, Node 24.4.1). Nothing
+was sent to a cloud service. Raw output is in the W6 worktree under `.claude/audit/W6-raw/`
+(git-ignored); the file behind each table is named in its heading.
 
 ## Method
 
 `pnpm perf --label <name> [--compare <baseline summary.json>]` runs these phases:
 
-| Phase      | What it measures                                                                                                                                                                                                                             |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| build      | `pnpm build` of api, console, ops, admin (production)                                                                                                                                                                                        |
-| bundles    | First-load JS per route from the build manifests (gzip and raw)                                                                                                                                                                              |
-| data       | Fresh PGlite at `.data/perf/pglite`: demo seed plus a synthetic busy restaurant                                                                                                                                                              |
-| coldstart  | Standalone `node server.js`: start to healthy, first request, RSS, output size (5 runs)                                                                                                                                                      |
-| lighthouse | Lighthouse 13.5.0 against `next start`, 3 runs per page, median                                                                                                                                                                              |
-| api        | API latency, p50/p95, at concurrency 1 (100 requests) and 8 (300), after 5 warm-up requests, on PGlite                                                                                                                                       |
-| pg         | Same latency on Postgres 18.4 (a throwaway local cluster on 127.0.0.1:55150 with the production roles); statements per request (`pg_stat_statements`), every plan (`auto_explain`, analyze + buffers), connections opened under 10 s polling |
+| Phase      | What it measures                                                                                                                                                                                                                                                       |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| build      | `turbo run build --force` for api, console, ops and admin (no cache replay, so output sizes compare)                                                                                                                                                                   |
+| bundles    | First-load JS per route from the build manifests; the service worker's precache list and its bytes                                                                                                                                                                     |
+| data       | Fresh PGlite at `.data/perf/pglite`: demo seed plus a synthetic busy restaurant                                                                                                                                                                                        |
+| coldstart  | Standalone `node server.js`: start to healthy, first request, RSS, output size (median of 5)                                                                                                                                                                           |
+| lighthouse | Lighthouse 13.5.0 against `next start`, 3 runs per page, median, **service worker blocked** (`--blocked-url-patterns=*/serwist/sw.js`); also the observed (not simulated) start of the first API request and the end of the first API response, per run                |
+| api        | API latency on PGlite, p50/p95 at concurrency 1 (100 requests) and 8 (300 requests) after 5 warm-up requests; the guest menu's size as served and as gzip                                                                                                              |
+| pg         | Postgres 18.4 in a throwaway local cluster (127.0.0.1:55150, own data dir, the production roles): statements per request (`pg_stat_statements`), every plan (`auto_explain`), read latency in **3 series** (median and min–max), connections opened under 10 s polling |
 
-Synthetic dataset (deterministic): 2 branches, 318 menu items with variants and add-ons, 80
-tables, 100 days of history at 40 sessions per branch per day (8,104 sessions, 20,224 orders,
-60,601 order lines, 7,868 bills, 7,864 payments) and a live service (open sessions, orders in
-every status, bill-requested tables).
+Dataset (deterministic): 2 branches, 318 menu items with variants and add-ons, 80 tables, 100
+days at 40 sessions per branch per day (8,104 sessions, 20,224 orders, 60,601 order lines, 7,868
+bills, 7,864 payments) and a live service.
 
-Lighthouse uses its default mobile profile (simulated slow 4G, mid-range phone CPU) for public,
-guest and waiter pages, and the desktop preset for the owner dashboard, kitchen display and
-admin. Local Lighthouse numbers are best for comparing before and after; absolute values on a
-real phone over a real network will differ.
+Lighthouse uses its mobile profile (simulated slow 4G) for public, guest and waiter pages and
+the desktop preset for the dashboard, kitchen and admin. Simulated LCP differs by up to about
+600 ms between the three runs of one page here, so smaller differences are noise.
 
-Guard rails: the harness refuses any database other than its own (`assertPerfDatabase`:
-PGlite under `.data/` or 127.0.0.1:55150), checks that each frontend's proxy returns parseable
-JSON to a browser-like request before Lighthouse runs, and deletes raw Lighthouse reports after
-parsing (the summary keeps the LCP element, layout shifts and request list).
+Guard rails: the harness only accepts its own databases (PGlite under `.data/`, or
+127.0.0.1:55150), and so do the seed scripts. It checks that each frontend's proxy returns
+parseable JSON to a browser-like request before Lighthouse runs, and records the load average at
+the start of each phase.
 
-Baseline: the app code of `97467e8` (`apps/`, `packages/`) with the harness. Final: this
-branch. Raw output is under `.claude/audit/W6-raw/{baseline,final}/` in the W6 worktree
-(git-ignored).
+**Run conditions.** Other workstreams' builds, tests and reviews ran on the same machine. Load
+average (1 min) at phase start: baseline 1.9 (build), 4.1 (Lighthouse), 5.0 (API), 2.2 (pg);
+final 8.1, 5.8, **35.2** and 8.7. The final PGlite latency was measured under that load and is
+not comparable. The Postgres read series overlap within their min–max spread except where a
+plan changed.
 
-## Results: baseline → final
+Baseline is `97467e8` checked out detached, with its own lockfile install and the same harness
+copied in (`baseline-v2`). Final is `final-v5`.
 
-### Lighthouse (median of 3 runs)
+## Results: baseline → final (`compare-baseline-v2-final-v5.md`)
 
-| Page                         | Form    | Perf      | LCP ms      | CLS           | TBT ms  | FCP ms     | Script KB transferred |
-| ---------------------------- | ------- | --------- | ----------- | ------------- | ------- | ---------- | --------------------- |
-| Landing `/`                  | mobile  | 89 → 89   | 3760 → 3679 | 0 → 0         | 18 → 13 | 1054 → 903 | 357 → 276             |
-| Pricing                      | mobile  | 87 → 94   | 4060 → 3073 | 0 → 0         | 8 → 8   | 903 → 903  | 367 → 276             |
-| Features                     | mobile  | 90 → 95   | 3683 → 2925 | 0 → 0         | 29 → 9  | 903 → 906  | 290 → 235             |
-| Sign-in                      | mobile  | 85 → 88   | 4363 → 3906 | 0.011 → 0.011 | 27 → 27 | 903 → 903  | 345 → 331             |
-| Guest QR menu `/t/:token`    | mobile  | 83 → 91   | 4815 → 3474 | 0 → 0         | 45 → 61 | 904 → 902  | 319 → 270             |
-| Waiter `/waiter/:id`         | mobile  | 84 → 89   | 4506 → 3760 | 0.002 → 0.002 | 51 → 48 | 904 → 905  | 364 → 375             |
-| Owner dashboard `/app/w/:id` | desktop | 96 → 96   | 937 → 854   | 0.115 → 0.115 | 0 → 0   | 244 → 244  | 372 → 384             |
-| Kitchen `/kitchen/:id`       | desktop | 100 → 100 | 801 → 747   | 0.001 → 0.001 | 0 → 0   | 246 → 244  | 296 → 306             |
-| Admin `/admin`               | desktop | 99 → 99   | 1033 → 1035 | 0 → 0         | 0 → 0   | 245 → 245  | 505 → 507             |
+### Lighthouse (median of 3, service worker blocked)
 
-The three runs of one page can differ by about 450 ms of simulated LCP on this machine
-(pricing: 3610, 3624 and 4068 ms in one series), so treat smaller changes as noise.
+| Page                         | Form    | Perf     | LCP ms      | CLS           | TBT ms  | Script KB | First API request ms (observed) |
+| ---------------------------- | ------- | -------- | ----------- | ------------- | ------- | --------- | ------------------------------- |
+| Landing `/`                  | mobile  | 89 → 92  | 3758 → 3371 | 0 → 0         | 16 → 7  | 357 → 398 | 84 → none                       |
+| Pricing                      | mobile  | 87 → 91  | 4061 → 3513 | 0 → 0         | 14 → 14 | 367 → 415 | 87 → none                       |
+| Features                     | mobile  | 90 → 92  | 3682 → 3368 | 0 → 0         | 28 → 8  | 290 → 301 | 73 → none                       |
+| Sign-in                      | mobile  | 85 → 86  | 4362 → 4215 | 0.011 → 0     | 29 → 13 | 345 → 408 | 83 → 338                        |
+| Guest QR menu `/t/:token`    | mobile  | 83 → 82  | 4809 → 4813 | 0 → 0         | 59 → 51 | 319 → 330 | 72 → 347                        |
+| Waiter `/waiter/:id`         | mobile  | 84 → 86  | 4506 → 4225 | 0.002 → 0.001 | 48 → 60 | 364 → 374 | 79 → 75                         |
+| Owner dashboard `/app/w/:id` | desktop | 96 → 96  | 888 → 797   | 0.117 → 0.117 | 0 → 0   | 506 → 425 | 87 → 72                         |
+| Kitchen `/kitchen/:id`       | desktop | 97 → 100 | 804 → 816   | 0.106 → 0.001 | 0 → 0   | 296 → 334 | 87 → 101                        |
+| Admin `/admin`               | desktop | 98 → 98  | 1154 → 1091 | 0 → 0         | 0 → 0   | 505 → 502 | 99 → 123                        |
 
-### First-load JS per route (gzip KB)
+Public pages make no API request any more: they no longer run the offline runtime (no
+connectivity ping), and pricing now renders its plans on the server (W4).
 
-| App     | Route                                         | Baseline | Final |             Change |
-| ------- | --------------------------------------------- | -------: | ----: | -----------------: |
-| console | `/`                                           |    271.6 | 229.6 |       −41.9 (−15%) |
-| console | `/pricing`                                    |    272.0 | 230.0 |       −42.0 (−15%) |
-| console | `/features` (and the other content pages)     |    225.5 | 191.1 |       −34.4 (−15%) |
-| console | `/t/[token]` (guest)                          |    303.8 | 249.0 |       −54.8 (−18%) |
-| console | `/app/b/[branchId]` (branch overview)         |    464.7 | 355.2 |      −109.6 (−24%) |
-| console | `/app/w/[workspaceId]/analytics`              |    473.4 | 363.9 |      −109.5 (−23%) |
-| console | `/app/w/[workspaceId]`                        |    353.7 | 358.1 |         +4.4 (+1%) |
-| console | `/sign-in`                                    |    303.8 | 308.2 |         +4.4 (+1%) |
-| ops     | `/waiter`, `/kitchen`, `/cashier`, `/sign-in` |          |       | +2.1 to +2.5 (+1%) |
-| admin   | `/`                                           |    204.4 | 170.2 |       −34.2 (−17%) |
-| admin   | `/admin`                                      |    390.5 | 278.6 |      −111.9 (−29%) |
-| admin   | other admin routes                            |          |       |         +1.8 (+1%) |
+Waiter data arrives at 108 ms instead of 348 ms (first API response, observed).
 
-Routes that import the offline modules for their own use (sign-in, the console app shell,
-every ops screen) gain 2–4 KB: splitting the offline runtime into its own chunk adds a loader
-there without removing anything, and on ops pages about 10 KB more script is transferred in
-total. All client chunks together grow 4% (more, smaller chunks); what each page downloads is
-the number that matters.
+Sign-in and guest start their first request late in 2 of 3 Lighthouse runs (`perRun` in
+`final-v5/summary.json`: sign-in 118, 362, 338 ms; guest 81, 347, 358 ms). In plain headless
+Chromium, 20 loads each (`guest-timing.json`), final and base do not differ:
 
-### API latency on Postgres 18 (ms; c1 = one request at a time, c8 = 8 concurrent)
+| Page    | Base: median, loads over 250 ms | Final: median, loads over 250 ms |
+| ------- | ------------------------------- | -------------------------------- |
+| Guest   | 66 ms, 2 of 20                  | 57 ms, 0 of 20                   |
+| Sign-in | 76 ms, 1 of 20                  | 78 ms, 1 of 20                   |
 
-| Endpoint                           | c1 p50        | c1 p95        | c8 p50        | c8 p95        |
-| ---------------------------------- | ------------- | ------------- | ------------- | ------------- |
-| Guest menu `GET /public/qr/:token` | 11.6 → 10.3   | 13.1 → 12.2   | 61.9 → 41.8   | 122.6 → 48.9  |
-| Guest session poll                 | 4.9 → 2.8     | 8.3 → 3.4     | 12.6 → 8.3    | 25.9 → 9.9    |
-| Kitchen feed                       | 11.0 → 7.1    | 17.5 → 8.0    | 25.0 → 21.2   | 31.7 → 25.4   |
-| Waiter tables                      | 4.3 → 3.0     | 5.1 → 3.6     | 11.6 → 10.0   | 19.7 → 11.9   |
-| Waiter active orders               | 5.0 → 3.7     | 6.2 → 4.6     | 14.7 → 13.5   | 17.3 → 16.5   |
-| Bill `GET /bills/:id`              | 4.0 → 2.9     | 4.7 → 3.4     | 10.1 → 10.3   | 12.8 → 12.4   |
-| Cashier queue                      | 4.7 → 3.7     | 5.5 → 4.1     | 14.9 → 13.7   | 20.8 → 16.4   |
-| Workspace analytics, today         | 11.1 → 9.4    | 13.4 → 11.5   | 15.4 → 15.2   | 17.5 → 21.3   |
-| Workspace analytics, 30 days       | 64.2 → 61.4   | 68.7 → 93.2   | 72.1 → 69.1   | 79.7 → 74.7   |
-| Workspace analytics, 90 days       | 133.6 → 131.0 | 140.8 → 140.2 | 165.2 → 156.0 | 231.9 → 227.4 |
-| Guest order `POST`                 | 11.6 → 11.4   | 16.3 → 16.4   |               |               |
-| Staff order `POST` (c4)            | 11.6 → 11.5   | 12.3 → 12.6   | 25.7 → 25.3   | 28.5 → 27.8   |
+The late loads sit about 300 ms after load, which is React's Suspense retry throttle, and they
+occur on the base build too. A slower main thread (Lighthouse tracing) makes them more likely.
+See open item 6.
 
-Connections opened by the API for six kitchen-feed polls 11 s apart: **12 → 0**.
+### First-load JS per route (gzip KB; `final-v5/bundles.json`)
 
-Open-bills query (cashier queue and bill page): sequential scan of `bills` with 7,866 rows
-filtered, 0.89 ms → index scan on `bills_branch_open_idx`, 0.02 ms. Statements per request are
-unchanged (8–16; reads use one transaction).
+| App     | Route                                 |  Base | Final | Change |
+| ------- | ------------------------------------- | ----: | ----: | -----: |
+| console | `/`                                   | 271.6 | 269.8 |   −1.8 |
+| console | `/pricing`                            | 272.0 | 269.9 |   −2.1 |
+| console | `/features` (and other content pages) | 225.5 | 254.3 |  +28.8 |
+| console | `/sign-in`                            | 303.8 | 328.5 |  +24.7 |
+| console | `/t/[token]` (guest)                  | 303.8 | 285.0 |  −18.8 |
+| console | `/app/b/[branchId]`                   | 464.7 | 359.5 | −105.2 |
+| console | `/app/w/[workspaceId]/analytics`      | 473.4 | 364.9 | −108.5 |
+| console | `/app/w/[workspaceId]`                | 353.7 | 360.4 |   +6.7 |
+| ops     | `/kitchen/[branchId]`                 | 282.6 | 318.0 |  +35.4 |
+| ops     | `/waiter/[branchId]`                  | 349.7 | 356.7 |   +7.0 |
+| admin   | `/admin`                              | 390.5 | 312.9 |  −77.6 |
 
-The final run still had two `orders` indexes in migration 0009 that the planner never chose;
-they were removed afterwards (see open item 2), which does not change these numbers.
+These totals include every workstream. W6's own share comes from the runs taken before the
+integration merges (`baseline/` vs `final/`, computed in `attribution.json`):
 
-PGlite latency (the local dev database, one embedded connection) moved the same way; it is in
-the raw comparison but is not a production number.
+- The offline runtime left the public pages: −34.4 KB on every public page.
+- zod/mini in the plans parser: −7.6 KB, pricing only.
+- Lazy guest sheets and tabs: −20.4 KB, guest only.
+- Lazy Recharts plots: −109.6 KB branch overview, −109.5 KB workspace analytics, −111.9 KB admin
+  home.
 
-### Cold start (standalone `server.js`, median of 5)
+The public pages grew after the merges. On `/features`, the root layout now ships full zod in
+two chunks (22.8 and 11.5 KB gzip), reached from the GA4 tracking client through
+`@ros/contracts/tracking-events` (open item 1).
 
-| App     | Start → healthy ms | First request ms | Output MB   |
-| ------- | ------------------ | ---------------- | ----------- |
-| api     | 269 → 356          | 281 → 164        | 75.9 → 81.7 |
-| console | 212 → 226          | 109 → 79         | 49.9 → 49.9 |
-| ops     | 224 → 219          | 79 → 78          | 43.0 → 43.2 |
-| admin   | 210 → 215          | 77 → 76          | 41.5 → 41.5 |
+### Postgres 18 (`final-v5/summary.json`, `pg-plans-raw.json`)
 
-API start times are bimodal in every run (about 250 or about 360 ms), so the median moving is
-not a regression signal. The API standalone output grew by 5.8 MB; no stray files are traced
-into it and the cause was not isolated (open item 7). API RSS is about 960 MB on PGlite (the
-WASM database) and about 160 MB on Postgres in both runs.
+| Query or measure                                  | Base                                                | Final                                                                                                   |
+| ------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Kitchen "recently done" list (every kitchen poll) | sequential scan of `orders`, 2.11 ms, 1,620 buffers | bitmap OR of `orders_branch_done_recent_idx` and `orders_branch_cancelled_at_idx`, 0.105 ms, 32 buffers |
+| Open bills (cashier queue, bill page)             | sequential scan of `bills`, 0.583 ms, 441 buffers   | index scan on `bills_branch_open_idx`, 0.022 ms, 5 buffers                                              |
+| Connections opened for 6 kitchen polls 11 s apart | 12                                                  | 0                                                                                                       |
+| Statements per request (all 14 endpoints)         | 8–16                                                | unchanged                                                                                               |
+| Kitchen feed, c1 p50 (3 series, min–max)          | 9.5 ms [7.1–9.8]                                    | 7.6 ms [5.5–8.2]                                                                                        |
 
-## Changes on this branch
+The plans were taken under the production roles (`ros_runtime` switching to `ros_tenant`, RLS
+on). The other endpoints' read latency overlaps within the series spread (full table in the
+comparison file). The pool change is W1's `POSTGRES_POOL_OPTIONS.idleTimeoutMillis`, raised to
+60 s in the integration merge. W1's 30 s would already stop the 10 s-poll churn; 60 s also keeps
+30 s pollers warm.
 
-| Change                                                                                               | Why                                                                                                                            | Evidence                                                        |
-| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| Offline runtime (Dexie, sync engine, query persistence) loads as its own chunk (`app-providers.tsx`) | About 40 KB gzip sat in the root layout of every console and ops page, marketing and guest pages included                      | Landing, pricing, features −34 to −42 KB                        |
-| Geist Mono no longer preloaded (`apps/*/src/app/fonts.ts`)                                           | A 70 KB font was preloaded at high priority on every page; it is only used for reference codes, branch codes and audit details | The font is no longer requested on these pages                  |
-| Public plans parsed with `zod/mini` (`site/pricing/plans.ts`)                                        | Full zod (31 KB gzip) shipped to the marketing pages for one tolerant parser; same schema, same tests                          | Pricing −42 KB                                                  |
-| Guest page: item sheet, cart sheet, orders and bill tabs lazy, prefetched once the menu renders      | Only the menu is on screen after a scan; the sheets pulled in form controls and zod                                            | Guest −55 KB, LCP 4815 → 3474 ms                                |
-| Recharts plots lazy inside pre-sized boxes (`analytics/charts.tsx`, `charts-recharts.tsx`)           | Recharts (about 115 KB gzip) blocked first paint of branch overview, reports, workspace analytics and admin home               | −110 to −112 KB on those routes; CLS unchanged                  |
-| Branch events coalesced into one refetch per 250 ms (`realtime/use-branch-events.ts`)                | Every SSE event cancelled and restarted all branch queries on every screen; a busy service sends bursts                        | Unit test: 4 events → 1 refetch, handlers still get every event |
-| Postgres pool keeps idle connections 60 s (`client.ts`)                                              | The default 10 s idle timeout equals the screens' poll interval, so polls reconnected (TLS and SCRAM on Cloud SQL)             | 12 → 0 new connections                                          |
-| Partial index `bills_branch_open_idx` (migration 0009, with down file)                               | The cashier queue and bill page scanned every bill of the branch on each poll                                                  | 0.89 → 0.02 ms                                                  |
-| Harness (`scripts/perf/`)                                                                            | Repeatable local measurement, database guard, JSON sanity check, diagnostics                                                   | This report                                                     |
+### Other measurements
 
-Reverted during the audit: gzip in the frontend API proxy. `next start` drops the
-`content-encoding` header from route-handler responses, so browsers received raw gzip as JSON
-and every proxied call failed. The harness caught it; the unit test, which only inspected the
-`Response` object, did not.
+| Measure                               | Base                          | Final                                          | Source                    |
+| ------------------------------------- | ----------------------------- | ---------------------------------------------- | ------------------------- |
+| Service worker precache, console      | 88 entries, 978 KB gzip       | 91 entries, 956 KB gzip                        | `summary.json` `precache` |
+| Service worker precache, ops          | 37 entries, 494 KB gzip       | 41 entries, 486 KB gzip                        | same                      |
+| Where the worker installs             | every console and ops page    | console `/app/**`, `/print/**`, every ops page | `app-shell.spec.ts`       |
+| Guest menu JSON as served (318 items) | 192,426 bytes, not compressed | 192,430 bytes, not compressed                  | `summary.json` `payloads` |
+| Same, if gzip were applied            | 29,452 bytes                  | 29,400 bytes                                   | same                      |
+| API standalone output (forced builds) | 81.4 MB                       | 85.2 MB                                        | `coldStart`               |
+
+The API output grew only because other workstreams' code was merged. An earlier "+5.8 MB" figure
+compared a Turbo cache replay with a real build; forced builds removed that artefact.
+
+## What W6 changed
+
+| Change                                                                                                                                                                                                                                       | Evidence                                                                                            |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| The offline layer runs only where offline matters. `StaffOffline` registers the service worker and starts the offline runtime from console `/app` and `/print` layouts and the ops root layout. It is a static import with no lazy boundary. | Public and guest pages install no worker and load no runtime (E2E). Waiter first data 348 → 108 ms. |
+| A change made before the runtime knows the signed-in user waits up to 5 s for it. The kitchen card shows "Connecting…" until then.                                                                                                           | Unit tests (`runtime.test.ts`, `ticket-card.test.tsx`)                                              |
+| Kitchen taps without IndexedDB: online they are sent directly (versioned, idempotent, one at a time, nothing drawn as done before a 2xx). Offline the card says changes can't be saved in this browser.                                      | `ticket-card.test.tsx`                                                                              |
+| Query results that resolved before persistence started (or before the session user was confirmed) are written to IndexedDB.                                                                                                                  | `persist-queries.test.ts`; offline reload E2E                                                       |
+| The connectivity ping releases its response body (it held the request open until its 5 s timer).                                                                                                                                             | `runtime.test.ts`                                                                                   |
+| Geist Mono is no longer preloaded (70 KB font, used only for codes).                                                                                                                                                                         | The font is requested on no measured page                                                           |
+| The plans parser uses zod/mini.                                                                                                                                                                                                              | −7.6 KB on pricing; parity tests                                                                    |
+| Guest page: item and cart sheets load from an effect once the menu is shown; the orders and bill tabs are lazy with a loading state; "Loading…" shows if a sheet is opened early.                                                            | −20.4 KB; guest E2E                                                                                 |
+| Recharts plots are lazy inside pre-sized boxes. A failed chunk shows "Chart unavailable" in place.                                                                                                                                           | −105 to −112 KB; `charts.test.tsx`                                                                  |
+| Realtime events refetch once per 250 ms burst.                                                                                                                                                                                               | `use-branch-events.test.tsx`                                                                        |
+| Migration 0009: `bills_branch_open_idx`. The query writes the `'ISSUED'` literal, so generic plans match it too.                                                                                                                             | 0.583 → 0.022 ms                                                                                    |
+| Migration 0010: the kitchen query uses CASE instead of coalesce (identical result), plus two indexes.                                                                                                                                        | 2.11 → 0.105 ms; `kitchen-recent-plan.test.ts` (RLS, PGlite)                                        |
+| Compose: Caddy compresses JSON, HTML, JS, CSS and SVG (zstd, gzip), never event streams.                                                                                                                                                     | `infra/compose/Caddyfile`; not run here (no Docker daemon or caddy binary)                          |
+| Harness and probes (`scripts/perf/`, `.claude/audit/W6-raw/*.mjs`).                                                                                                                                                                          | This report                                                                                         |
+
+## Corrections to the first version of this report
+
+- That version ran Lighthouse with the service worker active. When the worker took control, its
+  requests counted as free in Lantern's simulation, so the guest (4815 → 3474 ms) and pricing gains
+  were overstated. The worker is now blocked in every run.
+- The lazily loaded offline runtime (a `next/dynamic` boundary in the root layout) delayed the
+  first API request on every console and ops page by about 250 ms, which simulated metrics cannot
+  show. It is replaced by `StaffOffline`, and the first-request time is now part of every run.
+- The API latency "wins" in that version were single series on a busy machine. Only the
+  endpoints whose plans changed are claimed now.
+- zod/mini saves about 7.6 KB, not the 42 KB pricing change, most of which was the offline
+  runtime. Of the guest page's −54.8 KB, 34.4 KB was the offline runtime.
+- The 5.8 MB API output growth was a Turbo cache replay, not code.
 
 ## Open items
 
-1. **Proxied JSON is not compressed** (medium). The guest menu response is 188.6 KB on the wire
-   for 318 items (about 29 KB as gzip), and the API does not compress either. Next.js does not
-   compress route-handler responses and drops a `content-encoding` set by the handler. Options:
-   compression at a proxy or CDN in front of the services, or a smaller menu payload. Measure
-   with the harness's guest page.
-2. **Kitchen "recently done" query scans `orders`** (medium; grows with history). It runs on
-   every kitchen poll (20,199 rows filtered, 2.2 ms here, linear in the branch's order history).
-   Indexes on `coalesce(served_at, completed_at, updated_at)` were built and checked: PGlite
-   without row-level security used them, Postgres with the production roles did not (a 41-row
-   estimate and still a sequential scan). Under row-level security only leakproof clauses can
-   become index conditions, and the `coalesce` comparison evidently does not qualify. Fix: a
-   stored generated column (for example `finished_at`) with a plain index, or a rewrite with
-   plain column comparisons. Both need care (the column add rewrites the table; a rewrite must
-   keep the exact semantics).
-3. **The service worker precaches every client chunk for every visitor** (medium). Console:
-   88 entries, about 978 KB gzip; ops: 37 entries, about 494 KB gzip. They download after `load`
-   on the first visit, including marketing visitors and guests on mobile data. Options: register
-   the worker only where offline matters (staff routes and `/t/`), or precache only the routes
-   each audience uses. Owner: offline (W2), with product input.
-4. **Connectivity probe holds its connection for 5 s** (low). `probeConnectivity` in
-   `offline/runtime.ts` never reads or cancels the `/api/v1/sync/ping` body, so the request
-   stays open until its 5 s abort timer. Chromium reports `ERR_ABORTED` at about 5.3 s although
-   the response arrived in 6–57 ms (Playwright check, with and without the service worker).
-   Fix: `void res.body?.cancel().catch(() => {})` after the status check. Owner: offline (W2).
-5. **Owner dashboard CLS 0.115** (low to medium). The Branches section is pushed down twice
-   (shift scores 0.098 and 0.017) by content above it that appears after first paint, most
-   likely the setup checklist and the plan-limits line, which render once their queries
-   resolve. Reserve their space or place them below the branches. Owner: UX (W3).
-6. **Analytics over long ranges** (low for now). Workspace analytics for 90 days takes 131 ms
-   at c1 on Postgres; the top-items aggregation dominates (59 ms for 30 days). Fine at this
-   size; pre-aggregate daily totals if workspaces reach many branches or years of data.
-7. **API standalone output +5.8 MB** between baseline and final with no new dependency in the
-   API; not isolated. Compare the two standalone trees before shipping images.
+1. **The GA4 tracking client ships full zod to every page** (medium; W5). The root layout's
+   tracking client imports `validateTrackingEvent` from `@ros/contracts/tracking-events`, which
+   is built on zod and pulls in more contract schemas: two chunks of 22.8 and 11.5 KB gzip on
+   every console page, the guest page and marketing pages included. Options: write the tracking
+   catalog with `zod/mini` (as the plans parser now is, checked by parity tests), validate in
+   development and on the server only, or load the tracking client after consent.
+2. **API JSON is not compressed by Next.js** (medium). The guest menu is 192,430 bytes as served
+   and 29,400 bytes as gzip. `next start` does not compress route-handler responses and drops a
+   `content-encoding` set by a handler, so the frontend proxy cannot compress (tried, reverted).
+   - Compose: Caddy now compresses.
+   - Cloud Run: first check whether Google's front end already compresses, with one read-only
+     request (owner action, not a load test): `curl -s -o /dev/null -D - -H 'Accept-Encoding: gzip' <staging console>/api/v1/public/plans | grep -i content-encoding`.
+   - If it does not, put a small zero-dependency `node:http` + `node:zlib` front in the frontend
+     image (gzip `application/json` of 1 KB or more, never `text/event-stream`, `Vary:
+Accept-Encoding`), or a Caddy sidecar. Both cost nothing and need no new cloud resource.
+   - Server-rendering the guest menu into the HTML (as W4 did for plans) was not done here. The
+     public QR endpoint rate-limits by client IP, so a server-side fetch would need W1's signed
+     client-IP header. The guest's client query also saves the menu for offline use. The work is
+     contained, but it touches the security proxy.
+3. **The service worker's precache is still about 1 MB** (low now). It installs only on staff
+   routes, but there it precaches every chunk of the app, marketing and guest chunks included.
+   Filtering the precache list per app would trim it.
+4. **Owner dashboard CLS 0.117** (low to medium; W3). The Branches section is pushed down by
+   content that appears after first paint. It is unchanged by W6.
+5. **Analytics over long ranges** (low). Workspace analytics for 90 days takes 131–136 ms at c1
+   on Postgres here. If workspaces grow to many branches or years of data, pre-aggregate daily
+   totals.
+6. **Occasional late first request on sign-in and guest** (low). Two of three Lighthouse runs
+   start the first API request about 300 ms after load. Plain Chromium shows the same rate on the
+   base build (1–2 of 20). The likely cause is the PPR shell's Suspense boundary hydrating its
+   streamed content after a fallback commit. A React profile of a slow load would confirm it.
 
-## Deploying migration 0009
+## Deploying migrations 0009 and 0010
 
-- Additive (`CREATE INDEX IF NOT EXISTS`), with `migrations-down/0009_perf_indexes.down.sql`.
-- Drizzle applies all pending migrations in one transaction, so `CREATE INDEX CONCURRENTLY`
-  cannot run through the migrate job. A plain `CREATE INDEX` blocks writes to `bills` while it
-  builds; the index holds only `ISSUED` bills, but the build still reads the whole table, so run
-  the deploy at a quiet hour once `bills` is large.
-- It is numbered after the analytics workstream's 0008. Drizzle applies a migration only if its
-  journal timestamp is newer than the newest applied one, so do not deploy this branch to a
-  shared database before that 0008: 0008 would then be skipped.
+- Both are additive (`CREATE INDEX IF NOT EXISTS`) and have down files that only drop their
+  indexes (no data change).
+- Drizzle applies all pending migrations in one transaction, so `CREATE INDEX CONCURRENTLY` is not
+  possible through the migrate job. Each index build blocks writes to its table (`bills`,
+  `orders`) until the transaction commits. At current sizes that takes well under a second; once
+  `orders` holds millions of rows, deploy at a quiet hour.
+- Drizzle applies a migration only if its journal timestamp is newer than the last applied one.
+  0009 and 0010 come after the analytics workstream's 0008, so deploy them together with it or
+  after it.
 
 ## Reproduce
 
@@ -196,6 +223,8 @@ pnpm perf --label final --out .data/perf-results/final \
   --compare .data/perf-results/baseline/summary.json
 ```
 
-Needs Chrome for Testing (installed with Playwright) and, for the `pg` phase, a local
+This needs Chrome for Testing (installed with Playwright) and, for the `pg` phase, a local
 PostgreSQL 18 (`PERF_PG_BIN`, Postgres.app or Homebrew) or Docker. Ports: 4150, 3150–3152 and
-55150 (override with `PERF_*_PORT`). A full run took about 15 minutes here.
+55150 (override with `PERF_*_PORT`). A full run takes about 13 minutes here. The comparisons in
+this report also used `guest-timing.mjs` (first-request timing in plain Chromium) and
+`attribution.mjs` (W6's share of bundle changes) from `.claude/audit/W6-raw/`.
