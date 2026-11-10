@@ -435,7 +435,8 @@ export function AddItemsDialog({
                 title="Menu not available"
                 description="This branch has no menu yet, or it is still being set up."
               />
-            ) : menu.isError ? (
+            ) : menu.isError && !menu.data ? (
+              // A failed background refetch (e.g. the connection just dropped) keeps the saved menu.
               <ErrorState
                 size="compact"
                 message={errorMessage(menu.error)}

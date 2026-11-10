@@ -1,60 +1,78 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = Number(process.env.E2E_PORT ?? 3100);
-const API_PORT = Number(process.env.E2E_API_PORT ?? 4100);
-const OPS_PORT = Number(process.env.E2E_OPS_PORT ?? 3101);
-const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
-/** E2E_SKIP_BUILD=1 starts the existing production builds (a second run with other env, e.g. CI's analytics step). */
-const build = (app: string) =>
-  process.env.E2E_SKIP_BUILD ? "" : `pnpm --filter @ros/${app} build && `;
-/** Staff flows (waiter, kitchen, cashier) live in the ops app. */
-export const opsURL = process.env.E2E_OPS_URL ?? `http://localhost:${OPS_PORT}`;
+import { E2E_URLS } from "./tests/e2e/support/urls";
+
+const { console: baseURL, ops, admin, api, external } = E2E_URLS;
+const port = (url: string) => new URL(url).port;
+
+/** Journeys run once, on the form factor their users have (guests and waiters: phones). */
+const DESKTOP_ONLY = [
+  /owner-.*\.spec\.ts/,
+  /admin\.spec\.ts/,
+  /subscription\.spec\.ts/,
+  /operations\.spec\.ts/,
+  /offline\.spec\.ts/,
+];
+const MOBILE_ONLY = [/guest\.spec\.ts/, /waiter\.spec\.ts/];
+
+const frontend = (pkg: string, url: string) => ({
+  command: `pnpm --filter ${pkg} exec next start -p ${port(url)}`,
+  url: `${url}/healthz`,
+  env: {
+    API_INTERNAL_URL: api,
+    CONSOLE_URL: baseURL,
+    OPS_URL: ops,
+    ADMIN_URL: admin,
+  },
+  reuseExistingServer: !process.env.CI,
+  timeout: 120_000,
+});
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  globalSetup: "./tests/e2e/support/global-setup.ts",
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
+  workers: process.env.E2E_WORKERS ? Number(process.env.E2E_WORKERS) : undefined,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  // Multi-device journeys against production builds; shared CI runners can be slow.
+  timeout: 60_000,
+  expect: { timeout: 10_000 },
   use: {
     baseURL,
     trace: "on-first-retry",
+    // Every animation in the UI kit is motion-safe: without them, actionability checks
+    // ("element is stable") never depend on the frame rate of a loaded machine.
+    reducedMotion: "reduce",
   },
   projects: [
     // Waiter and customer interfaces are mobile-first; dashboards are desktop-first.
-    { name: "mobile-chrome", use: { ...devices["Pixel 7"] } },
-    { name: "desktop-chrome", use: { ...devices["Desktop Chrome"] } },
+    { name: "mobile-chrome", use: { ...devices["Pixel 7"] }, testIgnore: DESKTOP_ONLY },
+    { name: "desktop-chrome", use: { ...devices["Desktop Chrome"] }, testIgnore: MOBILE_ONLY },
   ],
-  // E2E runs against production builds so the service worker is exercised: the
-  // API on its own port, with console and ops each proxying /api/v1 to it.
-  webServer: process.env.E2E_BASE_URL
+  // E2E runs against production builds so the service workers are exercised: the API
+  // on its own port (fresh seeded PGlite, see support/serve-api.ts) and the console,
+  // ops and admin frontends proxying /api/v1 to it.
+  webServer: external
     ? undefined
     : [
         {
-          command: `${build("api")}pnpm --filter @ros/api exec next start -p ${API_PORT}`,
-          url: `http://localhost:${API_PORT}/api/v1/health`,
-          // APP_URL may name another port; mutations are accepted only from listed origins.
+          command: "pnpm exec tsx tests/e2e/support/serve-api.ts",
+          url: `${api}/api/v1/health`,
           env: {
-            ALLOWED_ORIGINS:
-              process.env.ALLOWED_ORIGINS ?? `${new URL(baseURL).origin},${new URL(opsURL).origin}`,
+            E2E_API_PORT: port(api),
+            APP_URL: baseURL,
+            // Mutations are accepted only from listed origins.
+            ALLOWED_ORIGINS: [baseURL, ops, admin].join(","),
             TRUSTED_PROXY_HOPS: "1",
           },
           reuseExistingServer: !process.env.CI,
-          timeout: 240_000,
+          // Includes building all four apps when turbo has no cached build.
+          timeout: 900_000,
         },
-        {
-          command: `${build("console")}pnpm --filter @ros/console exec next start -p ${PORT}`,
-          url: baseURL,
-          env: { API_INTERNAL_URL: `http://localhost:${API_PORT}` },
-          reuseExistingServer: !process.env.CI,
-          timeout: 240_000,
-        },
-        {
-          command: `${build("ops")}pnpm --filter @ros/ops exec next start -p ${OPS_PORT}`,
-          url: opsURL,
-          env: { API_INTERNAL_URL: `http://localhost:${API_PORT}` },
-          reuseExistingServer: !process.env.CI,
-          timeout: 240_000,
-        },
+        frontend("@ros/console", baseURL),
+        frontend("@ros/ops", ops),
+        frontend("@ros/admin", admin),
       ],
 });
