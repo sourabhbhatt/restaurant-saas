@@ -3,6 +3,8 @@
 import { onlineManager, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { liveQuery } from "dexie";
 
+import { api, newIdempotencyKey } from "@ros/api-client";
+
 import {
   clearUserData,
   getOfflineDb,
@@ -447,6 +449,30 @@ export async function enqueueMutation(input: EnqueueInput): Promise<OutboxItem> 
   const item = await sync.enqueue(input);
   if (useSyncStore.getState().online) void sync.syncNow();
   return item;
+}
+
+/** Whether this browser can keep changes on the device (IndexedDB is usable). */
+export function offlineStorageAvailable(): boolean {
+  return getSyncEngine() !== null;
+}
+
+/**
+ * Without IndexedDB (private mode on some browsers, a storage policy) nothing
+ * can be queued. While online, a change is sent at once, built as the engine
+ * would send it: the same body with its version field and an idempotency key.
+ * It rejects on any error (a 409 included) with the server's message; the
+ * caller shows nothing as done until it resolves.
+ */
+export async function sendWithoutStorage(input: EnqueueInput): Promise<void> {
+  const field = input.versionField ?? "version";
+  const base = (input.body ?? {}) as Record<string, unknown>;
+  const body =
+    input.expectedVersion === undefined ? input.body : { ...base, [field]: input.expectedVersion };
+  const opts = { idempotencyKey: input.idempotencyKey ?? newIdempotencyKey() };
+  if (input.method === "POST") await api.post(input.path, body, opts);
+  else if (input.method === "PATCH") await api.patch(input.path, body, opts);
+  else if (input.method === "PUT") await api.put(input.path, body, opts);
+  else await api.delete(input.path, opts);
 }
 
 /** Manual "Sync now": probes connectivity and ignores backoff timers. */

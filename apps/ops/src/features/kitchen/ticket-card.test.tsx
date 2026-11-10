@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { onlineManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,7 +15,11 @@ import {
 
 import { TicketCard } from "./ticket-card";
 
-const { enqueued } = vi.hoisted(() => ({ enqueued: [] as EnqueueInput[] }));
+const { enqueued, storage, direct } = vi.hoisted(() => ({
+  enqueued: [] as EnqueueInput[],
+  storage: { available: true },
+  direct: [] as { input: EnqueueInput; resolve: () => void }[],
+}));
 
 function outboxItem(
   input: EnqueueInput,
@@ -59,6 +63,13 @@ vi.mock("@ros/web-core/features/offline", async (importOriginal) => {
       setSyncState({ items, counts: countItems(items) });
       return item;
     }),
+    offlineStorageAvailable: () => storage.available,
+    sendWithoutStorage: vi.fn(
+      (input: EnqueueInput) =>
+        new Promise<void>((resolve) => {
+          direct.push({ input, resolve });
+        }),
+    ),
   };
 });
 
@@ -105,6 +116,9 @@ const line = (name: RegExp) => screen.getByRole("button", { name });
 
 beforeEach(() => {
   enqueued.length = 0;
+  direct.length = 0;
+  storage.available = true;
+  onlineManager.setOnline(true);
   setSyncState({ userId: "u", online: true, items: [], counts: countItems([]) });
   // A direct request would bypass the per-order queue: none may happen.
   vi.stubGlobal(
@@ -172,5 +186,45 @@ describe("TicketCard (online)", () => {
     expect(enqueued).toHaveLength(1);
     expect(enqueued[0]).toMatchObject({ body: { status: "PREPARING" }, expectedVersion: 6 });
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("TicketCard before the device knows who is signed in", () => {
+  it("shows Connecting… and takes no taps until the runtime has the user", () => {
+    setSyncState({ userId: null });
+    renderTicket();
+    expect(screen.getByRole("button", { name: /Connecting/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Masala Chai/ })).not.toBeInTheDocument();
+    act(() => setSyncState({ userId: "u" }));
+    expect(screen.getByRole("button", { name: /Mark ready/ })).toBeEnabled();
+    expect(line(/^1 Masala Chai: pending\./)).toBeInTheDocument();
+  });
+});
+
+describe("TicketCard without IndexedDB (private mode, storage blocked)", () => {
+  it("online: sends the change directly, versioned, and shows nothing as done before the server answers", async () => {
+    storage.available = false;
+    setSyncState({ userId: null }); // no runtime without storage
+    const user = userEvent.setup();
+    renderTicket();
+    await user.click(line(/^1 Masala Chai: pending\. Tap to mark preparing$/));
+    expect(enqueued).toEqual([]);
+    expect(direct.map((d) => [d.input.path, d.input.expectedVersion, d.input.body])).toEqual([
+      ["/orders/o1/items/i1", 4, { status: "PREPARING" }],
+    ]);
+    // Not drawn as cooking, and no second tap while the request is in flight.
+    expect(screen.queryByRole("button", { name: /preparing\. Tap/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Mark ready/ })).toBeDisabled();
+    await act(async () => direct[0]!.resolve());
+    expect(screen.getByRole("button", { name: /Mark ready/ })).toBeEnabled();
+  });
+
+  it("offline: says changes cannot be saved in this browser and takes no taps", () => {
+    storage.available = false;
+    onlineManager.setOnline(false);
+    renderTicket();
+    expect(screen.getByText(/can't be saved in this browser while offline/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Mark ready/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Masala Chai/ })).not.toBeInTheDocument();
   });
 });
