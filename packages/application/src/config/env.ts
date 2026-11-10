@@ -65,6 +65,11 @@ const fields = z.object({
   /** 32+ char secret used to derive encryption keys (QR token encryption). */
   APP_SECRET: z.string().min(32).default("dev-only-insecure-secret-change-me-0123456789"),
   TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+  /**
+   * Shared with the frontends' /api/v1 proxies, which sign the browser's IP
+   * with it (`x-ros-client-ip`). Unset: only X-Forwarded-For is used.
+   */
+  PROXY_SHARED_SECRET: z.string().min(16).optional(),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   COOKIE_SECURE: booleanish.optional(),
 

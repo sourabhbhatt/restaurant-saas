@@ -26,7 +26,7 @@ Edit `.env.local`:
 
 - **Database, zero install:** `DATABASE_PROVIDER=pglite` and `PGLITE_DATA_DIR=/absolute/path/to/repo/.data/pglite` (embedded Postgres 18; one process at a time, so stop `pnpm dev` before running `db:*` scripts).
 - **Database, real Postgres 18:** keep `DATABASE_PROVIDER=postgres` and point `DATABASE_URL` at it (for example `docker run -d --name ros-pg -e POSTGRES_PASSWORD=dev -p 55432:5432 postgres:18`).
-- `TRUSTED_PROXY_HOPS=1`: every browser request reaches the API through a frontend's proxy.
+- `TRUSTED_PROXY_HOPS=1`: every browser request reaches the API through a frontend's proxy. (`PROXY_SHARED_SECRET` is only needed where the frontends call the API over a public URL; see the env doc.)
 - `ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3002`, otherwise writes from ops and admin are rejected as cross-site.
 - Use absolute paths for `PGLITE_DATA_DIR` and `STORAGE_LOCAL_DIR`: the root `db:*` scripts run from the repo root, but `next dev` for the API runs in `apps/api`, so a relative path names two different directories.
 

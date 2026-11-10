@@ -7,7 +7,7 @@ import { hashToken } from "@ros/domain/shared/tokens";
 
 import type { RequestMeta, UserActor } from "../context";
 import { getContainer, type Container } from "../container";
-import { clientIpFrom } from "./client-ip";
+import { resolveClientIp } from "./client-ip";
 import { toErrorResponse } from "./errors";
 import { readCookie, SESSION_COOKIE } from "./cookies";
 import { bindUser, runWithDbContext } from "../db-context";
@@ -195,7 +195,12 @@ export function route<
     async function serve(c: Container): Promise<Response> {
       const meta: RequestMeta = {
         requestId,
-        ip: clientIpFrom(req.headers, c.env.TRUSTED_PROXY_HOPS),
+        ip: await resolveClientIp(req.headers, {
+          trustedHops: c.env.TRUSTED_PROXY_HOPS,
+          proxySecret: c.env.PROXY_SHARED_SECRET,
+          now: c.clock.now(),
+          onRejected: (reason) => c.logger.warn("client_ip_signature_rejected", { reason }),
+        }),
         userAgent: req.headers.get("user-agent"),
       };
       if (MUTATING.has(req.method) && !config.skipOriginCheck)

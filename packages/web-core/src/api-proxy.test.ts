@@ -3,6 +3,12 @@ import type { AddressInfo } from "node:net";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import {
+  CLIENT_IP_HEADER,
+  CLIENT_IP_SIGNATURE_HEADER,
+  verifySignedClientIp,
+} from "@ros/domain/shared/signed-client-ip";
+
 import { createApiProxy } from "./api-proxy";
 
 interface Seen {
@@ -162,5 +168,93 @@ describe("createApiProxy", () => {
     });
     expect(res.status).toBe(200);
     expect(calls).toEqual(["http://api:4000/api/v1/dev/mailbox"]);
+  });
+});
+
+describe("signed client IP", () => {
+  const secret = "proxy-shared-secret-for-tests-0123456789";
+  const browserRequest = (headers: Record<string, string>) =>
+    new Request("http://console.local/api/v1/auth/signin", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: "{}",
+    });
+
+  it("signs the trusted X-Forwarded-For entry when a secret is configured", async () => {
+    const proxy = createApiProxy({
+      apiInternalUrl: () => base,
+      clientIpSecret: () => secret,
+      trustedProxyHops: () => 1,
+    });
+    await proxy.POST(browserRequest({ "x-forwarded-for": "6.6.6.6, 203.0.113.9" }), ctx);
+    const headers = new Headers(seen.at(-1)!.headers as Record<string, string>);
+    expect(headers.get(CLIENT_IP_HEADER)).toBe("203.0.113.9");
+    await expect(verifySignedClientIp(headers, { secret, nowMs: Date.now() })).resolves.toEqual({
+      ok: true,
+      ip: "203.0.113.9",
+    });
+  });
+
+  it("honours the hop count", async () => {
+    const proxy = createApiProxy({
+      apiInternalUrl: () => base,
+      clientIpSecret: () => secret,
+      trustedProxyHops: () => 2,
+    });
+    await proxy.POST(browserRequest({ "x-forwarded-for": "6.6.6.6, 203.0.113.9, 10.0.0.1" }), ctx);
+    expect(seen.at(-1)!.headers[CLIENT_IP_HEADER]).toBe("203.0.113.9");
+  });
+
+  it("sends nothing without a secret", async () => {
+    const proxy = createApiProxy({
+      apiInternalUrl: () => base,
+      clientIpSecret: () => undefined,
+      trustedProxyHops: () => 1,
+    });
+    await proxy.POST(browserRequest({ "x-forwarded-for": "203.0.113.9" }), ctx);
+    expect(seen.at(-1)!.headers[CLIENT_IP_HEADER]).toBeUndefined();
+    expect(seen.at(-1)!.headers[CLIENT_IP_SIGNATURE_HEADER]).toBeUndefined();
+  });
+
+  it("sends nothing when no trusted address is available", async () => {
+    const proxy = createApiProxy({
+      apiInternalUrl: () => base,
+      clientIpSecret: () => secret,
+      trustedProxyHops: () => 1,
+    });
+    await proxy.POST(browserRequest({ "x-forwarded-for": "not-an-ip" }), ctx);
+    expect(seen.at(-1)!.headers[CLIENT_IP_HEADER]).toBeUndefined();
+    expect(seen.at(-1)!.headers[CLIENT_IP_SIGNATURE_HEADER]).toBeUndefined();
+  });
+
+  it("never relays client-supplied signed-IP headers", async () => {
+    const proxy = createApiProxy({
+      apiInternalUrl: () => base,
+      clientIpSecret: () => undefined,
+      trustedProxyHops: () => 1,
+    });
+    await proxy.POST(
+      browserRequest({
+        "x-forwarded-for": "203.0.113.9",
+        [CLIENT_IP_HEADER]: "9.9.9.9",
+        [CLIENT_IP_SIGNATURE_HEADER]: "v1.1.forged",
+      }),
+      ctx,
+    );
+    expect(seen.at(-1)!.headers[CLIENT_IP_HEADER]).toBeUndefined();
+    expect(seen.at(-1)!.headers[CLIENT_IP_SIGNATURE_HEADER]).toBeUndefined();
+  });
+
+  it("with a secret, a spoofed x-ros-client-ip from the browser is replaced by the signed one", async () => {
+    const proxy = createApiProxy({
+      apiInternalUrl: () => base,
+      clientIpSecret: () => secret,
+      trustedProxyHops: () => 1,
+    });
+    await proxy.POST(
+      browserRequest({ "x-forwarded-for": "203.0.113.9", [CLIENT_IP_HEADER]: "9.9.9.9" }),
+      ctx,
+    );
+    expect(seen.at(-1)!.headers[CLIENT_IP_HEADER]).toBe("203.0.113.9");
   });
 });
