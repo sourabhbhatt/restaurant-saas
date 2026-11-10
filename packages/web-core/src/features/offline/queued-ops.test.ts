@@ -250,6 +250,41 @@ describe("queued kitchen operations", () => {
     expect((await db.outbox.toArray()).map((i) => i.status)).toEqual(["synced", "synced"]);
   });
 
+  it("a tap stored only after the first one already synced is still sent on the version it returned", async () => {
+    // The second tap's IndexedDB write lands after the first change was answered and the
+    // queue was rebased: it still carries the screen's version (4).
+    await engine.enqueue(
+      kitchenItemStatusMutation({
+        branchId: BRANCH,
+        order: ORDER,
+        item: ITEM,
+        status: "PREPARING",
+      }),
+    );
+    responder = () => orderResponse(5);
+    await engine.syncNow();
+    await engine.enqueue(
+      kitchenItemStatusMutation({ branchId: BRANCH, order: ORDER, item: ITEM, status: "READY" }),
+    );
+    responder = () => orderResponse(6, "READY");
+    await engine.syncNow();
+    expect(calls.map((c) => [c.body?.status, c.body?.expectedVersion])).toEqual([
+      ["PREPARING", 4],
+      ["READY", 5],
+    ]);
+    // A change made on a version nobody on this device produced is not touched.
+    await engine.enqueue(
+      kitchenItemStatusMutation({
+        branchId: BRANCH,
+        order: { ...ORDER, version: 9 },
+        item: ITEM_2,
+        status: "PREPARING",
+      }),
+    );
+    await engine.syncNow();
+    expect(calls[2]!.body?.expectedVersion).toBe(9);
+  });
+
   it("a 409 on a later tap stays a conflict: never shown as done, later taps wait behind it", async () => {
     await engine.enqueue(
       kitchenItemStatusMutation({

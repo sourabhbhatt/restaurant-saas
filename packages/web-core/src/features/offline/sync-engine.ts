@@ -361,6 +361,39 @@ export class SyncEngine {
       .modify({ expectedVersion: next });
   }
 
+  /**
+   * The version a chained change is sent on. It carries the version its screen
+   * showed; when our own earlier changes of the same scope, made on that
+   * version, were already answered, it follows the versions they returned. The
+   * rebase at sync time (rebaseScope) misses a change whose write landed after
+   * the earlier one was answered: a quick second tap must not become a 409.
+   * Only this device's answered changes are followed, never another device's
+   * edits, so a real conflict still is one.
+   */
+  private async chainedVersion(item: OutboxItem): Promise<number | undefined> {
+    if (!item.chainVersion || item.expectedVersion === undefined) return item.expectedVersion;
+    const answered = await this.deps.db.outbox
+      .where("scopeKey")
+      .equals(item.scopeKey)
+      .filter(
+        (i) =>
+          i.id !== item.id &&
+          i.userId === item.userId &&
+          i.status === "synced" &&
+          i.chainVersion === true &&
+          i.createdAt < item.createdAt,
+      )
+      .sortBy("createdAt");
+    let version = item.expectedVersion;
+    for (const done of answered) {
+      const returned = isPlainObject(done.serverResponse) ? done.serverResponse.version : undefined;
+      if (done.expectedVersion === version && typeof returned === "number" && returned > version) {
+        version = returned;
+      }
+    }
+    return version;
+  }
+
   private async send(
     item: OutboxItem,
     userId: string,
@@ -373,6 +406,7 @@ export class SyncEngine {
       if (!fresh || fresh.status !== "pending" || fresh.userId !== userId) return null;
       const next: OutboxItem = {
         ...fresh,
+        expectedVersion: await this.chainedVersion(fresh),
         status: "syncing",
         attempts: fresh.attempts + 1,
         updatedAt: this.now(),
