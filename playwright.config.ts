@@ -5,6 +5,12 @@ import { E2E_URLS } from "./tests/e2e/support/urls";
 const { console: baseURL, ops, admin, api, external } = E2E_URLS;
 const port = (url: string) => new URL(url).port;
 
+// Specs that resolve app URLs the way the apps do (seo.spec.ts reads CONSOLE_URL) must see
+// the origins under test, not the :3000 defaults. Workers load this file too.
+process.env.CONSOLE_URL ??= baseURL;
+process.env.OPS_URL ??= ops;
+process.env.ADMIN_URL ??= admin;
+
 /** Journeys run once, on the form factor their users have (guests and waiters: phones). */
 const DESKTOP_ONLY = [
   /owner-.*\.spec\.ts/,
