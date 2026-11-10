@@ -223,8 +223,9 @@ export function staffOrderSpec(ctx, cookies, branch = ctx.branches[0]) {
 /**
  * Full API suite. `counter` (optional) measures database statements for one
  * request: `await counter(() => fetch...)` -> { statements, ... }.
+ * `writes: false` skips the order writes (for repeated read series).
  */
-export async function apiSuite(ctx, { counter, reads = {}, cookies: given } = {}) {
+export async function apiSuite(ctx, { counter, reads = {}, cookies: given, writes = true } = {}) {
   const cookies = given ?? (await signInAll());
   const b = ctx.branches[0];
   const guestA = await joinGuest(b.qr.T1.token);
@@ -248,6 +249,9 @@ export async function apiSuite(ctx, { counter, reads = {}, cookies: given } = {}
       `  ${name}: c1 p50 ${c1.p50} p95 ${c1.p95} | c8 p50 ${c8.p50} p95 ${c8.p95} ms${bad.length ? ` NON-2XX ${JSON.stringify(bad.map((r) => r.statuses))}` : ""}`,
     );
   }
+
+  // Repeated latency series measure reads only: more orders would change the dataset.
+  if (!writes) return out;
 
   // Writes. Guest: 2 sessions x 17 orders (the API allows 20 per session per 10 minutes,
   // and the explain pass may already have placed one).

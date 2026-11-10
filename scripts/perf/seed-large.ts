@@ -16,11 +16,8 @@
 import { appendFileSync, existsSync } from "node:fs";
 import path from "node:path";
 
-import {
-  connectPglite,
-  connectPostgres,
-  type Executor,
-} from "../../packages/database/src/providers/postgres/client";
+import type { Executor } from "../../packages/database/src/providers/postgres/client";
+import { connectPerfDatabase } from "./connect";
 
 const DAYS = Number(process.env.PERF_DAYS ?? 100);
 const SESSIONS_PER_DAY = Number(process.env.PERF_SESSIONS_PER_DAY ?? 40);
@@ -292,7 +289,7 @@ async function main() {
       "\n# perf harness\nmax_wal_size = 32MB\nmin_wal_size = 32MB\n",
     );
   }
-  const handle = url ? await connectPostgres(url, 1) : await connectPglite(dir);
+  const handle = await connectPerfDatabase();
   try {
     const db = handle.db;
     if ((await count(db, "menu_categories where name like 'Perf Category %'")) > 0) {
