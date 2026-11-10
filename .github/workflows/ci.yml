@@ -146,15 +146,13 @@ jobs:
   # One image per app, built (never pushed) only when that app's turbo graph changed.
   # Production builds of api, console and ops with a seeded embedded database:
   # app shell, service worker, offline queue and the money-never-offline rules.
+  # The suite builds the four apps and seeds its own throwaway PGlite database
+  # (tests/e2e/support/serve-api.ts), so the job needs no database or env setup.
   e2e:
     runs-on: ubuntu-latest
     needs: verify
     if: ${{ inputs.full == true || github.event_name == 'push' }}
-    env:
-      DATABASE_PROVIDER: pglite
-      PGLITE_DATA_DIR: ${{ github.workspace }}/.e2e-pglite
-      APP_SECRET: ci-e2e-only-secret-not-for-production-0123456789
-      TRUSTED_PROXY_HOPS: "1"
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -163,10 +161,18 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: touch .env.local
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm db:migrate && pnpm db:seed
       - run: pnpm test:e2e
+      # HTML report and first-retry traces, so a flake that passed on retry can be read.
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
   # Build-only image check for pull requests; deploys build and push their own.
   images:
