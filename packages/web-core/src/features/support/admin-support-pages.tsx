@@ -190,6 +190,7 @@ export function AdminSupportListPage() {
           rowLabel={(r) => `Open request ${r.subject}`}
           empty={
             <EmptyState
+              headingLevel={2}
               size="compact"
               icon={<LifeBuoy />}
               title="No requests match"

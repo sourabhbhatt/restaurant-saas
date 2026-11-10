@@ -244,6 +244,7 @@ export function BranchOrdersPage() {
           rowLabel={(o) => `Open order ${o.orderNumber}`}
           empty={
             <EmptyState
+              headingLevel={2}
               size="compact"
               icon={<ClipboardList />}
               title={filtersActive ? "No orders match these filters" : "No orders today yet"}

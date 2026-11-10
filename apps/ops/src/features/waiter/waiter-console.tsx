@@ -72,7 +72,7 @@ function LaneColumn({
 }) {
   return (
     <section className={cn("flex min-w-0 flex-col gap-3", className)} aria-label={title}>
-      <h2 className="hidden items-center gap-2 text-sm font-semibold md:flex">
+      <h2 className="sr-only items-center gap-2 text-sm font-semibold md:not-sr-only md:flex">
         {icon}
         {title}
         <StatusBadge tone={tone}>{count}</StatusBadge>
