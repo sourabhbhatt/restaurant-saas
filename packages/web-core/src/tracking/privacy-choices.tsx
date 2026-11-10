@@ -1,16 +1,13 @@
 "use client";
 
-import { Cookie } from "lucide-react";
-
-import { DropdownMenuItem } from "@ros/ui/ui/dropdown-menu";
-
 import { openPrivacyChoices, useTrackingStore } from "./consent";
 
 /**
  * "Cookie settings" reopens the analytics choice. It sits wherever the banner
- * can be accepted: the site footer, the auth pages' footer and the account
- * menu. Renders nothing when analytics is not configured (ops, admin, any
- * environment without a Measurement ID).
+ * can be accepted: the site footer and the auth pages' footer here, the
+ * account menu in privacy-choices-menu.tsx (kept apart so the footers of
+ * every page do not load the dropdown menu). Renders nothing when analytics
+ * is not configured (ops, admin, any environment without a Measurement ID).
  */
 export function PrivacyChoicesLink({ className }: { className?: string }) {
   const configured = useTrackingStore((s) => s.measurementId !== null);
@@ -20,31 +17,4 @@ export function PrivacyChoicesLink({ className }: { className?: string }) {
       Cookie settings
     </button>
   );
-}
-
-let closedByPrivacyChoices = false;
-
-/** The same control as an item of the account menu (dashboards and the account page). */
-export function PrivacyChoicesMenuItem() {
-  const configured = useTrackingStore((s) => s.measurementId !== null);
-  if (!configured) return null;
-  return (
-    <DropdownMenuItem
-      onSelect={() => {
-        closedByPrivacyChoices = true;
-        openPrivacyChoices();
-      }}
-    >
-      <Cookie className="size-4" aria-hidden /> Cookie settings
-    </DropdownMenuItem>
-  );
-}
-
-/**
- * The account menu's `onCloseAutoFocus`: when "Cookie settings" closed it, the
- * menu does not pull focus back to its trigger, so it stays on the banner.
- */
-export function keepFocusOnPrivacyChoices(event: Event): void {
-  if (closedByPrivacyChoices) event.preventDefault();
-  closedByPrivacyChoices = false;
 }

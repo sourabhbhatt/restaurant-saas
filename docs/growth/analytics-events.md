@@ -26,7 +26,7 @@ How RestaurantOS measures acquisition and product adoption with Google Analytics
  Browser (console)                                  API                                   Google
  ─────────────────                                  ───                                   ──────
  root layout ─ <Tracking/> (server, reads GA_MEASUREMENT_ID at request time)
-   └─ TrackingClient (client)
+   └─ TrackingLoader (client, tiny) ── next/dynamic, only with an ID ──▶ TrackingClient (own chunk)
         ├─ ConsentBanner ── Allow ──▶ cookie ros_analytics_consent=granted
         ├─ configureGtag()  consent default denied → update analytics granted → config
         ├─ <Script gtag.js>  ───────────────────────────────────────────────────────────▶ googletagmanager.com
@@ -44,18 +44,28 @@ How RestaurantOS measures acquisition and product adoption with Google Analytics
                                                        └─ ga4    Measurement Protocol, 2 s timeout ───────▶ www.google-analytics.com/mp/collect
 ```
 
-| Piece                                                                                  | File                                                                                                                                                                                                         |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Event catalog (names, strict zod params, source, key event), PII guard, consent cookie | `packages/contracts/src/tracking-events.ts`                                                                                                                                                                  |
-| Browser tracker                                                                        | `packages/web-core/src/tracking/` (`tracking.tsx`, `tracking-client.tsx`, `consent.ts`, `consent-banner.tsx`, `gtag.ts`, `track.ts`, `page-views.ts`, `api-events.ts`, `sanitize.ts`, `privacy-choices.tsx`) |
-| Server port                                                                            | `packages/application/src/ports/server-tracking.ts`                                                                                                                                                          |
-| Adapters                                                                               | `packages/adapters/src/tracking/providers/ga4-measurement-protocol.ts`, `memory.ts` (`none` is `noServerTracking` in the port)                                                                               |
-| Composition                                                                            | `apps/api/src/composition/container.ts` (`selectTracking`), `payments.ts`, `workspaces.ts`                                                                                                                   |
-| Request attribution                                                                    | `packages/application/src/http/route.ts` (`RequestMeta.analytics`)                                                                                                                                           |
-| Opt-in carried to a webhook                                                            | `payment_orders.analytics_client_id` (migration `0008_payment_order_analytics_opt_in`, down script in `migrations-down/`)                                                                                    |
-| "Cookie settings" placements                                                           | `site-footer.tsx` (public site), `auth-shell.tsx` (auth pages), `profile-menu.tsx` (account menu: every dashboard and the account page)                                                                      |
+| Piece                                                                                                                                             | File                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Event catalog (names, strict hand-written param rules, source, key event), PII guard; consent cookie name; plan-key rule shared with the platform | `packages/contracts/src/tracking-events.ts`, `analytics-consent.ts`, `plan-key.ts`                                                                                                                           |
+| Browser tracker                                                                                                                                   | `packages/web-core/src/tracking/` (`tracking.tsx`, `tracking-client.tsx`, `consent.ts`, `consent-banner.tsx`, `gtag.ts`, `track.ts`, `page-views.ts`, `api-events.ts`, `sanitize.ts`, `privacy-choices.tsx`) |
+| Server port                                                                                                                                       | `packages/application/src/ports/server-tracking.ts`                                                                                                                                                          |
+| Adapters                                                                                                                                          | `packages/adapters/src/tracking/providers/ga4-measurement-protocol.ts`, `memory.ts` (`none` is `noServerTracking` in the port)                                                                               |
+| Composition                                                                                                                                       | `apps/api/src/composition/container.ts` (`selectTracking`), `payments.ts`, `workspaces.ts`                                                                                                                   |
+| Request attribution                                                                                                                               | `packages/application/src/http/route.ts` (`RequestMeta.analytics`)                                                                                                                                           |
+| Opt-in carried to a webhook                                                                                                                       | `payment_orders.analytics_client_id` (migration `0008_payment_order_analytics_opt_in`, down script in `migrations-down/`)                                                                                    |
+| "Cookie settings" placements                                                                                                                      | `site-footer.tsx` (public site), `auth-shell.tsx` (auth pages), `profile-menu.tsx` (account menu: every dashboard and the account page)                                                                      |
 
 The owner-facing product dashboard in `packages/web-core/src/features/analytics` is unrelated: it shows a restaurant its own sales from the database and sends nothing to Google.
+
+### Bundle cost on every page
+
+The tracker is in the root layout and "Cookie settings" is in the site footer, so their eager imports ship to every console page, the marketing site and guest QR pages included. To keep that small:
+
+- The catalog's runtime rules are hand-written descriptors, not zod; full zod alone is about 34 KB gzip. The rules are equally strict: unknown keys, missing required keys, wrong types and out-of-range values are refused, and the PII checks are unchanged. A test checks the plan-key rule against the platform's `planKeySchema`.
+- `TrackingClient` (banner, gtag set-up, page views, the API observer) is its own chunk, loaded by a tiny `TrackingLoader` only when a Measurement ID is configured.
+- The footer link imports only the consent store and the cookie name; the account-menu item, which needs the dropdown menu, lives in `privacy-choices-menu.tsx`.
+
+`web-core/src/tracking/client-bundle.test.ts` walks the import graph and fails if any browser tracking code reaches zod, or if the eager part grows beyond the loader, the footer link, the consent store and the cookie-name module. Measured first-load JS of `/features` (gzip, from the build manifests, `scripts/perf/bundles.mjs`): 254.3 KB before, 203.4 KB after, 201.2 KB with tracking removed entirely.
 
 ### Why API-confirmed client events
 

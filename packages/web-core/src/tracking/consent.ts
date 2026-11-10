@@ -5,7 +5,7 @@ import { create } from "zustand";
 import {
   ANALYTICS_CONSENT_COOKIE,
   ANALYTICS_CONSENT_MAX_AGE_SECONDS,
-} from "@ros/contracts/tracking-events";
+} from "@ros/contracts/analytics-consent";
 
 export type ConsentChoice = "granted" | "denied";
 

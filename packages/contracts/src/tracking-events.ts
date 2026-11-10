@@ -1,10 +1,9 @@
-import { z } from "zod";
-
-import { planKeySchema } from "./platform";
+import { ANALYTICS_CONSENT_COOKIE } from "./analytics-consent";
+import { PLAN_KEY_MAX_LENGTH, PLAN_KEY_MIN_LENGTH, PLAN_KEY_PATTERN } from "./plan-key";
 
 /**
  * Growth-measurement event catalog (Google Analytics 4): the single allowlist
- * of event names and parameter schemas shared by the browser tracker
+ * of event names and parameter rules shared by the browser tracker
  * (@ros/web-core/tracking) and the server's Measurement Protocol adapter.
  *
  * Parameters are strict objects of enums, booleans, bounded numbers and
@@ -12,31 +11,64 @@ import { planKeySchema } from "./platform";
  * email, phone, a payment detail, a token or a tenant id: TypeScript rejects
  * an unknown key, and `validateTrackingEvent` drops the event at runtime.
  * Spec, privacy rules and the funnel: docs/growth/analytics-events.md.
+ *
+ * The rules are small hand-written descriptors, not zod schemas, on purpose:
+ * this module is in the browser bundle of every console page (the tracker is
+ * in the root layout) and full zod alone is about 34 KB gzip.
+ * `web-core/src/tracking/client-bundle.test.ts` keeps zod out of that bundle.
  */
 
 /** Where an event is produced. `database` events are never sent to GA4; they are derived from SQL. */
 export type TrackingSource = "client" | "server" | "database";
 
+/** One parameter's rule. Every parameter is required unless `optional`. */
+type Rule =
+  | { readonly kind: "boolean" }
+  | { readonly kind: "literal"; readonly value: string }
+  | { readonly kind: "enum"; readonly values: readonly string[] }
+  | {
+      readonly kind: "number";
+      readonly min: number;
+      readonly max: number;
+      readonly integer?: boolean;
+    }
+  | {
+      readonly kind: "string";
+      readonly pattern: RegExp;
+      readonly minLength?: number;
+      readonly maxLength: number;
+    };
+type ParamRule = Rule & { readonly optional?: boolean };
+
+const optional = <R extends Rule>(rule: R) => ({ ...rule, optional: true }) as const;
+const boolean = { kind: "boolean" } as const;
+const integer = (min: number, max: number) =>
+  ({ kind: "number", min, max, integer: true }) as const;
+
 /**
  * Plan keys are slugs chosen by the Super Admin (starter, pro, ...), never
- * tenant data: exactly the platform's own rule, so no valid plan is dropped.
+ * tenant data: exactly the platform's own rule (plan-key.ts), so no valid
+ * plan is dropped.
  */
-const planKey = planKeySchema;
-const billingCycle = z.enum(["monthly", "annual"]);
-const currency = z.string().regex(/^[A-Z]{3}$/);
+const planKey = {
+  kind: "string",
+  pattern: PLAN_KEY_PATTERN,
+  minLength: PLAN_KEY_MIN_LENGTH,
+  maxLength: PLAN_KEY_MAX_LENGTH,
+} as const;
+const billingCycle = { kind: "enum", values: ["monthly", "annual"] } as const;
+const currency = { kind: "string", pattern: /^[A-Z]{3}$/, maxLength: 3 } as const;
 /** The plan's list price in major units (rupees). */
-const value = z.number().nonnegative().max(10_000_000);
+const value = { kind: "number", min: 0, max: 10_000_000 } as const;
 /** A path that has already been through the browser's URL sanitizer. */
-const sanitizedPath = z
-  .string()
-  .max(200)
-  .regex(/^\/[A-Za-z0-9/_:.-]*$/);
+const sanitizedPath = { kind: "string", pattern: /^\/[A-Za-z0-9/_:.-]*$/, maxLength: 200 } as const;
+const password = { kind: "literal", value: "password" } as const;
 
 interface SentEvent {
   source: "client" | "server";
   /** Mark as a key event in GA4 Admin (docs list the exact steps). */
   keyEvent: boolean;
-  params: z.ZodObject;
+  params: Readonly<Record<string, ParamRule>>;
 }
 interface DerivedEvent {
   source: "database";
@@ -48,36 +80,24 @@ export const TRACKING_EVENTS = {
   landing_page_view: {
     source: "client",
     keyEvent: false,
-    params: z.strictObject({ landing_page: sanitizedPath }),
+    params: { landing_page: sanitizedPath },
   },
-  signup_started: {
-    source: "client",
-    keyEvent: false,
-    params: z.strictObject({ invited: z.boolean() }),
-  },
+  signup_started: { source: "client", keyEvent: false, params: { invited: boolean } },
   signup_completed: {
     source: "client",
     keyEvent: true,
-    params: z.strictObject({ method: z.literal("password"), invited: z.boolean() }),
+    params: { method: password, invited: boolean },
   },
-  login_completed: {
-    source: "client",
-    keyEvent: false,
-    params: z.strictObject({ method: z.literal("password") }),
-  },
-  workspace_created: { source: "client", keyEvent: false, params: z.strictObject({}) },
-  restaurant_created: { source: "client", keyEvent: false, params: z.strictObject({}) },
-  branch_created: { source: "client", keyEvent: false, params: z.strictObject({}) },
-  menu_item_created: { source: "client", keyEvent: false, params: z.strictObject({}) },
+  login_completed: { source: "client", keyEvent: false, params: { method: password } },
+  workspace_created: { source: "client", keyEvent: false, params: {} },
+  restaurant_created: { source: "client", keyEvent: false, params: {} },
+  branch_created: { source: "client", keyEvent: false, params: {} },
+  menu_item_created: { source: "client", keyEvent: false, params: {} },
   /**
    * One per user action: a single generate/regenerate (count 1), or one for a
    * bulk run such as onboarding's tables or "Generate missing" (count = codes).
    */
-  qr_generated: {
-    source: "client",
-    keyEvent: true,
-    params: z.strictObject({ count: z.number().int().min(1).max(1000) }),
-  },
+  qr_generated: { source: "client", keyEvent: true, params: { count: integer(1, 1000) } },
   qr_menu_viewed: { source: "database", keyEvent: false, params: null },
   order_submitted: { source: "database", keyEvent: false, params: null },
   order_accepted: { source: "database", keyEvent: false, params: null },
@@ -91,35 +111,31 @@ export const TRACKING_EVENTS = {
   trial_started: {
     source: "server",
     keyEvent: true,
-    params: z.strictObject({ plan_key: planKey, trial_days: z.number().int().min(0).max(366) }),
+    params: { plan_key: planKey, trial_days: integer(0, 366) },
   },
-  upgrade_clicked: {
-    source: "client",
-    keyEvent: false,
-    params: z.strictObject({ plan_key: planKey.optional() }),
-  },
+  upgrade_clicked: { source: "client", keyEvent: false, params: { plan_key: optional(planKey) } },
   checkout_started: {
     source: "client",
     keyEvent: false,
-    params: z.strictObject({ plan_key: planKey, billing_cycle: billingCycle, value, currency }),
+    params: { plan_key: planKey, billing_cycle: billingCycle, value, currency },
   },
   payment_succeeded: {
     source: "server",
     keyEvent: true,
-    params: z.strictObject({
+    params: {
       plan_key: planKey,
       billing_cycle: billingCycle,
       value,
       currency,
-      /** The workspace was already on an active paid plan (a renewal or a plan change). */
-      renewal: z.boolean(),
-    }),
+      /** A paid period was still running: a renewal (or a plan change), not a new activation. */
+      renewal: boolean,
+    },
   },
   /** A workspace became ACTIVE from trial, expiry or cancellation; never sent for a renewal. */
   subscription_activated: {
     source: "server",
     keyEvent: true,
-    params: z.strictObject({ plan_key: planKey, billing_cycle: billingCycle }),
+    params: { plan_key: planKey, billing_cycle: billingCycle },
   },
 } as const satisfies Record<string, SentEvent | DerivedEvent>;
 
@@ -134,7 +150,26 @@ export type ClientEventName = NamesFrom<"client">;
 /** Events only the server sends, after the business transaction committed. */
 export type ServerEventName = NamesFrom<"server">;
 
-export type TrackingParams<E extends ClientEventName | ServerEventName> = z.input<
+type ValueOf<R> = R extends { kind: "boolean" }
+  ? boolean
+  : R extends { kind: "literal"; value: infer V }
+    ? V
+    : R extends { kind: "enum"; values: readonly (infer V)[] }
+      ? V
+      : R extends { kind: "number" }
+        ? number
+        : R extends { kind: "string" }
+          ? string
+          : never;
+type Flatten<T> = { [K in keyof T]: T[K] } & {};
+/** The exact object type a rule set admits: unknown keys are a type error at the call site. */
+type ParamsOf<P> = Flatten<
+  { -readonly [K in keyof P as P[K] extends { optional: true } ? never : K]: ValueOf<P[K]> } & {
+    -readonly [K in keyof P as P[K] extends { optional: true } ? K : never]?: ValueOf<P[K]>;
+  }
+>;
+
+export type TrackingParams<E extends ClientEventName | ServerEventName> = ParamsOf<
   Catalog[E]["params"]
 >;
 
@@ -145,6 +180,55 @@ export type ServerTrackingEvent = {
 /** Values a sent parameter may take after validation. */
 export type TrackingParamValue = string | number | boolean;
 
+function satisfiesRule(rule: Rule, v: unknown): boolean {
+  switch (rule.kind) {
+    case "boolean":
+      return typeof v === "boolean";
+    case "literal":
+      return v === rule.value;
+    case "enum":
+      return typeof v === "string" && rule.values.includes(v);
+    case "number":
+      return (
+        typeof v === "number" &&
+        Number.isFinite(v) &&
+        v >= rule.min &&
+        v <= rule.max &&
+        (!rule.integer || Number.isInteger(v))
+      );
+    case "string":
+      return (
+        typeof v === "string" &&
+        v.length >= (rule.minLength ?? 0) &&
+        v.length <= rule.maxLength &&
+        rule.pattern.test(v)
+      );
+  }
+}
+
+/** The params as a strict object: no unknown key, every required one present, each value valid. */
+function strictParams(
+  rules: Readonly<Record<string, ParamRule>>,
+  params: unknown,
+): Record<string, TrackingParamValue> | null {
+  const input = params ?? {};
+  if (typeof input !== "object" || Array.isArray(input)) return null;
+  const record = input as Record<string, unknown>;
+  for (const key of Object.keys(record))
+    if (!Object.prototype.hasOwnProperty.call(rules, key)) return null;
+  const out: Record<string, TrackingParamValue> = {};
+  for (const [key, rule] of Object.entries(rules)) {
+    const v = Object.prototype.hasOwnProperty.call(record, key) ? record[key] : undefined;
+    if (v === undefined) {
+      if (!rule.optional) return null;
+      continue;
+    }
+    if (!satisfiesRule(rule, v)) return null;
+    out[key] = v as TrackingParamValue;
+  }
+  return out;
+}
+
 /** A 24+ character run is a token only if it mixes in digits or capitals; long lowercase words are prose. */
 function looksLikeToken(text: string): boolean {
   return (text.match(/[A-Za-z0-9_-]{24,}/g) ?? []).some((run) => /[A-Z0-9]/.test(run));
@@ -152,7 +236,7 @@ function looksLikeToken(text: string): boolean {
 
 /**
  * Shapes that never belong in an analytics payload. A second line of
- * defence behind the strict schemas (which already admit no free text).
+ * defence behind the strict rules (which already admit no free text).
  * Plan keys are slugs the platform already validated, so the length-based
  * checks are looser there (`slug`): long words and short dates are fine, a
  * 10-digit run (a mobile number) is not; `false` skips the check.
@@ -173,7 +257,7 @@ const PII_CHECKS: readonly { kind: string; test: PiiTest; slug?: PiiTest | false
   { kind: "token", test: looksLikeToken, slug: false },
 ];
 
-/** Parameters whose schema already admits only a slug (`planKeySchema`). */
+/** Parameters whose rule already admits only a slug (the plan-key rule). */
 const SLUG_PARAMS = new Set(["plan_key"]);
 
 /** The name of the first PII check `text` fails, or null. */
@@ -198,31 +282,29 @@ export const GA4_LIMITS = {
 
 /**
  * Runtime gate for every event, client or server: the name must be in the
- * catalog for that source, the params must parse against its strict schema,
- * and no string value may look like personal data or a secret.
+ * catalog for that source, the params must satisfy its strict rules, and no
+ * string value may look like personal data or a secret.
  */
 export function validateTrackingEvent(
   source: "client" | "server",
   name: string,
   params: unknown,
 ): TrackingValidation {
-  const spec = (TRACKING_EVENTS as Record<string, SentEvent | DerivedEvent>)[name];
+  const spec = Object.prototype.hasOwnProperty.call(TRACKING_EVENTS, name)
+    ? (TRACKING_EVENTS as Record<string, SentEvent | DerivedEvent>)[name]
+    : undefined;
   if (!spec || spec.source !== source) return { ok: false, reason: "unknown_event" };
   if (!spec.params) return { ok: false, reason: "unknown_event" };
-  const parsed = spec.params.safeParse(params ?? {});
-  if (!parsed.success) return { ok: false, reason: "invalid_params" };
-  const out: Record<string, TrackingParamValue> = {};
-  for (const [key, v] of Object.entries(parsed.data as Record<string, unknown>)) {
-    if (v === undefined) continue;
-    if (typeof v === "string") {
-      if (v.length > GA4_LIMITS.paramValueLength) return { ok: false, reason: "value_too_long" };
-      if (piiKind(v, { slug: SLUG_PARAMS.has(key) })) return { ok: false, reason: "pii" };
-    }
-    out[key] = v as TrackingParamValue;
+  const parsed = strictParams(spec.params, params);
+  if (!parsed) return { ok: false, reason: "invalid_params" };
+  for (const [key, v] of Object.entries(parsed)) {
+    if (typeof v !== "string") continue;
+    if (v.length > GA4_LIMITS.paramValueLength) return { ok: false, reason: "value_too_long" };
+    if (piiKind(v, { slug: SLUG_PARAMS.has(key) })) return { ok: false, reason: "pii" };
   }
-  if (Object.keys(out).length > GA4_LIMITS.paramsPerEvent)
+  if (Object.keys(parsed).length > GA4_LIMITS.paramsPerEvent)
     return { ok: false, reason: "too_many_params" };
-  return { ok: true, params: out };
+  return { ok: true, params: parsed };
 }
 
 /** Plan billing cycle in GA4's lowercase form. */
@@ -245,14 +327,7 @@ export function majorUnits(amountMinor: number, currencyCode: string): number {
 
 // ---------------------------------------------------------------- consent + GA cookies
 
-/**
- * First-party cookie holding the visitor's analytics choice (`granted` or
- * `denied`). Not HttpOnly: the browser reads it to decide whether to load
- * gtag.js; the API reads it before using the GA client id for attribution.
- */
-export const ANALYTICS_CONSENT_COOKIE = "ros_analytics_consent";
-/** The choice is asked again after 180 days. GA cookies use the same lifetime. */
-export const ANALYTICS_CONSENT_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
+export { ANALYTICS_CONSENT_COOKIE, ANALYTICS_CONSENT_MAX_AGE_SECONDS } from "./analytics-consent";
 
 function cookieValue(header: string, name: string): string | null {
   for (const part of header.split(";")) {

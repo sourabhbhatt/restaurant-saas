@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { isMeasurementId } from "./gtag";
-import { TrackingClient } from "./tracking-client";
+import { TrackingLoader } from "./tracking-loader";
 
 /**
  * Reads this app's GA4 stream from its runtime environment
@@ -18,7 +18,7 @@ export async function TrackingConfig() {
     console.warn("GA_MEASUREMENT_ID is not a GA4 Measurement ID (G-XXXXXXX); analytics stays off");
     return null;
   }
-  return <TrackingClient measurementId={id} debug={process.env.GA_DEBUG_MODE === "true"} />;
+  return <TrackingLoader measurementId={id} debug={process.env.GA_DEBUG_MODE === "true"} />;
 }
 
 /** Mount once in a root layout. Inert unless GA_MEASUREMENT_ID is set for this app. */
