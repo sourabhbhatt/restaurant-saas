@@ -78,6 +78,17 @@ test("waiter order composed offline is not sent until online, then reaches the k
   await expect(page.getByText(new RegExp(`sent for ${table.name}`))).toHaveCount(0);
   expect(await ordersWithNote(ownerApi, demo.branchId, note)).toHaveLength(0);
 
+  // Every send of this order that leaves the page.
+  let sends = 0;
+  page.on("request", (req) => {
+    if (
+      req.method() === "POST" &&
+      new URL(req.url()).pathname === `/api/v1/branches/${demo.branchId}/orders` &&
+      (req.postData() ?? "").includes(note)
+    )
+      sends++;
+  });
+
   await context.setOffline(false);
   await expect(drawer.getByText("Not sent — will send when online")).toHaveCount(0, {
     timeout: 20_000,
@@ -98,8 +109,14 @@ test("waiter order composed offline is not sent until online, then reaches the k
   await drawer.getByRole("button", { name: "Close" }).click();
   await page.getByRole("button", { name: /^Sync status:/ }).click();
   const sheet = page.getByRole("dialog", { name: "Sync status" });
-  await sheet.getByRole("button", { name: "Sync now" }).click();
+  const syncNow = sheet.getByRole("button", { name: "Sync now" });
+  const forcedProbe = page.waitForResponse((r) => r.url().includes("/api/v1/sync/ping"));
+  await syncNow.click();
+  await forcedProbe;
+  // The forced run is over once the button is usable again.
+  await expect(syncNow).toBeEnabled();
   await expect(sheet.getByText("Synced").first()).toBeVisible();
+  expect(sends).toBe(1);
   expect(await ordersWithNote(ownerApi, demo.branchId, note)).toHaveLength(1);
 });
 

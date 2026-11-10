@@ -87,12 +87,16 @@ test("kitchen starts a ticket, marks items ready and the waiter sees it ready", 
   // Once every line is ready the ticket stops offering item toggles.
   for (const item of ["1 Paneer Tikka", "2 Masala Chai"]) {
     const toggle = ticket.getByRole("button", { name: new RegExp(`^${item}: `) });
-    for (;;) {
-      const label = (await toggle.count()) ? await toggle.getAttribute("aria-label") : null;
+    // pending → preparing → ready: at most two taps per line.
+    let label: string | null = null;
+    for (let tap = 0; tap < 3; tap++) {
+      label = (await toggle.count()) ? await toggle.getAttribute("aria-label") : null;
       if (!label || / ready\. /.test(label)) break;
       await toggle.click();
       await expect(toggle.and(ticket.getByRole("button", { name: label }))).toHaveCount(0);
     }
+    // Ready, or the toggle is gone because the whole ticket is ready.
+    if (label !== null) expect(label).toMatch(/ ready\. /);
   }
   await expect
     .poll(async () =>
@@ -262,4 +266,25 @@ test("ops consoles link back to the dashboard on the console app, not to a missi
     const back = page.getByRole("link", { name: "Back to branch dashboard" });
     await expect(back).toHaveAttribute("href", `${E2E_URLS.console}/app/b/${demo.branchId}`);
   }
+});
+
+test("a duplicate table name is a field error from the production API, not a 500", async ({
+  ownerApi,
+  demo,
+}) => {
+  // UniqueViolationError is thrown by the container's adapter copy and recognised by the
+  // tables service's copy (tables/service.ts), which turns it into a field error. Only a
+  // production build has the two copies; if `instanceof` failed this would be a 500.
+  const table = await freshTable(ownerApi, demo.branchId);
+  const again = await ownerApi.post(`/api/v1/branches/${demo.branchId}/tables`, {
+    data: { name: table.name, capacity: 2 },
+  });
+  const body = (await again.json()) as {
+    error: { code: string; fieldErrors?: Record<string, string[]> };
+  };
+  expect(again.status()).toBe(422);
+  expect(body.error.code).toBe("VALIDATION_FAILED");
+  expect(body.error.fieldErrors?.name?.[0]).toBe(
+    "A table with this name already exists in this branch",
+  );
 });
