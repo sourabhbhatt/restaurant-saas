@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createOfflineDb, switchUser, type OfflineDatabase } from "./db";
@@ -9,6 +9,11 @@ import {
   shouldPersistQuery,
   startQueryPersistence,
 } from "./persist-queries";
+
+/** Let fake-indexeddb (scheduled with setImmediate) and promises settle. */
+async function settle() {
+  for (let i = 0; i < 30; i += 1) await new Promise((resolve) => setImmediate(resolve));
+}
 
 let db: OfflineDatabase;
 let qc: QueryClient;
@@ -65,7 +70,7 @@ describe("query persistence", () => {
     });
     // No timer advanced: a reload or lost connection right now must still find the data.
     vi.useRealTimers();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await settle();
     const keys = (await db.queryCache.toArray()).map((r) => r.key).sort();
     expect(keys).toEqual(
       [queryCacheKey(["branch", "b1", "context"]), queryCacheKey(["me"])].sort(),
@@ -83,7 +88,7 @@ describe("query persistence", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     visibility.mockRestore();
     vi.useRealTimers();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await settle();
     const row = await db.queryCache.get(queryCacheKey(queryKey));
     expect(row?.data).toEqual({ name: "Renamed" });
     stop();
@@ -128,5 +133,26 @@ describe("query persistence", () => {
     });
     await hydrateQueries(qc, db);
     expect(qc.getQueryData(["me"])).toEqual({ user: { id: "user-1" }, fresh: true });
+  });
+
+  it("restored rows are refetched by the screen even when saved seconds ago (within staleTime)", async () => {
+    await switchUser(db, "user-1");
+    const queryKey = ["workspace", "w1", "structure"];
+    await db.queryCache.put({
+      key: queryCacheKey(queryKey),
+      queryKey,
+      data: { plan: "Pro" },
+      updatedAt: Date.now() - 2_000, // a reload right after the last fetch
+      userId: "user-1",
+    });
+    await hydrateQueries(qc, db);
+    expect(qc.getQueryData(queryKey)).toEqual({ plan: "Pro" });
+
+    const queryFn = vi.fn(async () => ({ plan: "Enterprise" }));
+    const observer = new QueryObserver(qc, { queryKey, queryFn, staleTime: 30_000 });
+    const unsubscribe = observer.subscribe(() => {});
+    await vi.waitFor(() => expect(qc.getQueryData(queryKey)).toEqual({ plan: "Enterprise" }));
+    expect(queryFn).toHaveBeenCalledTimes(1);
+    unsubscribe();
   });
 });

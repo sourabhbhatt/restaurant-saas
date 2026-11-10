@@ -61,6 +61,14 @@ export async function hydrateQueries(
     // Never overwrite fresher data that already arrived from the network.
     if (current && current.dataUpdatedAt >= row.updatedAt && current.data !== undefined) continue;
     queryClient.setQueryData(row.queryKey, row.data, { updatedAt: row.updatedAt });
+    // A row saved seconds before a reload would count as fresh (staleTime) and never be
+    // refetched, so the screen kept e.g. the old plan or permissions. Mark it stale: the
+    // screen shows it at once and asks the server as soon as it can.
+    void queryClient.invalidateQueries({
+      queryKey: row.queryKey,
+      exact: true,
+      refetchType: "none",
+    });
     restored.push(row.queryKey);
   }
   return { userId, restored };
