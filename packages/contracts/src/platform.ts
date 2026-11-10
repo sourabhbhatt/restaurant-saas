@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { platformSettingsSchema, type PlatformSettings } from "@ros/domain/platform/settings";
 import { SUPPORTED_CURRENCIES } from "@ros/domain/shared/money";
+
+import { PLAN_KEY_MAX_LENGTH, PLAN_KEY_MIN_LENGTH, PLAN_KEY_PATTERN } from "./plan-key";
 import {
   BILLING_CYCLES,
   FEATURE_KEYS,
@@ -63,13 +65,13 @@ export const planLimitsSchema = z.object(
   Object.fromEntries(LIMIT_KEYS.map((k) => [k, limitValue])) as Record<LimitKey, typeof limitValue>,
 );
 
-/** Plan keys: slugs the Super Admin chooses (also the shape analytics accepts, tracking-events.ts). */
+/** Plan keys: slugs the Super Admin chooses (the same rule analytics accepts: plan-key.ts). */
 export const planKeySchema = z
   .string()
   .trim()
-  .min(2, "Use at least 2 characters")
-  .max(40)
-  .regex(/^[a-z0-9][a-z0-9_-]*$/, "Lowercase letters, numbers, - and _ only");
+  .min(PLAN_KEY_MIN_LENGTH, "Use at least 2 characters")
+  .max(PLAN_KEY_MAX_LENGTH)
+  .regex(PLAN_KEY_PATTERN, "Lowercase letters, numbers, - and _ only");
 
 const minorPrice = z.number().int().min(0).max(1_000_000_000).nullable();
 

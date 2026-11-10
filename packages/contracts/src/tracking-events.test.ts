@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { planKeySchema } from "./platform";
 import {
   ANALYTICS_CONSENT_COOKIE,
   GA4_LIMITS,
@@ -45,7 +46,7 @@ describe("tracking event catalog", () => {
       expect(name.length).toBeLessThanOrEqual(GA4_LIMITS.eventNameLength);
       // Reserved prefixes for event and parameter names (Measurement Protocol reference).
       expect(name).not.toMatch(/^(_|ga_|google_|firebase_)/);
-      for (const param of Object.keys(spec.params?.shape ?? {})) {
+      for (const param of Object.keys(spec.params ?? {})) {
         expect(param.length).toBeLessThanOrEqual(GA4_LIMITS.paramNameLength);
         expect(param).not.toMatch(/^(_|ga_|google_|firebase_|gtag\.)/);
       }
@@ -120,6 +121,52 @@ describe("validateTrackingEvent", () => {
         activation_source: "manual",
       }),
     ).toEqual({ ok: false, reason: "invalid_params" });
+  });
+
+  it("accepts exactly the plan keys the platform's own schema accepts (unless shaped like personal data)", () => {
+    const samples = [
+      "pro",
+      "ab",
+      "a",
+      "2026-pro",
+      "chain_annual_v2",
+      "a".repeat(40),
+      "a".repeat(41),
+      "Pro",
+      "pro plan",
+      "-pro",
+      "_pro",
+      "pro.annual",
+      "pro/annual",
+      "",
+      "पro",
+      "pro-20261110",
+      "9845012345",
+      "0b3c6c2e-5d0e-4f43-9d55-0a4c3f0e5c11",
+    ];
+    for (const key of samples) {
+      // The platform trims before storing, so stored keys never carry spaces.
+      const platform = planKeySchema.safeParse(key).success && key.trim() === key;
+      const shapedLikePii = piiKind(key, { slug: true }) !== null;
+      expect(
+        validateTrackingEvent("client", "upgrade_clicked", { plan_key: key }).ok,
+        `plan key ${JSON.stringify(key)}`,
+      ).toBe(platform && !shapedLikePii);
+    }
+  });
+
+  it.each([
+    ["null (no params)", null, true],
+    ["an array", [], false],
+    ["a string", "count=1", false],
+    ["NaN", { count: Number.NaN }, false],
+    ["Infinity", { count: Number.POSITIVE_INFINITY }, false],
+    ["a numeric string", { count: "3" }, false],
+    ["an inherited key", Object.create({ count: 3 }), false],
+    ["a __proto__ key", JSON.parse('{"count":1,"__proto__":{"x":1}}'), false],
+  ])("treats params given as %s strictly", (_label, params, ok) => {
+    const name = ok ? "workspace_created" : "qr_generated";
+    expect(validateTrackingEvent("client", name, params).ok).toBe(ok);
   });
 
   it("counts QR codes per user action: one event carrying how many were generated", () => {

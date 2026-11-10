@@ -195,6 +195,13 @@ jobs:
           PROJECT: ${{ vars.GCP_PROJECT }}
           PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
           CI_DEPLOY: "1"
+          # Repository variables (none is a secret). Unset means off: each deploy replaces the
+          # services' whole env, so analytics and site text must come from here on every push.
+          STAGING_GA_MEASUREMENT_ID: ${{ vars.STAGING_GA_MEASUREMENT_ID }}
+          STAGING_GA_ENHANCED_MEASUREMENT: ${{ vars.STAGING_GA_ENHANCED_MEASUREMENT }}
+          STAGING_GA_DEBUG_MODE: ${{ vars.STAGING_GA_DEBUG_MODE }}
+          SITE_SUPPORT_EMAIL: ${{ vars.SITE_SUPPORT_EMAIL }}
+          SITE_LEGAL_ENTITY: ${{ vars.SITE_LEGAL_ENTITY }}
         run: infra/gcp/deploy.sh
 
   smoke:

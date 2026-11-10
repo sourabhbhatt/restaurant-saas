@@ -7,6 +7,13 @@
 # This project is staging only; production gets its own project (design §11).
 # Razorpay runs in TEST mode when the three ros-staging-razorpay-* secrets exist
 # (the API refuses rzp_live_ keys); otherwise PAYMENT_PROVIDER=none.
+# Growth analytics (GA4) stays OFF unless the operator exports, for this deploy:
+#   STAGING_GA_MEASUREMENT_ID=G-XXXXXXX       the staging GA4 web stream (console)
+#   STAGING_GA_ENHANCED_MEASUREMENT=off       confirms the release gate (docs/growth/analytics-events.md §0)
+#   STAGING_GA_DEBUG_MODE=false               optional; default true (events show in DebugView)
+# Server events (API, Measurement Protocol) also need the ros-staging-ga-api-secret secret.
+# Optional console site text: SITE_SUPPORT_EMAIL, SITE_LEGAL_ENTITY (passed only when exported).
+# Every deploy replaces each service's whole env: unexported means unset (off).
 set -euo pipefail
 
 ENVIRONMENT="${ENVIRONMENT:-staging}"
@@ -31,6 +38,24 @@ API_URL="$(url api)"
 CONSOLE_URL="$(url console)"
 OPS_URL="$(url ops)"
 ADMIN_URL="$(url admin)"
+
+# Growth analytics: off unless STAGING_GA_MEASUREMENT_ID is exported. Checked before anything
+# is touched, so a typo or a skipped release gate stops the deploy instead of a service.
+GA_ID="${STAGING_GA_MEASUREMENT_ID:-}"
+GA_DEBUG="${STAGING_GA_DEBUG_MODE:-true}"
+if [ -n "$GA_ID" ]; then
+  [[ "$GA_ID" =~ ^G-[A-Z0-9]{4,20}$ ]] || { echo "STAGING_GA_MEASUREMENT_ID must look like G-XXXXXXX (got '$GA_ID')"; exit 1; }
+  [[ "$GA_DEBUG" =~ ^(true|false)$ ]] || { echo "STAGING_GA_DEBUG_MODE must be true or false"; exit 1; }
+  if [ "${STAGING_GA_ENHANCED_MEASUREMENT:-}" != "off" ]; then
+    echo "Release gate: switch Enhanced measurement OFF on the staging GA4 web stream, then export"
+    echo "STAGING_GA_ENHANCED_MEASUREMENT=off (docs/growth/analytics-events.md, step 0)."; exit 1
+  fi
+fi
+# The frontends' env is passed with "|" between pairs (gcloud's ^|^ syntax), so values may hold
+# commas, spaces and @; a value with "|" is refused.
+for v in "${SITE_SUPPORT_EMAIL:-}" "${SITE_LEGAL_ENTITY:-}"; do
+  case "$v" in *"|"*) echo "SITE_SUPPORT_EMAIL / SITE_LEGAL_ENTITY may not contain '|'"; exit 1 ;; esac
+done
 
 if [ "$(gcloud sql instances describe "$INSTANCE" --project="$PROJECT" --format='value(settings.activationPolicy)')" != "ALWAYS" ]; then
   echo "Cloud SQL is stopped. Run: infra/gcp/staging.sh start   (then re-run this deploy)"; exit 1
@@ -85,6 +110,16 @@ else
   echo "   payments off (no ros-staging-razorpay-* secrets)"
   API_ENV+=",PAYMENT_PROVIDER=none"
 fi
+# GA4 server events (trial_started, payment_succeeded, subscription_activated) only with both the
+# exported Measurement ID and the API secret; anything else is TRACKING_PROVIDER=none.
+if [ -n "$GA_ID" ] && has_secret ros-staging-ga-api-secret; then
+  echo "   GA4 server events on ($GA_ID)"
+  API_ENV+=",TRACKING_PROVIDER=ga4,GA_MEASUREMENT_ID=$GA_ID"
+  API_SECRETS+=",GA_API_SECRET=ros-staging-ga-api-secret:latest"
+else
+  echo "   GA4 server events off (needs STAGING_GA_MEASUREMENT_ID and ros-staging-ga-api-secret)"
+  API_ENV+=",TRACKING_PROVIDER=none"
+fi
 if has_secret ros-staging-resend-api-key; then
   API_ENV="${API_ENV/EMAIL_PROVIDER=outbox/EMAIL_PROVIDER=resend}"
   API_ENV+=",EMAIL_FROM=${EMAIL_FROM:-RestaurantOS Staging <onboarding@resend.dev>}"
@@ -102,13 +137,27 @@ gcloud run deploy "$(svc api)" --project="$PROJECT" --region="$REGION" \
   $PUBLIC_FLAG --quiet
 fi
 
+FRONTEND_ENV="NODE_ENV=production|APP_VERSION=$TAG|API_INTERNAL_URL=$API_URL|CONSOLE_URL=$CONSOLE_URL|OPS_URL=$OPS_URL|ADMIN_URL=$ADMIN_URL|TRUSTED_PROXY_HOPS=1"
+# Console only: growth analytics (the banner and gtag.js) and the site text of the legal pages.
+CONSOLE_ENV="$FRONTEND_ENV"
+if [ -n "$GA_ID" ]; then
+  echo "   console analytics on ($GA_ID, debug $GA_DEBUG)"
+  CONSOLE_ENV+="|GA_MEASUREMENT_ID=$GA_ID|GA_DEBUG_MODE=$GA_DEBUG"
+else
+  echo "   console analytics off (no STAGING_GA_MEASUREMENT_ID)"
+fi
+[ -n "${SITE_SUPPORT_EMAIL:-}" ] && CONSOLE_ENV+="|SITE_SUPPORT_EMAIL=$SITE_SUPPORT_EMAIL"
+[ -n "${SITE_LEGAL_ENTITY:-}" ] && CONSOLE_ENV+="|SITE_LEGAL_ENTITY=$SITE_LEGAL_ENTITY"
+
 for app in console ops admin; do
   want "$app" || continue
   echo "== $app"
+  app_env="$FRONTEND_ENV"
+  [ "$app" = "console" ] && app_env="$CONSOLE_ENV"
   gcloud run deploy "$(svc "$app")" --project="$PROJECT" --region="$REGION" \
     --image="$REPO/$app:$TAG" \
     --service-account="ros-web@$PROJECT.iam.gserviceaccount.com" \
-    --set-env-vars="NODE_ENV=production,APP_VERSION=$TAG,API_INTERNAL_URL=$API_URL,CONSOLE_URL=$CONSOLE_URL,OPS_URL=$OPS_URL,ADMIN_URL=$ADMIN_URL,TRUSTED_PROXY_HOPS=1" \
+    --set-env-vars="^|^$app_env" \
     $FRONTEND_SECRETS \
     --labels="env=$ENVIRONMENT,app=$app" \
     --port=3000 --cpu=1 --memory=512Mi --concurrency=80 \

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TrackingConfig } from "./tracking";
-import { TrackingClient } from "./tracking-client";
+import { TrackingLoader } from "./tracking-loader";
 
 vi.mock("next/server", () => ({ connection: async () => {} }));
 
@@ -24,11 +24,11 @@ describe("Tracking (server side of the root layout)", () => {
     expect(warn).toHaveBeenCalledOnce();
   });
 
-  it("hands the configured stream to the client, with DebugView only when asked", async () => {
+  it("hands the configured stream to the lazily loaded client, with DebugView only when asked", async () => {
     process.env.GA_MEASUREMENT_ID = "G-STAGING01";
     process.env.GA_DEBUG_MODE = "true";
     const el = await TrackingConfig();
-    expect(el?.type).toBe(TrackingClient);
+    expect(el?.type).toBe(TrackingLoader);
     expect(el?.props).toEqual({ measurementId: "G-STAGING01", debug: true });
   });
 });

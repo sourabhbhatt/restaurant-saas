@@ -32,7 +32,10 @@ import {
 } from "../session/queries";
 import { useSwitchWorkspace } from "../workspaces/use-switch-workspace";
 import { appHref, useAppLinks } from "../../app-links";
-import { PrivacyChoicesMenuItem, keepFocusOnPrivacyChoices } from "../../tracking/privacy-choices";
+import {
+  PrivacyChoicesMenuItem,
+  keepFocusOnPrivacyChoices,
+} from "../../tracking/privacy-choices-menu";
 
 const subscribeNoop = () => () => {};
 /** This page's origin in the browser; null while rendering on the server. */
