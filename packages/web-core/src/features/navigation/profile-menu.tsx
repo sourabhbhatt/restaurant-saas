@@ -2,6 +2,7 @@
 
 import {
   Check,
+  ExternalLink,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
@@ -10,6 +11,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 
 import { Avatar, AvatarFallback, getInitials } from "@ros/ui/ui/avatar";
 import { Button } from "@ros/ui/ui/button";
@@ -31,6 +33,24 @@ import {
 import { useSwitchWorkspace } from "../workspaces/use-switch-workspace";
 import { appHref, useAppLinks } from "../../app-links";
 import { PrivacyChoicesMenuItem, keepFocusOnPrivacyChoices } from "../../tracking/privacy-choices";
+
+const subscribeNoop = () => () => {};
+/** This page's origin in the browser; null while rendering on the server. */
+function useCurrentOrigin(): string | null {
+  return useSyncExternalStore(
+    subscribeNoop,
+    () => window.location.origin,
+    () => null,
+  );
+}
+
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
 
 export interface ProfileContext {
   /** Workspace being worked in (omit on platform/account pages). */
@@ -62,6 +82,14 @@ export function ProfileMenu({
   const structure = useWorkspaceStructure(area === "app" ? workspaceId : undefined);
   const canGetSupport =
     !workspaceId || permissionChecker(structure.data?.permissions)("workspace.support.manage");
+  const supportHref = appHref(
+    links.console,
+    workspaceId ? `/app/w/${workspaceId}/support` : "/contact",
+  );
+  // From the staff app the support page is on the console: another app (and, in
+  // production, another sign-in), so it opens in a new tab and says where it goes.
+  const here = useCurrentOrigin();
+  const supportElsewhere = here !== null && originOf(supportHref) !== here;
   // The account's own workspace list is the source of truth for its name.
   const contextName = workspaces.find((w) => w.id === workspaceId)?.name ?? workspaceName;
 
@@ -138,14 +166,21 @@ export function ProfileMenu({
         </DropdownMenuItem>
         {area === "app" && canGetSupport && (
           <DropdownMenuItem asChild>
-            <Link
-              href={appHref(
-                links.console,
-                workspaceId ? `/app/w/${workspaceId}/support` : "/contact",
-              )}
-            >
-              <LifeBuoy className="size-4" aria-hidden /> Help &amp; support
-            </Link>
+            {supportElsewhere ? (
+              <a href={supportHref} target="_blank" rel="noopener noreferrer">
+                <LifeBuoy className="size-4" aria-hidden />
+                <span className="flex flex-1 flex-col">
+                  <span>Help &amp; support</span>
+                  <span className="text-xs text-muted-foreground">Opens the owner console</span>
+                </span>
+                <ExternalLink className="size-3.5" aria-hidden />
+                <span className="sr-only">(opens in a new tab)</span>
+              </a>
+            ) : (
+              <Link href={supportHref}>
+                <LifeBuoy className="size-4" aria-hidden /> Help &amp; support
+              </Link>
+            )}
           </DropdownMenuItem>
         )}
         <PrivacyChoicesMenuItem />
