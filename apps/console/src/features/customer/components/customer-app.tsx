@@ -48,8 +48,24 @@ const loadOrdersView = () => import("./orders-view");
 const loadBillView = () => import("./bill-view");
 const ItemSheet = dynamic(() => loadItemSheet().then((m) => m.ItemSheet), { ssr: false });
 const CartSheet = dynamic(() => loadCartSheet().then((m) => m.CartSheet), { ssr: false });
-const OrdersView = dynamic(() => loadOrdersView().then((m) => m.OrdersView), { ssr: false });
-const BillView = dynamic(() => loadBillView().then((m) => m.BillView), { ssr: false });
+/** Shown if a tab is opened before its chunk has arrived (slow connection). */
+function TabLoading() {
+  return (
+    <div aria-busy="true" aria-label="Loading" className="space-y-3 p-4">
+      <Skeleton className="h-6 w-40" />
+      <Skeleton className="h-24 w-full rounded-xl" />
+      <Skeleton className="h-24 w-full rounded-xl" />
+    </div>
+  );
+}
+const OrdersView = dynamic(() => loadOrdersView().then((m) => m.OrdersView), {
+  ssr: false,
+  loading: TabLoading,
+});
+const BillView = dynamic(() => loadBillView().then((m) => m.BillView), {
+  ssr: false,
+  loading: TabLoading,
+});
 
 type Tab = "menu" | "orders" | "bill";
 
