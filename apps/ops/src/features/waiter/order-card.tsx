@@ -54,8 +54,8 @@ export function WaiterOrderCard({
           type="button"
           className="min-w-0 rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           onClick={() => onOpen?.(order.id)}
-          aria-label={`Open order ${order.orderNumber} details`}
         >
+          <span className="sr-only">Open details of order </span>
           <p className="text-lg leading-tight font-semibold">
             {order.tableName}
             <span className="ml-2 text-sm font-normal text-muted-foreground tabular-nums">

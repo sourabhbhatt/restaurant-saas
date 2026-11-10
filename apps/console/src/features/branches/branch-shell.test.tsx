@@ -151,7 +151,7 @@ describe("BranchShell sidebar", () => {
     expect(workspace).not.toHaveTextContent("Koregaon Park");
 
     // The account menu names the same workspace.
-    await userEvent.click(screen.getByRole("button", { name: "Account menu for Priya Sharma" }));
+    await userEvent.click(screen.getByRole("button", { name: "PS Priya Sharma, account menu" }));
     const menu = await screen.findByRole("menu");
     expect(within(menu).getByText(/Sharma Hospitality/)).toBeInTheDocument();
     expect(within(menu).getByText("Dosa Corner · Koregaon Park")).toBeInTheDocument();

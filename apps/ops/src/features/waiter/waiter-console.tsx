@@ -260,8 +260,8 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4">
-          <Button variant="ghost" size="icon-sm" asChild>
+        <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-2 px-4 sm:gap-3">
+          <Button variant="ghost" size="icon" className="-ml-2 shrink-0" asChild>
             <Link
               href={appHref(links.console, `/app/b/${branchId}`)}
               aria-label="Back to branch dashboard"
@@ -269,11 +269,11 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
               <ArrowLeft aria-hidden />
             </Link>
           </Button>
-          <div className="min-w-0">
-            <p className="truncate leading-tight font-semibold">{ctx.branchName}</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate leading-tight font-semibold">{ctx.branchName}</h1>
             <p className="truncate text-xs text-muted-foreground">{ctx.restaurantName} · Waiter</p>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <SyncStatusIndicator />
             <ProfileMenu
               workspaceId={ctx.workspaceId}
@@ -286,156 +286,162 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
                 {pendingTotal} to approve
               </StatusBadge>
             )}
-            <ConnectionStatus status={realtime.status} lastSyncedAt={active.dataUpdatedAt} />
+            <ConnectionStatus
+              status={realtime.status}
+              lastSyncedAt={active.dataUpdatedAt}
+              className="max-sm:hidden"
+            />
             <SoundControl sound={sound} />
           </div>
         </div>
       </header>
       <OfflineBanner />
 
-      <Tabs
-        value={tab}
-        onValueChange={setTab}
-        className="mx-auto w-full max-w-[1600px] flex-1 gap-4 p-4"
-      >
-        <TabsList className="w-full sm:w-fit">
-          <TabsTrigger value="orders">
-            <ClipboardCheck aria-hidden /> Orders
-            {pendingTotal > 0 && (
-              <span className="rounded-full bg-warning px-1.5 text-xs text-warning-foreground tabular-nums">
-                {pendingTotal}
-              </span>
-            )}
-          </TabsTrigger>
-          {can("tables.view") && (
-            <TabsTrigger value="tables">
-              <LayoutGrid aria-hidden /> Tables
-            </TabsTrigger>
-          )}
-          {can("tables.view") && (
-            <TabsTrigger value="bills">
-              <BellRing aria-hidden /> <span className="max-sm:sr-only">Bill requests</span>
-              {billRequests.length > 0 && (
+      <main className="flex flex-1 flex-col">
+        <Tabs
+          value={tab}
+          onValueChange={setTab}
+          className="mx-auto w-full max-w-[1600px] flex-1 gap-4 p-4"
+        >
+          <TabsList className="h-11 w-full sm:h-10 sm:w-fit">
+            <TabsTrigger value="orders">
+              <ClipboardCheck aria-hidden /> Orders
+              {pendingTotal > 0 && (
                 <span className="rounded-full bg-warning px-1.5 text-xs text-warning-foreground tabular-nums">
-                  {billRequests.length}
+                  {pendingTotal}
                 </span>
               )}
             </TabsTrigger>
-          )}
-          <TabsTrigger value="history">
-            <History aria-hidden /> <span className="max-sm:sr-only">History</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="orders">{ordersBody}</TabsContent>
-
-        {can("tables.view") && (
-          <TabsContent value="tables">
-            {sessions.isPending ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-                {Array.from({ length: 8 }, (_, i) => (
-                  <Skeleton key={i} className="h-28 rounded-xl" />
-                ))}
-              </div>
-            ) : sessions.isError && !sessions.data ? (
-              <ErrorState
-                message={errorMessage(sessions.error)}
-                onRetry={() => void sessions.refetch()}
-              />
-            ) : (
-              <TablesGrid tables={tables} currency={currency} now={now} onSelect={setTableId} />
+            {can("tables.view") && (
+              <TabsTrigger value="tables">
+                <LayoutGrid aria-hidden /> Tables
+              </TabsTrigger>
             )}
-          </TabsContent>
-        )}
+            {can("tables.view") && (
+              <TabsTrigger value="bills">
+                <BellRing aria-hidden /> <span className="max-sm:sr-only">Bill requests</span>
+                {billRequests.length > 0 && (
+                  <span className="rounded-full bg-warning px-1.5 text-xs text-warning-foreground tabular-nums">
+                    {billRequests.length}
+                  </span>
+                )}
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="history">
+              <History aria-hidden /> <span className="max-sm:sr-only">History</span>
+            </TabsTrigger>
+          </TabsList>
 
-        {can("tables.view") && (
-          <TabsContent value="bills">
-            {sessions.isPending ? (
-              <Skeleton className="h-32 rounded-xl" />
-            ) : sessions.isError && !sessions.data ? (
-              <ErrorState
-                message={errorMessage(sessions.error)}
-                onRetry={() => void sessions.refetch()}
-              />
-            ) : billRequests.length === 0 ? (
-              <EmptyState
-                icon={<BellRing />}
-                title="No bill requests"
-                description="When guests ask for the bill from their phone, the table shows up here."
-              />
-            ) : (
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {billRequests.map((t) => (
-                  <li
-                    key={t.tableId}
-                    className="flex flex-col gap-3 rounded-xl border-2 border-warning bg-warning/10 p-4"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-lg font-semibold">{t.tableName}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Requested {formatClock(t.session?.billRequestedAt)} ·{" "}
-                          {formatElapsed(t.session?.billRequestedAt, now)} ago
+          <TabsContent value="orders">{ordersBody}</TabsContent>
+
+          {can("tables.view") && (
+            <TabsContent value="tables">
+              {sessions.isPending ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+                  {Array.from({ length: 8 }, (_, i) => (
+                    <Skeleton key={i} className="h-28 rounded-xl" />
+                  ))}
+                </div>
+              ) : sessions.isError && !sessions.data ? (
+                <ErrorState
+                  message={errorMessage(sessions.error)}
+                  onRetry={() => void sessions.refetch()}
+                />
+              ) : (
+                <TablesGrid tables={tables} currency={currency} now={now} onSelect={setTableId} />
+              )}
+            </TabsContent>
+          )}
+
+          {can("tables.view") && (
+            <TabsContent value="bills">
+              {sessions.isPending ? (
+                <Skeleton className="h-32 rounded-xl" />
+              ) : sessions.isError && !sessions.data ? (
+                <ErrorState
+                  message={errorMessage(sessions.error)}
+                  onRetry={() => void sessions.refetch()}
+                />
+              ) : billRequests.length === 0 ? (
+                <EmptyState
+                  icon={<BellRing />}
+                  title="No bill requests"
+                  description="When guests ask for the bill from their phone, the table shows up here."
+                />
+              ) : (
+                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {billRequests.map((t) => (
+                    <li
+                      key={t.tableId}
+                      className="flex flex-col gap-3 rounded-xl border-2 border-warning bg-warning/10 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-lg font-semibold">{t.tableName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Requested {formatClock(t.session?.billRequestedAt)} ·{" "}
+                            {formatElapsed(t.session?.billRequestedAt, now)} ago
+                          </p>
+                        </div>
+                        <p className="font-semibold tabular-nums">
+                          {formatMoney(t.session?.billableSubtotal ?? 0, currency)}
                         </p>
                       </div>
-                      <p className="font-semibold tabular-nums">
-                        {formatMoney(t.session?.billableSubtotal ?? 0, currency)}
-                      </p>
-                    </div>
-                    {t.session && t.session.pendingCount > 0 && (
-                      <p className="text-sm text-warning-foreground dark:text-warning">
-                        {t.session.pendingCount} order(s) still awaiting approval
-                      </p>
-                    )}
-                    <Button size="lg" onClick={() => setTableId(t.tableId)}>
-                      Open table
-                    </Button>
+                      {t.session && t.session.pendingCount > 0 && (
+                        <p className="text-sm text-warning-foreground dark:text-warning">
+                          {t.session.pendingCount} order(s) still awaiting approval
+                        </p>
+                      )}
+                      <Button size="lg" onClick={() => setTableId(t.tableId)}>
+                        Open table
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+          )}
+
+          <TabsContent value="history">
+            {history.isPending ? (
+              <Skeleton className="h-40 rounded-xl" />
+            ) : history.isError && !history.data ? (
+              <ErrorState
+                message={errorMessage(history.error)}
+                onRetry={() => void history.refetch()}
+              />
+            ) : (history.data ?? []).length === 0 ? (
+              <EmptyState icon={<History />} title="Nothing finished yet today" />
+            ) : (
+              <ul className="divide-y rounded-xl border">
+                {history.data!.map((o) => (
+                  <li key={o.id}>
+                    <button
+                      type="button"
+                      onClick={() => setOrderId(o.id)}
+                      className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/60"
+                    >
+                      <span className="w-14 font-semibold tabular-nums">#{o.orderNumber}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium">{o.tableName}</span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {o.rejectionReason ??
+                            o.cancellationReason ??
+                            o.items.map((i) => `${i.quantity}× ${i.itemName}`).join(", ")}
+                        </span>
+                      </span>
+                      <span className="hidden text-sm text-muted-foreground sm:block">
+                        {formatClock(o.createdAt)}
+                      </span>
+                      <OrderStatusBadge status={o.status} />
+                    </button>
                   </li>
                 ))}
               </ul>
             )}
           </TabsContent>
-        )}
-
-        <TabsContent value="history">
-          {history.isPending ? (
-            <Skeleton className="h-40 rounded-xl" />
-          ) : history.isError && !history.data ? (
-            <ErrorState
-              message={errorMessage(history.error)}
-              onRetry={() => void history.refetch()}
-            />
-          ) : (history.data ?? []).length === 0 ? (
-            <EmptyState icon={<History />} title="Nothing finished yet today" />
-          ) : (
-            <ul className="divide-y rounded-xl border">
-              {history.data!.map((o) => (
-                <li key={o.id}>
-                  <button
-                    type="button"
-                    onClick={() => setOrderId(o.id)}
-                    className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/60"
-                  >
-                    <span className="w-14 font-semibold tabular-nums">#{o.orderNumber}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-medium">{o.tableName}</span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {o.rejectionReason ??
-                          o.cancellationReason ??
-                          o.items.map((i) => `${i.quantity}× ${i.itemName}`).join(", ")}
-                      </span>
-                    </span>
-                    <span className="hidden text-sm text-muted-foreground sm:block">
-                      {formatClock(o.createdAt)}
-                    </span>
-                    <OrderStatusBadge status={o.status} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </TabsContent>
-      </Tabs>
+        </Tabs>
+      </main>
 
       <TableDrawer
         branchId={branchId}

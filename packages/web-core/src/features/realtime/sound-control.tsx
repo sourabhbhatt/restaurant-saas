@@ -27,7 +27,7 @@ export function SoundControl({ sound }: { sound: ReturnType<typeof useAlertSound
         className="rounded-full"
         onClick={() => void sound.enable()}
       >
-        <Volume2 aria-hidden /> Enable sound
+        <Volume2 aria-hidden /> <span className="max-sm:sr-only">Enable sound</span>
       </Button>
     );
   }

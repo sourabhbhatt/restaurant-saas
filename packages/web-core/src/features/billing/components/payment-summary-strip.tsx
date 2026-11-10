@@ -54,6 +54,8 @@ export function PaymentSummaryStrip({
     <dl
       className={cn("flex gap-x-5 gap-y-1 overflow-x-auto text-sm whitespace-nowrap", className)}
       aria-label="Today's collections"
+      // Scrolls sideways on narrow screens: keyboard users must be able to reach it.
+      tabIndex={0}
     >
       {cells.map((cell) => (
         <div key={cell.label} className="flex flex-col">

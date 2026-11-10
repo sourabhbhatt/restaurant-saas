@@ -58,19 +58,19 @@ export function ProfileMenu({
   if (!ready || !user) {
     return <Skeleton className="size-9 rounded-full" aria-label="Loading account" />;
   }
+  const initials = user.name ? getInitials(user.name) : "";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           className="h-10 gap-2 rounded-full px-1 sm:pr-3"
-          aria-label={`Account menu for ${user.name}`}
+          // Starts with what is visible (initials, then the name): WCAG 2.5.3 Label in Name.
+          aria-label={`${initials ? `${initials} ` : ""}${user.name}, account menu`}
         >
-          <Avatar className="size-8">
-            <AvatarFallback>
-              {user.name ? getInitials(user.name) : <UserRound className="size-4" />}
-            </AvatarFallback>
-          </Avatar>
+          <Avatar className="size-8" aria-hidden>
+            <AvatarFallback>{initials || <UserRound className="size-4" />}</AvatarFallback>
+          </Avatar>{" "}
           <span className="hidden max-w-32 truncate text-sm font-medium sm:inline">
             {user.name}
           </span>
