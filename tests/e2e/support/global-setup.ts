@@ -10,22 +10,30 @@ import { uniqueIp } from "./ip";
 
 /**
  * The suite writes a lot (tables, orders, payments, new owners and
- * workspaces) to whatever answers behind these URLs. Unless
- * E2E_ALLOW_WRITES=1, every app must report the APP_VERSION of the throwaway
- * API that serve-api started for this port (a reused or foreign server, or a
- * console proxying to another API, is refused before anything is written).
+ * workspaces) to whatever answers behind these URLs.
+ * - Local runs: every app must report the APP_VERSION of the throwaway API
+ *   that serve-api started for this port (a reused or foreign server, or a
+ *   console proxying to another API, is refused before anything is written).
+ *   No variable turns this off.
+ * - External runs (E2E_BASE_URL): E2E_ALLOW_WRITES must equal that console's
+ *   origin, so a stale blanket setting never authorises another target.
  */
 async function assertThrowawayStack() {
-  if (process.env.E2E_ALLOW_WRITES === "1") return;
-  const refuse = (why: string) => {
-    throw new Error(
-      `E2E refused: ${why}. The servers on these ports are not the throwaway E2E stack. ` +
-        "Stop them and rerun, or set E2E_ALLOW_WRITES=1 for a disposable, demo-seeded stack.",
-    );
+  const refuse = (why: string, fix: string) => {
+    throw new Error(`E2E refused: ${why}. ${fix}`);
   };
-  if (E2E_URLS.external) refuse("E2E_BASE_URL is set");
+  if (E2E_URLS.external) {
+    const origin = new URL(E2E_URLS.console).origin;
+    if (process.env.E2E_ALLOW_WRITES !== origin)
+      refuse(
+        `E2E_BASE_URL is set and the suite would write to ${origin}`,
+        `Only for a disposable, demo-seeded stack: set E2E_ALLOW_WRITES=${origin}.`,
+      );
+    return;
+  }
+  const local = "Stop the servers on these ports and rerun: they are not the throwaway E2E stack.";
   const file = runIdFile(path.resolve(__dirname, "../../.."), new URL(E2E_URLS.api).port);
-  if (!existsSync(file)) refuse(`no run id at ${file}`);
+  if (!existsSync(file)) refuse(`no run id at ${file}`, local);
   const runId = readFileSync(file, "utf8").trim();
   const ctx = await request.newContext();
   try {
@@ -35,7 +43,7 @@ async function assertThrowawayStack() {
         ? ((await res.json()) as { data?: { version?: string } }).data?.version
         : undefined;
       if (version !== runId)
-        refuse(`${url} reports version ${version ?? res.status()}, expected ${runId}`);
+        refuse(`${url} reports version ${version ?? res.status()}, expected ${runId}`, local);
     }
   } finally {
     await ctx.dispose();

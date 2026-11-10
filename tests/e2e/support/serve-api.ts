@@ -47,6 +47,7 @@ const SERVER_KEYS = [
   /^COOKIE_SECURE$/,
   /^QR_BASE_URL$/,
   /^CRON_SECRET$/,
+  /^PROXY_SHARED_SECRET$/,
 ];
 const shell = Object.fromEntries(
   Object.entries(process.env).filter(([key]) => !SERVER_KEYS.some((re) => re.test(key))),
