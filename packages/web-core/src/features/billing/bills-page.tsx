@@ -30,7 +30,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@ros/ui/ui/sheet";
-import { Toaster } from "@ros/ui/ui/sonner";
 import { errorMessage } from "@ros/api-client";
 import { permissionChecker, useBranchContext } from "../session/queries";
 
@@ -276,7 +275,6 @@ export function BillsPage() {
           )}
         </SheetContent>
       </Sheet>
-      <Toaster position="top-right" />
     </div>
   );
 }

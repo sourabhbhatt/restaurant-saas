@@ -7,7 +7,6 @@ import { EmptyState, ErrorState, PageSkeleton } from "@ros/ui/shared/feedback";
 import { Button } from "@ros/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ros/ui/ui/card";
 import { Skeleton } from "@ros/ui/ui/skeleton";
-import { Toaster } from "@ros/ui/ui/sonner";
 import { errorMessage } from "@ros/api-client";
 import { branchConsoles } from "@ros/web-core/features/navigation/nav-config";
 import { ProfileMenu } from "@ros/web-core/features/navigation/profile-menu";
@@ -128,7 +127,6 @@ export function OpsHome() {
           <Consoles />
         </main>
       </div>
-      <Toaster position="top-center" />
     </AuthGate>
   );
 }

@@ -6,7 +6,6 @@ import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { ErrorState, PageSkeleton } from "@ros/ui/shared/feedback";
-import { Toaster } from "@ros/ui/ui/sonner";
 import { errorMessage } from "@ros/api-client";
 import { PaymentSummaryStrip } from "@ros/web-core/features/billing/components/payment-summary-strip";
 import { OfflineBanner, SyncStatusIndicator } from "@ros/web-core/features/offline";
@@ -74,7 +73,6 @@ function Inner({ children }: { children: ReactNode }) {
       <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-4">
         {children}
       </main>
-      <Toaster position="top-center" richColors />
     </div>
   );
 }

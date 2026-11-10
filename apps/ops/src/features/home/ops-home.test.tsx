@@ -53,11 +53,6 @@ function renderHome(permissions: readonly string[]) {
 }
 
 beforeEach(() => {
-  // The page's toaster reads the colour scheme.
-  vi.stubGlobal(
-    "matchMedia",
-    vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
-  );
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => new Response("{}", { status: 404 })),

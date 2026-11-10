@@ -118,7 +118,6 @@ import {
   type SheetSide,
 } from "@ros/ui/ui/sheet";
 import { Skeleton } from "@ros/ui/ui/skeleton";
-import { Toaster } from "@ros/ui/ui/sonner";
 import { Spinner } from "@ros/ui/ui/spinner";
 import { Switch } from "@ros/ui/ui/switch";
 import {
@@ -318,7 +317,6 @@ export default function DesignSystemPage() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <Toaster position="top-right" />
       <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">

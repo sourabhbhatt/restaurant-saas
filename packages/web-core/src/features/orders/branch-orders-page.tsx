@@ -15,7 +15,6 @@ import {
 import { Button } from "@ros/ui/ui/button";
 import { SearchInput } from "@ros/ui/ui/search-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ros/ui/ui/select";
-import { Toaster } from "@ros/ui/ui/sonner";
 import type { OrderDto } from "@ros/contracts/orders";
 import { ORDER_STATUSES } from "@ros/domain/orders/order-status";
 import { formatMoney } from "@ros/domain/shared/money";
@@ -165,7 +164,6 @@ export function BranchOrdersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Toaster position="top-right" />
       <PageHeader
         title="Orders"
         description="Every order at this branch, with status history and staff attribution."

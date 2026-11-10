@@ -51,7 +51,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans">
-        <AppProviders>
+        {/* Staff screens are phone-first: toasts at the top centre. */}
+        <AppProviders toastPosition="top-center">
           {/* Cross-app URLs from the runtime environment; outside the static shell. */}
           <Suspense fallback={null}>
             <RuntimeAppLinks />

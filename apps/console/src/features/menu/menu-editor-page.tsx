@@ -39,7 +39,6 @@ import {
 } from "@ros/ui/ui/dropdown-menu";
 import { SearchInput } from "@ros/ui/ui/search-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ros/ui/ui/select";
-import { Toaster } from "@ros/ui/ui/sonner";
 import { Switch } from "@ros/ui/ui/switch";
 import {
   DIETARY_LABELS,
@@ -253,7 +252,6 @@ export function MenuEditorPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Toaster />
       <PageHeader
         title="Menu"
         description={
