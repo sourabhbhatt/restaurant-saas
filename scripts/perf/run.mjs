@@ -122,8 +122,29 @@ async function startFrontends() {
     );
     procs.push(p);
     await waitFor(`${ORIGINS[app]}/healthz`, { child: p, timeoutMs: 120_000 });
+    await assertProxyServesJson(app);
   }
   return procs;
+}
+
+/**
+ * Measurements of a page whose API calls fail are meaningless (an error state
+ * can even look faster), so check that JSON relayed by the frontend's proxy
+ * parses for a browser-like request before Lighthouse runs.
+ */
+async function assertProxyServesJson(app) {
+  const res = await fetch(`${ORIGINS[app]}/api/v1/sync/ping`, {
+    headers: { accept: "application/json", "accept-encoding": "gzip, deflate, br, zstd" },
+  });
+  const text = await res.text();
+  try {
+    JSON.parse(text);
+  } catch {
+    throw new Error(
+      `perf: ${app} proxy returned non-JSON for /api/v1/sync/ping (status ${res.status}, ` +
+        `content-encoding ${res.headers.get("content-encoding") ?? "none"}): ${JSON.stringify(text.slice(0, 40))}`,
+    );
+  }
 }
 
 let lighthouseCookies;
