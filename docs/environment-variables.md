@@ -71,6 +71,13 @@ Read at request time (`connection()` / per-request handlers), never inlined at b
 
 Optional site text (console): `NEXT_PUBLIC_LEGAL_ENTITY` and `NEXT_PUBLIC_SUPPORT_EMAIL` fill the legal templates and contact details (`packages/web-core/src/features/site/brand.ts`); being `NEXT_PUBLIC_`, they are baked in at build time.
 
+Search indexing (console only, read per request; see [SEO strategy](growth/seo-strategy.md#indexing-requirements)):
+
+| Variable          | Default                      | Purpose                                                                                                                                                                                                                |
+| ----------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUBLIC_SITE_URL` | `CONSOLE_URL`                | Origin of the public site, used for canonical URLs, Open Graph, JSON-LD, the sitemap and llms.txt (for example `https://www.example.in`)                                                                               |
+| `SITE_INDEXABLE`  | unset (everything `noindex`) | Set to `true` **only on production**. Public pages are indexable only when it is `true`, `PUBLIC_SITE_URL` is an https custom domain (not localhost, an IP, `*.run.app` or `*.web.app`) and the request uses that host |
+
 ## Scripts and tests
 
 | Variable                                                                         | Used by                                     | Purpose                                                                                             |
