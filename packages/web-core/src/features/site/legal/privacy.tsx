@@ -77,6 +77,11 @@ const SECTIONS: LegalSection[] = [
         </li>
         <li>To keep the service secure: rate limiting, fraud and abuse prevention, audit logs.</li>
         <li>To provide support and respond to your requests.</li>
+        <li>
+          Only with your permission: to understand how people find us and which pages and features
+          they use, so we can improve them (see <a href="#cookies">Cookies and on-device storage</a>
+          ).
+        </li>
         <li>To meet legal, tax and accounting obligations.</li>
       </ul>
     ),
@@ -86,22 +91,63 @@ const SECTIONS: LegalSection[] = [
     title: "Cookies and on-device storage",
     body: (
       <>
-        <p>We use only the cookies and storage the service needs to work:</p>
+        <p>
+          <strong>Necessary.</strong> These are always used, because the service does not work
+          without them:
+        </p>
         <ul>
           <li>A secure, HTTP-only session cookie that keeps staff signed in.</li>
           <li>A guest cookie that links a guest&apos;s phone to the current table session.</li>
+          <li>
+            A cookie that remembers your analytics choice (<code>ros_analytics_consent</code>, 180
+            days), so we do not ask on every page.
+          </li>
           <li>
             Browser storage used for offline support — previously loaded menus, drafts and carts are
             kept on the device until they sync or are cleared.
           </li>
         </ul>
         <p>
-          We do not use advertising cookies. On our website and dashboard we use Google Analytics
-          cookies only if you choose &ldquo;Allow analytics&rdquo;: they tell us which pages and
-          features are used, without your name, email, phone number or your restaurant&apos;s data,
-          and with advertising features switched off. You can withdraw that choice at any time from
-          &ldquo;Cookie settings&rdquo; in the footer. Guests ordering from a table QR code never
-          get analytics cookies.
+          <strong>Optional analytics (Google Analytics).</strong> Used only if you choose
+          &ldquo;Allow analytics&rdquo; on our website, sign-in pages or dashboard. Nothing is sent
+          to Google before that, and nothing if you decline or ignore the question.
+        </p>
+        <ul>
+          <li>
+            Cookies: Google Analytics cookies (<code>_ga</code> and <code>_ga_…</code>, up to 180
+            days) holding a random identifier for your browser, and a marker for the first page of
+            each visit kept in the tab until it closes.
+          </li>
+          <li>
+            From your browser: the pages you visit (with account, restaurant and invitation
+            identifiers removed from the addresses), campaign tags in the link that brought you, and
+            which features you use — signing up or in, creating a workspace, restaurant, branch or
+            menu item, generating a table QR code, opening the upgrade dialog and starting a
+            checkout (with the plan, billing cycle and list price).
+          </li>
+          <li>
+            From our servers, for the same people only: that your free trial started (plan and trial
+            length) and that a payment was confirmed (plan, billing cycle, price, whether it renewed
+            an active plan) and activated your subscription. These are linked to the random
+            identifier in your <code>_ga</code> cookie. So that a payment confirmed by our payment
+            provider after you have left the page can still be counted, we keep that identifier with
+            the payment record until the payment is confirmed, and then delete it.
+          </li>
+          <li>
+            Never sent: your name, email address, phone number, password, payment details, your
+            restaurant&apos;s menu, orders or sales, or account and restaurant identifiers.
+            Advertising features and Google signals are switched off, and Google states that Google
+            Analytics does not log or store IP addresses. Google keeps this data for up to 14
+            months.
+          </li>
+        </ul>
+        <p>
+          You can withdraw at any time from &ldquo;Cookie settings&rdquo; at the bottom of the
+          website and sign-in pages, or in your account menu once signed in. Withdrawing deletes the
+          Google Analytics cookies on that device, stops every open tab, and stops our servers from
+          sending further events about you (a payment for a checkout you started while analytics was
+          allowed may still be counted once). Guests ordering from a table QR code are never asked
+          and never get analytics cookies.
         </p>
       </>
     ),
@@ -117,6 +163,12 @@ const SECTIONS: LegalSection[] = [
             Service providers that host the service, store files and deliver email, under contracts
             that require them to protect the data: [list providers and the countries where they
             process data].
+          </li>
+          <li>
+            Google (Google Analytics), only for people who chose &ldquo;Allow analytics&rdquo;, and
+            only the data described under <a href="#cookies">Cookies and on-device storage</a>.
+            Google processes it on servers that may be outside India, including in the United
+            States.
           </li>
           <li>Authorities, where required by law or a valid legal request.</li>
           <li>A successor business, if {n} is merged or sold, with notice to you.</li>
