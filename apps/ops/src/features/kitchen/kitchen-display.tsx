@@ -358,7 +358,7 @@ function KitchenGate() {
 /** /kitchen/[branchId] — tablet-first kitchen display system. */
 export function KitchenDisplay() {
   return (
-    <AuthGate>
+    <AuthGate offlineCapable>
       <KitchenGate />
     </AuthGate>
   );

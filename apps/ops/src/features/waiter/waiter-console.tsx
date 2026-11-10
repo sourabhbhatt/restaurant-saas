@@ -500,7 +500,7 @@ function WaiterGate() {
 /** /waiter/[branchId] — full-screen waiter console. */
 export function WaiterConsole() {
   return (
-    <AuthGate>
+    <AuthGate offlineCapable>
       <WaiterGate />
     </AuthGate>
   );
