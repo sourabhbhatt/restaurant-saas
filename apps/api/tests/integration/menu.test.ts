@@ -1,4 +1,4 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { GET as branchMenuRoute } from "@/app/api/v1/branches/[branchId]/menu/route";
@@ -711,6 +711,22 @@ describe("uploads", () => {
     const small = new Uint8Array(100 * 1024);
     small.set(PNG);
     expect((await uploadFile(owner.cookie, w.id, small)).status).toBe(201);
+  });
+
+  it("concurrent uploads cannot race past the storage limit", async () => {
+    const w = await createSiblingWorkspaceAs(c, owner, "Racy Storage WS");
+    await c.db
+      .insert(workspaceEntitlements)
+      .values({ workspaceId: w.id, key: "storageMb", value: 1 });
+    const half = new Uint8Array(600 * 1024);
+    half.set(PNG);
+    const results = await Promise.all([1, 2, 3].map(() => uploadFile(owner.cookie, w.id, half)));
+    expect(results.map((r) => r.status).sort()).toEqual([201, 402, 402]);
+    const stored = await c.db
+      .select({ key: storedFiles.key })
+      .from(storedFiles)
+      .where(and(eq(storedFiles.workspaceId, w.id), isNull(storedFiles.deletedAt)));
+    expect(stored).toHaveLength(1);
   });
 
   it("rejects a restaurant from another workspace the uploader also belongs to", async () => {

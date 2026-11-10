@@ -119,4 +119,25 @@ describe("PROXY_SHARED_SECRET", () => {
     resetEnvCache();
     expect(getEnv().PROXY_SHARED_SECRET).toBe("a-long-enough-shared-secret");
   });
+
+  it("in production refuses the example placeholder", () => {
+    const previous = { NODE_ENV: process.env.NODE_ENV, APP_SECRET: process.env.APP_SECRET };
+    Object.assign(process.env, {
+      NODE_ENV: "production",
+      APP_SECRET: "a".repeat(40),
+      TRUSTED_PROXY_HOPS: "1",
+      PROXY_SHARED_SECRET: "replace-with-another-long-random-string",
+    });
+    resetEnvCache();
+    try {
+      expect(() => getEnv()).toThrow(/PROXY_SHARED_SECRET/);
+      process.env.PROXY_SHARED_SECRET = "0123456789abcdef0123456789abcdef";
+      resetEnvCache();
+      expect(getEnv().PROXY_SHARED_SECRET).toHaveLength(32);
+    } finally {
+      Object.assign(process.env, previous);
+      delete process.env.TRUSTED_PROXY_HOPS;
+      resetEnvCache();
+    }
+  });
 });

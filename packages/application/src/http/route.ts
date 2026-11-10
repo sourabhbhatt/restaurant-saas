@@ -8,7 +8,7 @@ import { hashToken, isWellFormedToken } from "@ros/domain/shared/tokens";
 import type { RequestMeta, UserActor } from "../context";
 import { getContainer, type Container } from "../container";
 import { resolveClientIp } from "./client-ip";
-import { toErrorResponse } from "./errors";
+import { isUnavailableError, toErrorResponse } from "./errors";
 import { readCookie, SESSION_COOKIE } from "./cookies";
 import { bindUser, runWithDbContext } from "../db-context";
 
@@ -214,7 +214,8 @@ export function route<
         ip: await resolveClientIp(req.headers, {
           trustedHops: c.env.TRUSTED_PROXY_HOPS,
           proxySecret: c.env.PROXY_SHARED_SECRET,
-          now: c.clock.now(),
+          // Wall clock, not the business clock: the test-clock offset must not expire signatures.
+          now: new Date(),
           onRejected: (reason) => c.logger.warn("client_ip_signature_rejected", { reason }),
         }),
         userAgent: req.headers.get("user-agent"),
@@ -310,11 +311,14 @@ export function route<
       const { status, body } = toErrorResponse(error, requestId);
       // Expected errors (maintenance) are not incidents.
       if (status >= 500 && !isDomainError(error)) {
-        c?.errors.capture(error, {
+        const context = {
           requestId,
           path: loggablePath(new URL(req.url).pathname),
           method: req.method,
-        });
+        };
+        // An unreachable dependency is one incident, not one per request: warn, don't capture.
+        if (isUnavailableError(error)) c?.logger.warn("dependency_unavailable", context);
+        else c?.errors.capture(error, context);
         if (!c)
           console.error(
             JSON.stringify({

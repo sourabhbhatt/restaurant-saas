@@ -146,6 +146,9 @@ export function getEnv(): ServerEnv {
     // The schema default (0) would hide a forgotten setting, so check the raw value.
     if (!process.env.TRUSTED_PROXY_HOPS)
       throw new Error("TRUSTED_PROXY_HOPS must be set in production");
+    // The compose example ships a placeholder that passes the length check.
+    if (env.PROXY_SHARED_SECRET?.startsWith("replace-with"))
+      throw new Error("PROXY_SHARED_SECRET must be set to a random value in production");
     if (env.ENABLE_TEST_HOOKS) throw new Error("ENABLE_TEST_HOOKS must be false in production");
   }
   cached = env;

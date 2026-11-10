@@ -13,6 +13,27 @@ describe("isUnavailableError", () => {
     }
   });
 
+  it("recognises pg's code-less connection failures by their exact messages", () => {
+    for (const message of [
+      "Connection terminated unexpectedly",
+      "Connection terminated",
+      "Connection terminated due to connection timeout",
+      "timeout exceeded when trying to connect",
+      "Client has encountered a connection error and is not queryable",
+      "Client was closed and is not queryable",
+    ]) {
+      expect(isUnavailableError(new Error(message)), message).toBe(true);
+    }
+    // Only exact driver strings, never anything that merely contains them.
+    expect(isUnavailableError(new Error("user said: Connection terminated"))).toBe(false);
+  });
+
+  it("treats a cancelled statement (statement_timeout, 57014) and server shutdowns as unavailability", () => {
+    for (const code of ["57014", "57P01", "57P02", "57P03"]) {
+      expect(isUnavailableError(withCode(code))).toBe(true);
+    }
+  });
+
   it("looks through cause chains and AggregateError members", () => {
     expect(isUnavailableError(new Error("wrapped", { cause: withCode("ECONNREFUSED") }))).toBe(
       true,

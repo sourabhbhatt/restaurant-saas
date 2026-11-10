@@ -1707,7 +1707,9 @@ export function createPlatformService(deps: PlatformServiceDeps) {
         }
       }
       try {
-        result.housekeeping = await tx.run((r) =>
+        // Four independent, idempotent statements (not one transaction): a lock on one table
+        // must not void the others, and each statement's locks are released as soon as it ends.
+        result.housekeeping = await tx.read((r) =>
           r.platform.pruneExpired({
             now,
             rateLimitBefore: new Date(now.getTime() - HOUSEKEEPING.rateLimitDays * DAY_MS),

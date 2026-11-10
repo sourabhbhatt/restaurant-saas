@@ -571,19 +571,20 @@ export function platformRepository(db: Executor): PlatformRepository {
       }));
     },
     async pruneExpired(input) {
-      const removed = async (rows: Promise<{ id: unknown }[]>) => (await rows).length;
+      // Driver row counts, never `returning`: the first run on an old database may remove
+      // millions of rows and must not pull their ids into memory.
+      const removed = async (query: Promise<unknown>) => {
+        const result = (await query) as { rowCount?: number | null; affectedRows?: number };
+        return result.rowCount ?? result.affectedRows ?? 0;
+      };
       return {
         rateLimitBuckets: await removed(
-          db
-            .delete(rateLimitBuckets)
-            .where(lt(rateLimitBuckets.resetAt, input.rateLimitBefore))
-            .returning({ id: rateLimitBuckets.key }),
+          db.delete(rateLimitBuckets).where(lt(rateLimitBuckets.resetAt, input.rateLimitBefore)),
         ),
         idempotencyRecords: await removed(
           db
             .delete(idempotencyRecords)
-            .where(lt(idempotencyRecords.createdAt, input.idempotencyBefore))
-            .returning({ id: idempotencyRecords.id }),
+            .where(lt(idempotencyRecords.createdAt, input.idempotencyBefore)),
         ),
         sessions: await removed(
           db
@@ -593,8 +594,7 @@ export function platformRepository(db: Executor): PlatformRepository {
                 lt(sessions.expiresAt, input.sessionsBefore),
                 lt(sessions.revokedAt, input.sessionsBefore),
               ),
-            )
-            .returning({ id: sessions.id }),
+            ),
         ),
         authTokens: await removed(
           db
@@ -604,8 +604,7 @@ export function platformRepository(db: Executor): PlatformRepository {
                 lt(authTokens.expiresAt, input.authTokensBefore),
                 lt(authTokens.usedAt, input.authTokensBefore),
               ),
-            )
-            .returning({ id: authTokens.id }),
+            ),
         ),
       };
     },

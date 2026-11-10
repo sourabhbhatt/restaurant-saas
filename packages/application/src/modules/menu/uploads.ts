@@ -16,6 +16,7 @@ import type { AccessService, WorkspaceScope } from "../../authz/access-service";
 import { auditActorFor, type RequestMeta, type UserActor } from "../../context";
 import { TenantContextError } from "../../db-context";
 import type { EntitlementService } from "../../subscriptions/entitlement-service";
+import { reserveLimit } from "../../subscriptions/limit-guard";
 import type { UploadRepos } from "./ports";
 
 /**
@@ -142,6 +143,14 @@ export function createUploadService(deps: UploadServiceDeps) {
       await storage.put({ key, body: bytes, contentType: kind.contentType });
       try {
         await tx.run(async (r) => {
+          // Serialises with other uploads of the workspace; a refusal rolls back and the
+          // catch below removes the object that was already stored.
+          await reserveLimit(r, {
+            entitlements: scope.entitlements,
+            workspaceId: scope.workspaceId,
+            key: "storageMb",
+            adding: additionalStorageMb(usage.storageBytes, bytes.byteLength),
+          });
           await r.uploads.insert({
             workspaceId: scope.workspaceId,
             key,

@@ -9,7 +9,7 @@ import {
   verifySignedClientIp,
 } from "@ros/domain/shared/signed-client-ip";
 
-import { createApiProxy } from "./api-proxy";
+import { createApiProxy, parseTrustedProxyHops } from "./api-proxy";
 
 interface Seen {
   method: string;
@@ -203,6 +203,18 @@ describe("signed client IP", () => {
     });
     await proxy.POST(browserRequest({ "x-forwarded-for": "6.6.6.6, 203.0.113.9, 10.0.0.1" }), ctx);
     expect(seen.at(-1)!.headers[CLIENT_IP_HEADER]).toBe("203.0.113.9");
+  });
+
+  it("with the secret but no trusted hop configured (default 0), a client-chosen XFF is never signed", async () => {
+    // No proxy in front: X-Forwarded-For is whatever the client sent, so there is nothing to vouch for.
+    const proxy = createApiProxy({ apiInternalUrl: () => base, clientIpSecret: () => secret });
+    await proxy.POST(browserRequest({ "x-forwarded-for": "9.9.9.9" }), ctx);
+    expect(seen.at(-1)!.headers[CLIENT_IP_HEADER]).toBeUndefined();
+    expect(seen.at(-1)!.headers[CLIENT_IP_SIGNATURE_HEADER]).toBeUndefined();
+    expect(parseTrustedProxyHops(undefined)).toBe(0);
+    expect(parseTrustedProxyHops("")).toBe(0);
+    expect(parseTrustedProxyHops("1")).toBe(1);
+    expect(parseTrustedProxyHops("nope")).toBe(0);
   });
 
   it("sends nothing without a secret", async () => {

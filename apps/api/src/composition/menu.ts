@@ -34,6 +34,7 @@ export function uploadService(c: Container) {
     tx: tenantRunner(c, (e) => ({
       uploads: uploadRepository(e),
       audit: auditRepository(e),
+      limits: limitRepository(e),
     })),
     storage: c.storage,
     entitlements: c.entitlements,

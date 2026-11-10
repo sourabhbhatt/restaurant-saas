@@ -47,7 +47,7 @@ export interface ApiProxyConfig {
   allowTestHooks?: () => boolean;
   /** `PROXY_SHARED_SECRET`; undefined (default) sends no signed client IP. */
   clientIpSecret?: () => string | undefined;
-  /** Proxies in front of this frontend that append to X-Forwarded-For (default 1). */
+  /** Proxies in front of this frontend that append to X-Forwarded-For (default 0: sign nothing). */
   trustedProxyHops?: () => number;
   /** Overridable for tests. */
   fetch?: typeof fetch;
@@ -58,11 +58,12 @@ const TEST_HOOK_PATH = /^\/api\/v1\/(test|dev)(\/|$)/;
 const NOT_FOUND = { error: { code: "NOT_FOUND", message: "Not found" } };
 
 /**
- * Next.js fills X-Forwarded-For from the socket when no proxy set it, so one
- * hop is right both behind a single platform front end (Cloud Run, Caddy) and
- * with none at all.
+ * Proxies in front of this frontend that overwrite or append X-Forwarded-For.
+ * Next.js fills the header only when the client sent none, so with nothing in
+ * front a client can put any address there: the safe default is to vouch for
+ * nothing. Cloud Run (deploy.sh) and compose (Caddy edge) set 1 explicitly.
  */
-export const DEFAULT_TRUSTED_PROXY_HOPS = 1;
+export const DEFAULT_TRUSTED_PROXY_HOPS = 0;
 
 /** The address a trusted proxy chain saw: the n-th X-Forwarded-For entry from the right. */
 export function trustedClientIp(headers: Headers, trustedHops: number): string | null {

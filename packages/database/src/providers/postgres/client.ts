@@ -32,11 +32,45 @@ export interface DatabaseHandle {
  */
 export const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "migrations");
 
+/**
+ * Bounds on the node-postgres pool so a stalled or unreachable database turns
+ * into a prompt 503 instead of a request that waits for the host's timeout:
+ * connect attempts, individual statements and idle clients all have a cap.
+ */
+export const POSTGRES_POOL_OPTIONS = {
+  connectionTimeoutMillis: 5_000,
+  statement_timeout: 30_000,
+  idleTimeoutMillis: 30_000,
+} as const;
+
+/**
+ * pg-pool emits `error` when an idle pooled client loses its connection
+ * (database restart, maintenance, idle timeout). Without a listener Node
+ * treats it as an unhandled 'error' event and exits the process; the client
+ * is already discarded by the pool, so a log line is all that is needed.
+ */
+export function attachPoolErrorHandler(
+  pool: { on(event: "error", listener: (err: Error) => void): unknown },
+  log: (line: string) => void = (line) => console.warn(line),
+): void {
+  pool.on("error", (err) => {
+    log(
+      JSON.stringify({
+        level: "warn",
+        msg: "pg_pool_idle_client_error",
+        code: (err as { code?: string }).code ?? null,
+        message: err.message,
+      }),
+    );
+  });
+}
+
 /** node-postgres pool (production and local dev against a real Postgres). */
 export async function connectPostgres(url: string, poolMax = 10): Promise<DatabaseHandle> {
   const { Pool } = await import("pg");
   const { drizzle } = await import("drizzle-orm/node-postgres");
-  const pool = new Pool({ connectionString: url, max: poolMax });
+  const pool = new Pool({ connectionString: url, max: poolMax, ...POSTGRES_POOL_OPTIONS });
+  attachPoolErrorHandler(pool);
   const db = drizzle(pool, { schema }) as unknown as Executor;
   return { db, close: () => pool.end() };
 }
