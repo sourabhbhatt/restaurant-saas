@@ -15,7 +15,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
+import { alias, type PgColumn, type PgTable } from "drizzle-orm/pg-core";
 
 import type {
   AdminPlanDto,
@@ -571,41 +571,49 @@ export function platformRepository(db: Executor): PlatformRepository {
       }));
     },
     async pruneExpired(input) {
-      const removed = async (rows: Promise<{ id: unknown }[]>) => (await rows).length;
+      const batch = input.batchSize ?? 10_000;
+      // Driver row counts, never `returning`, and short batches: the first run on an old
+      // database may remove millions of rows, which must neither sit in memory nor exceed the
+      // statement timeout. Each batch is its own autocommit statement.
+      const count = (result: unknown) => {
+        const r = result as { rowCount?: number | null; affectedRows?: number };
+        return r.rowCount ?? r.affectedRows ?? 0;
+      };
+      const prune = async (table: PgTable, key: PgColumn, condition: SQL): Promise<number> => {
+        let total = 0;
+        for (;;) {
+          const victims = db.select({ k: key }).from(table).where(condition).limit(batch);
+          const removed = count(await db.delete(table).where(inArray(key, victims)));
+          total += removed;
+          if (removed < batch) return total;
+        }
+      };
       return {
-        rateLimitBuckets: await removed(
-          db
-            .delete(rateLimitBuckets)
-            .where(lt(rateLimitBuckets.resetAt, input.rateLimitBefore))
-            .returning({ id: rateLimitBuckets.key }),
+        rateLimitBuckets: await prune(
+          rateLimitBuckets,
+          rateLimitBuckets.key,
+          lt(rateLimitBuckets.resetAt, input.rateLimitBefore),
         ),
-        idempotencyRecords: await removed(
-          db
-            .delete(idempotencyRecords)
-            .where(lt(idempotencyRecords.createdAt, input.idempotencyBefore))
-            .returning({ id: idempotencyRecords.id }),
+        idempotencyRecords: await prune(
+          idempotencyRecords,
+          idempotencyRecords.id,
+          lt(idempotencyRecords.createdAt, input.idempotencyBefore),
         ),
-        sessions: await removed(
-          db
-            .delete(sessions)
-            .where(
-              or(
-                lt(sessions.expiresAt, input.sessionsBefore),
-                lt(sessions.revokedAt, input.sessionsBefore),
-              ),
-            )
-            .returning({ id: sessions.id }),
+        sessions: await prune(
+          sessions,
+          sessions.id,
+          or(
+            lt(sessions.expiresAt, input.sessionsBefore),
+            lt(sessions.revokedAt, input.sessionsBefore),
+          )!,
         ),
-        authTokens: await removed(
-          db
-            .delete(authTokens)
-            .where(
-              or(
-                lt(authTokens.expiresAt, input.authTokensBefore),
-                lt(authTokens.usedAt, input.authTokensBefore),
-              ),
-            )
-            .returning({ id: authTokens.id }),
+        authTokens: await prune(
+          authTokens,
+          authTokens.id,
+          or(
+            lt(authTokens.expiresAt, input.authTokensBefore),
+            lt(authTokens.usedAt, input.authTokensBefore),
+          )!,
         ),
       };
     },

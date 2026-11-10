@@ -6,7 +6,7 @@
 import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
-import { connectPostgres } from "../src/providers/postgres/client";
+import { connectPostgresForMaintenance } from "../src/providers/postgres/client";
 import { diffCounts, formatMismatches, type Manifest } from "../src/providers/postgres/db-tools";
 import { countRows } from "../src/providers/postgres/row-counts";
 
@@ -25,7 +25,7 @@ async function main() {
   const counts = parsed.counts ?? parsed.rowCounts;
   if (!counts) throw new Error(`${values.manifest}: no counts or rowCounts in manifest`);
   const manifest: Manifest = { ...(parsed as Manifest), counts };
-  const handle = await connectPostgres(target, 1);
+  const handle = await connectPostgresForMaintenance(target, 1);
   try {
     const mismatches = diffCounts(manifest.counts, await countRows(handle.db));
     if (mismatches.length > 0) {

@@ -11,7 +11,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
-import { connectPostgres } from "../src/providers/postgres/client";
+import { connectPostgresForMaintenance } from "../src/providers/postgres/client";
 import {
   dumpPgliteDir,
   pgToolCommand,
@@ -51,7 +51,7 @@ async function main() {
     await writeFile(out, dumped.sql);
   } else {
     const url = resolvePostgresUrl(process.env);
-    const handle = await connectPostgres(url, 2);
+    const handle = await connectPostgresForMaintenance(url, 2);
     try {
       // Counts first, then the dump; nothing else writes during a rehearsal.
       counts = await countRows(handle.db);

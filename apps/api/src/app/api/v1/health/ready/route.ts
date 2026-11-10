@@ -1,4 +1,5 @@
 import { getContainer, type Container } from "@/composition/container";
+import { UNAVAILABLE_RETRY_AFTER_SECONDS } from "@ros/application/http/errors";
 import { json, requestIdFrom } from "@ros/application/http/route";
 
 /** Readiness: the database answers `select 1` and every migration is applied. */
@@ -19,7 +20,15 @@ export async function GET(req: Request): Promise<Response> {
   else console.warn(JSON.stringify({ level: "warn", msg: "not_ready", requestId, cause }));
   return json(
     503,
-    { error: { code: "INTERNAL_ERROR", message: "not ready", requestId } },
+    {
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "not ready",
+        details: { retryAfterSeconds: UNAVAILABLE_RETRY_AFTER_SECONDS },
+        requestId,
+      },
+    },
     requestId,
+    { "retry-after": String(UNAVAILABLE_RETRY_AFTER_SECONDS) },
   );
 }

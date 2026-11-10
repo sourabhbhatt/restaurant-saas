@@ -36,6 +36,22 @@ if [ "$(gcloud sql instances describe "$INSTANCE" --project="$PROJECT" --format=
   echo "Cloud SQL is stopped. Run: infra/gcp/staging.sh start   (then re-run this deploy)"; exit 1
 fi
 
+# Signed client IP (x-ros-client-ip): the frontends and the API share PROXY_SHARED_SECRET from a
+# dedicated secret. Only when ros-staging-proxy-secret exists (or PROXY_SECRET_REF names one);
+# otherwise the variable stays unset on every service and the X-Forwarded-For rule applies, as
+# before. Creating the secret is a manual, owner-approved step: docs/runbooks/client-ip-signing-rollout.md.
+if [ -z "${PROXY_SECRET_REF:-}" ] && has_secret ros-staging-proxy-secret; then
+  PROXY_SECRET_REF="ros-staging-proxy-secret:latest"
+fi
+PROXY_SECRET_REF="${PROXY_SECRET_REF:-}"
+FRONTEND_SECRETS=""
+if [ -n "$PROXY_SECRET_REF" ]; then
+  echo "   signed client IP on ($PROXY_SECRET_REF)"
+  FRONTEND_SECRETS="--set-secrets=PROXY_SHARED_SECRET=$PROXY_SECRET_REF"
+else
+  echo "   signed client IP off (no ros-staging-proxy-secret)"
+fi
+
 if want api; then
 echo "== on-demand backup before migrating"
 gcloud sql backups create --instance="$INSTANCE" --project="$PROJECT" \
@@ -57,11 +73,7 @@ API_ENV+=",TRUSTED_PROXY_HOPS=1,DATABASE_PROVIDER=postgres,DATABASE_TENANT_ROLE=
 API_ENV+=",REALTIME_PROVIDER=postgres,STORAGE_PROVIDER=gcs,GCS_BUCKET=ros-uploads-514008"
 API_ENV+=",EMAIL_PROVIDER=outbox,PUSH_PROVIDER=none"
 API_SECRETS="DATABASE_URL=ros-database-url:latest,APP_SECRET=ros-app-secret:latest,CRON_SECRET=ros-cron-secret:latest"
-# The frontends sign the browser's address for the API (x-ros-client-ip); both sides share this value.
-# Reuses the existing ros-cron-secret, so no new Secret Manager resource is created. ros-web needs
-# roles/secretmanager.secretAccessor on it once (see docs/deployment.md, Cloud Run notes).
-PROXY_SECRET_REF="${PROXY_SECRET_REF:-ros-cron-secret:latest}"
-API_SECRETS+=",PROXY_SHARED_SECRET=$PROXY_SECRET_REF"
+[ -n "$PROXY_SECRET_REF" ] && API_SECRETS+=",PROXY_SHARED_SECRET=$PROXY_SECRET_REF"
 if has_secret ros-staging-razorpay-key-id && has_secret ros-staging-razorpay-key-secret && has_secret ros-staging-razorpay-webhook-secret; then
   echo "   Razorpay TEST mode (secrets present)"
   API_ENV+=",PAYMENT_PROVIDER=razorpay"
@@ -94,7 +106,7 @@ for app in console ops admin; do
     --image="$REPO/$app:$TAG" \
     --service-account="ros-web@$PROJECT.iam.gserviceaccount.com" \
     --set-env-vars="NODE_ENV=production,APP_VERSION=$TAG,API_INTERNAL_URL=$API_URL,CONSOLE_URL=$CONSOLE_URL,OPS_URL=$OPS_URL,ADMIN_URL=$ADMIN_URL,TRUSTED_PROXY_HOPS=1" \
-    --set-secrets="PROXY_SHARED_SECRET=$PROXY_SECRET_REF" \
+    $FRONTEND_SECRETS \
     --labels="env=$ENVIRONMENT,app=$app" \
     --port=3000 --cpu=1 --memory=512Mi --concurrency=80 \
     --min-instances=0 --max-instances=2 --timeout=3600 \

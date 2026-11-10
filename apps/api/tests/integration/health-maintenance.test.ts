@@ -65,7 +65,8 @@ describe("health endpoints", () => {
     try {
       const res = await call(ready);
       expect(res.status).toBe(503);
-      expect(res.body.error).toMatchObject({ code: "INTERNAL_ERROR", message: "not ready" });
+      expect(res.body.error).toMatchObject({ code: "SERVICE_UNAVAILABLE", message: "not ready" });
+      expect(res.headers.get("retry-after")).toBe("5");
     } finally {
       await bare.close();
       setContainerForTests(c);
@@ -79,7 +80,8 @@ describe("health endpoints", () => {
       expect((await call(health)).status).toBe(200);
       const res = await call(ready);
       expect(res.status).toBe(503);
-      expect(res.body.error).toMatchObject({ code: "INTERNAL_ERROR", message: "not ready" });
+      expect(res.body.error).toMatchObject({ code: "SERVICE_UNAVAILABLE", message: "not ready" });
+      expect(res.headers.get("retry-after")).toBe("5");
     } finally {
       setContainerForTests(c);
     }
@@ -93,8 +95,12 @@ describe("database unavailable", () => {
     });
 
   it("a request that hits a dropped connection gets a clean 503 with Retry-After and no internals", async () => {
+    const captured: unknown[] = [];
+    const warnings: string[] = [];
     const broken: Container = {
       ...c,
+      errors: { capture: (error) => captured.push(error) },
+      logger: { ...c.logger, warn: (message) => warnings.push(message) },
       repos: {
         ...c.repos,
         rateLimit: {
@@ -112,6 +118,31 @@ describe("database unavailable", () => {
       expect(res.headers.get("retry-after")).toBe("5");
       expect(JSON.stringify(res.body)).not.toContain("10.0.0.5");
       expect(JSON.stringify(res.body)).not.toContain("at ");
+      // One warning per request, never an incident per request.
+      expect(captured).toEqual([]);
+      expect(warnings).toContain("dependency_unavailable");
+    } finally {
+      setContainerForTests(c);
+    }
+  });
+
+  it("pg's code-less 'Connection terminated unexpectedly' is a 503 too", async () => {
+    const broken: Container = {
+      ...c,
+      repos: {
+        ...c.repos,
+        rateLimit: {
+          hit: async () => {
+            throw new Error("Connection terminated unexpectedly");
+          },
+        },
+      },
+    };
+    setContainerForTests(broken);
+    try {
+      const res = await call(signIn, { body: { email: uniqueEmail(), password: "whatever-1" } });
+      expect(res.status).toBe(503);
+      expect(res.body.error?.code).toBe("SERVICE_UNAVAILABLE");
     } finally {
       setContainerForTests(c);
     }

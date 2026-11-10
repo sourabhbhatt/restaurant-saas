@@ -150,4 +150,5 @@ export interface MenuRepos {
 export interface UploadRepos {
   uploads: UploadRepository;
   audit: AuditRepository;
+  limits: LimitRepository;
 }

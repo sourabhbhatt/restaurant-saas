@@ -17,7 +17,7 @@ import { addDays } from "@ros/domain/subscriptions/entitlements";
 import { hashPasswordScrypt } from "@ros/adapters/auth/providers/local-identity";
 import {
   connectPglite,
-  connectPostgres,
+  connectPostgresForMaintenance,
   runMigrations,
   type Executor,
 } from "@ros/database/providers/postgres/client";
@@ -152,7 +152,7 @@ async function main() {
   const handle =
     provider === "pglite"
       ? await connectPglite(process.env.PGLITE_DATA_DIR)
-      : await connectPostgres(url, 2);
+      : await connectPostgresForMaintenance(url, 2);
   const db = handle.db;
   try {
     await runMigrations(handle, provider);

@@ -46,13 +46,25 @@ const SOCKET_CODES = new Set([
   "EHOSTUNREACH",
 ]);
 // SQLSTATE classes 08 (connection exception), 53 (insufficient resources, e.g.
-// too_many_connections) and 57P0x (admin/crash shutdown, cannot_connect_now).
-const SQLSTATE_UNAVAILABLE = /^(08|53|57P0)/;
+// too_many_connections), 57P0x (admin/crash shutdown, cannot_connect_now) and
+// 57014 (query_canceled: our statement_timeout fired).
+const SQLSTATE_UNAVAILABLE = /^(08|53|57P0|57014)/;
+// node-postgres raises these without a `code` (pg/lib/client.js, pg-pool/index.js).
+const PG_MESSAGES = new Set([
+  "Connection terminated",
+  "Connection terminated unexpectedly",
+  "Connection terminated due to connection timeout",
+  "timeout exceeded when trying to connect",
+  "Client has encountered a connection error and is not queryable",
+  "Client was closed and is not queryable",
+]);
 
 function hasUnavailableCode(e: unknown): boolean {
   if (!e || typeof e !== "object") return false;
-  const code = (e as { code?: unknown }).code;
-  return typeof code === "string" && (SOCKET_CODES.has(code) || SQLSTATE_UNAVAILABLE.test(code));
+  const { code, message } = e as { code?: unknown; message?: unknown };
+  if (typeof code === "string" && (SOCKET_CODES.has(code) || SQLSTATE_UNAVAILABLE.test(code)))
+    return true;
+  return typeof message === "string" && PG_MESSAGES.has(message);
 }
 
 /**

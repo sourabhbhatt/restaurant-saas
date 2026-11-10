@@ -17,7 +17,7 @@ import { parseArgs } from "node:util";
 
 import { sql } from "drizzle-orm";
 
-import { connectPostgres } from "../src/providers/postgres/client";
+import { connectPostgresForMaintenance } from "../src/providers/postgres/client";
 import {
   assertEmptyTarget,
   assertTenantRolesCreatable,
@@ -81,7 +81,7 @@ async function main() {
   // Everything derived from the dump is prepared before the first write.
   const plan = plainSql ? null : await planCustomRestore(file, container);
 
-  const handle = await connectPostgres(target, 1);
+  const handle = await connectPostgresForMaintenance(target, 1);
   try {
     await assertEmptyTarget(handle.db);
     await assertTenantRolesCreatable(() => tenantRoleStatus(handle.db));

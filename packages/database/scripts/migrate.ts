@@ -3,7 +3,11 @@
  * Usage: pnpm db:migrate   (uses DATABASE_PROVIDER / DATABASE_URL)
  * A persistent PGlite directory with pending migrations is snapshotted first, and only the copy is inspected before the original is migrated.
  */
-import { connectPglite, connectPostgres, runMigrations } from "../src/providers/postgres/client";
+import {
+  connectPglite,
+  connectPostgresForMaintenance,
+  runMigrations,
+} from "../src/providers/postgres/client";
 import { migratePersistentPglite } from "../src/providers/postgres/migrate-persistent";
 import { isPersistentPgliteDir } from "../src/providers/postgres/snapshot";
 import { ensureSystemData } from "../src/providers/postgres/system-data";
@@ -29,7 +33,8 @@ async function main() {
     console.log(JSON.stringify({ level: "info", msg: "migrations_applied", provider }));
     return;
   }
-  const handle = provider === "pglite" ? await connectPglite(dir) : await connectPostgres(url, 2);
+  const handle =
+    provider === "pglite" ? await connectPglite(dir) : await connectPostgresForMaintenance(url, 2);
   try {
     await runMigrations(handle, provider);
     await ensureSystemData(handle.db);
