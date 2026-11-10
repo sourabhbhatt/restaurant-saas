@@ -13,6 +13,7 @@ import {
   setCurrentUser,
   startOfflineRuntime,
   stopOfflineRuntime,
+  SESSION_CHECK_TTL_MS,
   SYNC_INTERVAL_MS,
 } from "./runtime";
 import { initialSyncState, setSyncState, useSyncStore } from "./sync-store";
@@ -108,6 +109,74 @@ describe("offline runtime session check", () => {
 
     await advance(10 * 60_000);
     expect(meCalls).toBe(1);
+  });
+});
+
+describe("session check reuse (one /auth/me per 30 s, not per tap)", () => {
+  let sendStatus: number;
+  beforeEach(() => {
+    sendStatus = 200;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/v1/auth/me") {
+          meCalls += 1;
+          return meStatus === 200
+            ? new Response(JSON.stringify({ data: { user: { id: "user-1" } } }), { status: 200 })
+            : new Response(JSON.stringify({ error: { code: "X", message: "x" } }), {
+                status: meStatus,
+              });
+        }
+        sent.push(url);
+        return new Response(JSON.stringify({ data: { ok: true } }), { status: sendStatus });
+      }),
+    );
+    meStatus = 200;
+  });
+
+  it("reuses a successful check for quick taps and asks again after 30 s", async () => {
+    await enqueueMutation(change("Start #1"));
+    await settle();
+    expect([meCalls, sent.length]).toEqual([1, 1]);
+    await enqueueMutation(change("Start #2"));
+    await settle();
+    expect([meCalls, sent.length]).toEqual([1, 2]);
+    await advance(SESSION_CHECK_TTL_MS);
+    await enqueueMutation(change("Start #3"));
+    await settle();
+    expect([meCalls, sent.length]).toEqual([2, 3]);
+  });
+
+  it("forgets it after a 401, so the next run asks the server again", async () => {
+    await enqueueMutation(change("Start #1"));
+    await settle();
+    sendStatus = 401;
+    await enqueueMutation(change("Start #2"));
+    await settle();
+    expect(useSyncStore.getState().authRequired).toBe(true);
+    meStatus = 401;
+    await enqueueMutation(change("Start #3"));
+    await settle();
+    expect(meCalls).toBe(2);
+  });
+
+  it("forgets it at sign-out", async () => {
+    await enqueueMutation(change("Start #1"));
+    await settle();
+    await clearDeviceUserData();
+    await setCurrentUser("user-1", false);
+    await enqueueMutation(change("Start #2"));
+    await settle();
+    expect(meCalls).toBe(2);
+  });
+
+  it("a live /auth/me answer of the page (confirmed user) counts as a check", async () => {
+    await setCurrentUser("user-1", true);
+    await settle();
+    expect(sent).toHaveLength(0);
+    await enqueueMutation(change("Start #1"));
+    await settle();
+    expect([meCalls, sent.length]).toEqual([0, 1]);
   });
 });
 
