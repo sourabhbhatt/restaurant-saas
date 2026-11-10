@@ -122,14 +122,17 @@ else
 fi
 if has_secret ros-staging-resend-api-key; then
   API_ENV="${API_ENV/EMAIL_PROVIDER=outbox/EMAIL_PROVIDER=resend}"
-  API_ENV+=",EMAIL_FROM=${EMAIL_FROM:-RestaurantOS Staging <onboarding@resend.dev>}"
+  FROM="${EMAIL_FROM:-RestaurantOS Staging <onboarding@resend.dev>}"
+  # API_ENV is comma-separated here and "|"-separated for gcloud below.
+  case "$FROM" in *"|"* | *","*) echo "EMAIL_FROM may not contain '|' or ','"; exit 1 ;; esac
+  API_ENV+=",EMAIL_FROM=$FROM"
   API_SECRETS+=",RESEND_API_KEY=ros-staging-resend-api-key:latest"
 fi
 gcloud run deploy "$(svc api)" --project="$PROJECT" --region="$REGION" \
   --image="$REPO/api:$TAG" \
   --service-account="ros-api@$PROJECT.iam.gserviceaccount.com" \
   --set-cloudsql-instances="$CONN" \
-  --set-env-vars="^@^${API_ENV//,/@}@ALLOWED_ORIGINS=$CONSOLE_URL,$OPS_URL,$ADMIN_URL" \
+  --set-env-vars="^|^${API_ENV//,/|}|ALLOWED_ORIGINS=$CONSOLE_URL,$OPS_URL,$ADMIN_URL" \
   --set-secrets="$API_SECRETS" \
   --labels="env=$ENVIRONMENT,app=api" \
   --port=3000 --cpu=1 --memory=512Mi --concurrency=80 \
