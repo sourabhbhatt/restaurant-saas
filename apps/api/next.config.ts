@@ -7,8 +7,9 @@ const repoRoot = path.resolve(import.meta.dirname, "../..");
 // Local development reads the repo-root .env.local (the db:* scripts use the
 // same file) and anchors relative data directories there, not under apps/api.
 // Containers set their environment directly, so a missing file is fine.
+// ROS_NO_ENV_FILE=1 (the E2E API) runs with exactly the environment it was given.
 try {
-  process.loadEnvFile(path.join(repoRoot, ".env.local"));
+  if (process.env.ROS_NO_ENV_FILE !== "1") process.loadEnvFile(path.join(repoRoot, ".env.local"));
 } catch {
   // no .env.local
 }

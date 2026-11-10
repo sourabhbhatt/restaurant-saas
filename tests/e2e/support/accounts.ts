@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { E2E_URLS } from "./urls";
+
 /** Accounts created by `apps/api/scripts/seed.ts` (local demo data only). */
 export const STAFF_PASSWORD = "Demo-Staff-2026";
 
@@ -21,7 +23,15 @@ export const DEMO = {
   otherBranchName: "Koramangala",
 } as const;
 
-/** Saved sessions live under the git-ignored .data directory. */
-export const AUTH_DIR = path.resolve(__dirname, "../../../.data/e2e-auth");
+/**
+ * Saved sessions live under the ignored .data directory, one folder per target:
+ * localhost cookies ignore the port, so two runs on different ports must not
+ * share (and overwrite) each other's sessions.
+ */
+export const AUTH_DIR = path.resolve(
+  __dirname,
+  "../../../.data/e2e-auth",
+  new URL(E2E_URLS.console).host.replace(/[^a-zA-Z0-9.-]/g, "-"),
+);
 
 export const authFile = (role: DemoRole) => path.join(AUTH_DIR, `${role}.json`);
