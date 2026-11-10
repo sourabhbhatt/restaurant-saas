@@ -12,6 +12,7 @@ import {
   type OfflineDatabase,
   type OutboxItem,
 } from "./db";
+import { purgeCachedStaffPages } from "./cache-current-page";
 import { hydrateQueries, persistExistingQueries, startQueryPersistence } from "./persist-queries";
 import { backoffDelay, SyncEngine, type EnqueueInput } from "./sync-engine";
 import { countItems, EMPTY_COUNTS, setSyncState, useSyncStore } from "./sync-store";
@@ -289,6 +290,8 @@ export async function clearDeviceUserData(): Promise<void> {
   setSyncState({ userId: null, items: [], counts: EMPTY_COUNTS, authRequired: false });
   // Signed out on purpose: a change now fails at once instead of waiting.
   userBecameKnown();
+  // The worker's cached staff pages go with the account (best effort).
+  void purgeCachedStaffPages().catch(() => undefined);
   if (!db) return;
   watchOutbox(db);
   await clearUserData(db).catch(() => {

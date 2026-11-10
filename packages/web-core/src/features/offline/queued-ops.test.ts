@@ -287,7 +287,12 @@ describe("queued kitchen operations", () => {
 
   it("after Retry with latest on the head tap, the taps behind it follow the version the retry returned", async () => {
     const first = await engine.enqueue(
-      kitchenItemStatusMutation({ branchId: BRANCH, order: ORDER, item: ITEM, status: "PREPARING" }),
+      kitchenItemStatusMutation({
+        branchId: BRANCH,
+        order: ORDER,
+        item: ITEM,
+        status: "PREPARING",
+      }),
     );
     await engine.enqueue(
       kitchenItemStatusMutation({ branchId: BRANCH, order: ORDER, item: ITEM, status: "READY" }),

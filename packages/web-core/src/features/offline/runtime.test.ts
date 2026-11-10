@@ -180,6 +180,28 @@ describe("session check reuse (one /auth/me per 30 s, not per tap)", () => {
   });
 });
 
+describe("sign-out and the worker's page caches", () => {
+  it("removes cached staff pages", async () => {
+    const deleted: string[] = [];
+    vi.stubGlobal("caches", {
+      has: async (name: string) => name === "others",
+      open: async () => ({
+        keys: async () => [
+          new Request("http://localhost/app/b/b1/orders"),
+          new Request("http://localhost/pricing"),
+        ],
+        delete: async (req: Request) => {
+          deleted.push(new URL(req.url).pathname);
+          return true;
+        },
+      }),
+    });
+    await clearDeviceUserData();
+    await settle();
+    expect(deleted).toEqual(["/app/b/b1/orders"]);
+  });
+});
+
 describe("sign-out", () => {
   it("resets the device user so the next account sees and queues nothing under it", async () => {
     await enqueueMutation(change("Start #1"));
