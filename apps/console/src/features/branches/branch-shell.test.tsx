@@ -135,7 +135,10 @@ describe("BranchShell sidebar", () => {
     expect(workspace).not.toHaveTextContent("Dosa Corner");
 
     // The branch is its own, secondary control below the workspace.
-    const branch = within(sidebar).getByRole("button", { name: /^Branch / });
+    // Named by its visible text (WCAG 2.5.3): "<restaurant> <branch>. Switch branch".
+    const branch = within(sidebar).getByRole("button", {
+      name: "Dosa Corner Koregaon Park. Switch branch",
+    });
     expect(branch).toHaveTextContent("Dosa Corner");
     expect(branch).toHaveTextContent("Koregaon Park");
     expect(screen.getByText("Menu page")).toBeInTheDocument();

@@ -54,7 +54,7 @@ function DashboardWindow() {
         <div className="flex flex-col gap-3 border-b p-4 sm:border-r sm:border-b-0 sm:p-5">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold">Waiter · Approvals</p>
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
               <BellRingIcon className="size-3" /> 2 new
             </span>
           </div>
@@ -202,7 +202,7 @@ function Ticket({
         ))}
       </ul>
       {delayed && (
-        <span className="w-fit rounded bg-destructive/10 px-1 text-[8px] font-semibold tracking-wide text-destructive uppercase">
+        <span className="w-fit rounded bg-destructive px-1 text-[8px] font-semibold tracking-wide text-destructive-foreground uppercase">
           Delayed
         </span>
       )}
