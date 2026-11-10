@@ -63,7 +63,7 @@ The owner-facing product dashboard in `packages/web-core/src/features/analytics`
 
 ## Configuration per environment
 
-Every value is read at runtime; nothing is baked into an image. Frontends never get a `NEXT_PUBLIC_` variable.
+Every value is read at runtime; nothing is baked into an image. Frontends never get a `NEXT_PUBLIC_` variable. On staging, `infra/gcp/deploy.sh` sets all of them from operator variables (`STAGING_GA_MEASUREMENT_ID`, `STAGING_GA_ENHANCED_MEASUREMENT=off`, the `ros-staging-ga-api-secret` secret); see [step 4](#4-environment-variables).
 
 | Variable            | Service              | Default | Purpose                                                                                                                                                                                                                                       |
 | ------------------- | -------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -275,12 +275,56 @@ If the switch is ever found on later, unset `GA_MEASUREMENT_ID` on the console f
 
 ### 4. Environment variables
 
+What each service ends up with:
+
 | Service | Staging                                                                              | Production                                                                              |
 | ------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
 | console | `GA_MEASUREMENT_ID=<staging G-…>`, `GA_DEBUG_MODE=true`                              | `GA_MEASUREMENT_ID=<production G-…>`                                                    |
 | api     | `TRACKING_PROVIDER=ga4`, `GA_MEASUREMENT_ID=<staging G-…>`, `GA_API_SECRET` (secret) | `TRACKING_PROVIDER=ga4`, `GA_MEASUREMENT_ID=<production G-…>`, `GA_API_SECRET` (secret) |
 
-Redeploy (a restart is enough; nothing is built in). The banner appears on the public site once the console has the ID.
+**Do not set these by hand on Cloud Run.** `infra/gcp/deploy.sh` replaces each service's whole environment on every deploy, so a hand-set variable disappears at the next push. On staging the deploy script sets them from operator variables, and analytics stays **off** unless those are exported ([env reference](../environment-variables.md#staging-deploy-infragcpdeploysh)).
+
+**Staging, step by step** (after steps 0–3: stream created, Enhanced measurement off, Measurement Protocol secret created in GA):
+
+1. **Store the Measurement Protocol secret in Secret Manager. Owner approval needed:** this creates a new Secret Manager secret version, about ₹5/month of trial credit for one active version plus negligible access charges. Verify on the [Secret Manager pricing page](https://cloud.google.com/secret-manager/pricing). Paste the value at the prompt, so it never lands in shell history:
+
+   ```bash
+   read -rs GA_SECRET && printf '%s' "$GA_SECRET" | gcloud secrets create ros-staging-ga-api-secret \
+     --project=restaurant-os-514008 --replication-policy=automatic --data-file=- ; unset GA_SECRET
+   ```
+
+   Expected: `gcloud secrets versions list ros-staging-ga-api-secret --project=restaurant-os-514008` shows version 1, enabled. For a later rotation, run `gcloud secrets versions add …` with the same pipe, then disable the old version.
+
+2. **Let the API read it, and let the CI deployer see it exists** (`deploy.sh` checks with `gcloud secrets versions list`):
+
+   ```bash
+   gcloud secrets add-iam-policy-binding ros-staging-ga-api-secret --project=restaurant-os-514008 \
+     --member="serviceAccount:ros-api@restaurant-os-514008.iam.gserviceaccount.com" \
+     --role=roles/secretmanager.secretAccessor
+   gcloud secrets add-iam-policy-binding ros-staging-ga-api-secret --project=restaurant-os-514008 \
+     --member="serviceAccount:ros-deployer@restaurant-os-514008.iam.gserviceaccount.com" \
+     --role=roles/secretmanager.viewer
+   ```
+
+   (`infra/gcp/setup-ci-identity.sh` also grants the deployer binding when re-run.) Without the accessor binding, the API deploy fails with "permission denied on secret".
+
+3. **Export the ID and confirm the gate, then redeploy:**
+
+   ```bash
+   export STAGING_GA_MEASUREMENT_ID=G-XXXXXXX      # the staging stream (step 1.4)
+   export STAGING_GA_ENHANCED_MEASUREMENT=off       # you checked step 0.1 on this stream
+   TAG=$(git rev-parse --short HEAD) infra/gcp/deploy.sh
+   ```
+
+   Expected output: `GA4 server events on (G-…)` (API) and `console analytics on (G-…, debug true)`. With the ID but no secret, the console is on and server events stay off (`TRACKING_PROVIDER=none`). A malformed ID, or a missing `STAGING_GA_ENHANCED_MEASUREMENT=off`, stops the deploy before anything is touched.
+
+4. **Make CI deploys keep it on:** add GitHub repository variables (Settings → Secrets and variables → Actions → Variables; none is a secret) named `STAGING_GA_MEASUREMENT_ID` and `STAGING_GA_ENHANCED_MEASUREMENT=off`, and optionally `STAGING_GA_DEBUG_MODE`. Without them, the next push to `staging` deploys with analytics off.
+
+5. **Schedule the cleanup run** ([step 4b](#4b-schedule-the-cleanup-run-hourly)), then run the [verification](#7-verify-staging).
+
+To turn analytics off again, unset the variables (shell and repository) and redeploy: the console loses the ID and the API gets `TRACKING_PROVIDER=none`.
+
+**Production** has no deploy script yet (this GCP project hosts staging only). Its deploy definition must set the same variables from the production property and its own secret, after the release gate passes on staging.
 
 ### 4b. Schedule the cleanup run hourly
 

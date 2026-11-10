@@ -53,7 +53,7 @@ for runtime in ros-api ros-web ros-migrate; do
 done
 gc artifacts repositories add-iam-policy-binding ros --location=asia-south1 \
   --member="serviceAccount:$SA" --role=roles/artifactregistry.writer >/dev/null
-for secret in ros-staging-razorpay-key-id ros-staging-razorpay-key-secret ros-staging-razorpay-webhook-secret ros-staging-resend-api-key; do
+for secret in ros-staging-razorpay-key-id ros-staging-razorpay-key-secret ros-staging-razorpay-webhook-secret ros-staging-resend-api-key ros-staging-ga-api-secret; do
   gc secrets describe "$secret" >/dev/null 2>&1 || continue
   gc secrets add-iam-policy-binding "$secret" --member="serviceAccount:$SA" \
     --role=roles/secretmanager.viewer --condition=None >/dev/null
