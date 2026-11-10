@@ -289,7 +289,7 @@ function WaiterScreen({ branchId, ctx }: { branchId: string; ctx: BranchContextD
             <ConnectionStatus
               status={realtime.status}
               lastSyncedAt={active.dataUpdatedAt}
-              className="max-sm:hidden"
+              compact
             />
             <SoundControl sound={sound} />
           </div>

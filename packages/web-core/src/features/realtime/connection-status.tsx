@@ -54,11 +54,14 @@ function useSecondsSince(at: number | undefined): number | null {
 export function ConnectionStatus({
   status,
   lastSyncedAt,
+  compact = false,
   className,
 }: {
   status: RealtimeStatus;
   /** `dataUpdatedAt` of the screen's main query. */
   lastSyncedAt?: number;
+  /** On phones show only the coloured dot; the label stays for screen readers. */
+  compact?: boolean;
   className?: string;
 }) {
   const online = useOnline();
@@ -79,8 +82,14 @@ export function ConnectionStatus({
       role="status"
       aria-live="polite"
     >
-      <StatusBadge tone={tone} dot pulse={online && status === "live"}>
-        {label}
+      <StatusBadge
+        tone={tone}
+        dot
+        pulse={online && status === "live"}
+        className={compact ? "max-sm:gap-0 max-sm:px-1.5" : undefined}
+        title={compact ? label : undefined}
+      >
+        <span className={compact ? "max-sm:sr-only" : undefined}>{label}</span>
       </StatusBadge>
       {synced && <span className="hidden sm:inline">Synced {synced}</span>}
     </div>
