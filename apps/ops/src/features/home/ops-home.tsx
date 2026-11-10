@@ -5,13 +5,43 @@ import Link from "next/link";
 import { EmptyState, ErrorState, PageSkeleton } from "@ros/ui/shared/feedback";
 import { Button } from "@ros/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ros/ui/ui/card";
+import { Skeleton } from "@ros/ui/ui/skeleton";
 import { Toaster } from "@ros/ui/ui/sonner";
 import { errorMessage } from "@ros/api-client";
 import { branchConsoles } from "@ros/web-core/features/navigation/nav-config";
 import { ProfileMenu } from "@ros/web-core/features/navigation/profile-menu";
 import { AuthGate } from "@ros/web-core/features/session/auth-gate";
-import { useIdentity, useWorkspaceStructure } from "@ros/web-core/features/session/queries";
+import {
+  permissionChecker,
+  useBranchContext,
+  useIdentity,
+  useWorkspaceStructure,
+} from "@ros/web-core/features/session/queries";
 import { BrandLogo } from "@ros/web-core/features/site/logo";
+
+/** Only the consoles the user's role allows at this branch (the API enforces it too). */
+function BranchConsoles({ branchId }: { branchId: string }) {
+  const ctx = useBranchContext(branchId);
+  if (ctx.isPending) return <Skeleton className="h-8 w-40" />;
+  const can = permissionChecker(ctx.data?.permissions);
+  // The ops app hosts these consoles itself: same origin, no ops URL.
+  const consoles = branchConsoles(branchId).filter((c) => !c.permission || can(c.permission));
+  if (consoles.length === 0) {
+    return <span className="text-sm text-muted-foreground">No consoles for your role here</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {consoles.map((c) => (
+        <Button key={c.label} asChild size="sm" variant="outline">
+          <Link href={c.href}>
+            <c.icon className="size-4" aria-hidden />
+            {c.label}
+          </Link>
+        </Button>
+      ))}
+    </div>
+  );
+}
 
 function Consoles() {
   const { me, workspaces } = useIdentity();
@@ -58,17 +88,7 @@ function Consoles() {
             {r.branches.map((b) => (
               <div key={b.id} className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-medium">{b.name}</span>
-                <div className="flex gap-2">
-                  {/* The ops app hosts these consoles itself: same origin, no ops URL. */}
-                  {branchConsoles(b.id).map((c) => (
-                    <Button key={c.label} asChild size="sm" variant="outline">
-                      <Link href={c.href}>
-                        <c.icon className="size-4" aria-hidden />
-                        {c.label}
-                      </Link>
-                    </Button>
-                  ))}
-                </div>
+                <BranchConsoles branchId={b.id} />
               </div>
             ))}
           </CardContent>
