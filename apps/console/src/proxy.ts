@@ -13,6 +13,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Every page (for X-Robots-Tag); not build assets, the API proxy or the service worker.
-  matcher: ["/((?!_next/static|_next/image|api/|serwist/|icons/|images/|favicon.ico).*)"],
+  // Every page and image (for X-Robots-Tag); not build assets, the API proxy, the
+  // service worker or app icons (those get a static noindex in next.config.ts).
+  matcher: ["/((?!_next/static|api/|serwist/|icons/|favicon.ico).*)"],
 };

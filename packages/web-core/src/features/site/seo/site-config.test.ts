@@ -45,6 +45,14 @@ describe("resolveSiteConfig", () => {
     ["localhost", { SITE_INDEXABLE: "true", PUBLIC_SITE_URL: "https://localhost:3000" }],
     ["IP address", { SITE_INDEXABLE: "true", PUBLIC_SITE_URL: "https://10.0.0.5" }],
     ["Firebase default host", { SITE_INDEXABLE: "true", PUBLIC_SITE_URL: "https://ros.web.app" }],
+    [
+      "a staging subdomain",
+      { SITE_INDEXABLE: "true", PUBLIC_SITE_URL: "https://staging.restaurantos.in" },
+    ],
+    [
+      "a preview host on Vercel",
+      { SITE_INDEXABLE: "true", PUBLIC_SITE_URL: "https://ros-git-main.vercel.app" },
+    ],
   ])("is never indexable with %s", (_label, env) => {
     expect(resolveSiteConfig(env).indexable).toBe(false);
   });
@@ -66,12 +74,51 @@ describe("isNonProductionHost", () => {
     "ros-console-x.a.run.app",
     "printer.local",
     "svc.internal",
+    // Environment subdomains of a real domain
+    "staging.restaurantos.in",
+    "stage.restaurantos.in",
+    "STAGING.restaurantos.in",
+    "staging2.restaurantos.in",
+    "dev.restaurantos.in",
+    "preview.restaurantos.in",
+    "test.restaurantos.in",
+    "qa.restaurantos.in",
+    "uat.restaurantos.in",
+    "sandbox.restaurantos.in",
+    "www.staging.restaurantos.in",
+    "console-staging.restaurantos.in",
+    "staging-console.restaurantos.in",
+    // Platform-default and tunnel hosts
+    "ros.appspot.com",
+    "ros-git-main.vercel.app",
+    "ros.netlify.app",
+    "ros.pages.dev",
+    "abc123.ngrok.io",
+    "abc123.ngrok-free.app",
+    "abc123.ngrok.app",
+    "quiet-river.trycloudflare.com",
+    "sourabh.github.io",
+    "ros.herokuapp.com",
+    "ros.azurewebsites.net",
+    "ros.onrender.com",
+    "ros.fly.dev",
+    "ros.up.railway.app",
+    "ros.workers.dev",
+    "main.d1abc.amplifyapp.com",
+    "d111111abcdef8.cloudfront.net",
   ])("flags %s", (host) => expect(isNonProductionHost(host)).toBe(true));
 
-  it.each(["restaurantos.in", "www.restaurantos.in", "app.restaurantos.co.in"])(
-    "accepts %s",
-    (host) => expect(isNonProductionHost(host)).toBe(false),
-  );
+  it.each([
+    "restaurantos.in",
+    "www.restaurantos.in",
+    "app.restaurantos.co.in",
+    // The words only count as subdomain labels, not inside the registrable name.
+    "devrestaurant.in",
+    "teststudio.in",
+    "staging.in",
+    "contest.restaurantos.in",
+    "www.restaurantos.test",
+  ])("accepts %s", (host) => expect(isNonProductionHost(host)).toBe(false));
 });
 
 describe("absoluteUrl", () => {

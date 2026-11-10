@@ -27,23 +27,62 @@ const LOCAL_ORIGIN = "http://localhost:3000";
 
 /**
  * Hosts that must never be indexed even if SITE_INDEXABLE is set by mistake:
- * local hosts, IP literals, platform-default URLs (Cloud Run, Firebase Hosting)
- * and private-use names. A production site needs its own domain.
+ * local hosts, IP literals, platform-default and tunnel URLs, and private-use
+ * names. A production site needs its own domain.
  */
 const NON_PRODUCTION_SUFFIXES = [
+  // Google Cloud and Firebase
   ".run.app",
+  ".appspot.com",
+  ".cloudfunctions.net",
   ".web.app",
   ".firebaseapp.com",
+  // Other hosting platforms
+  ".vercel.app",
+  ".netlify.app",
+  ".pages.dev",
+  ".workers.dev",
+  ".github.io",
+  ".herokuapp.com",
+  ".azurewebsites.net",
+  ".azurestaticapps.net",
+  ".onrender.com",
+  ".fly.dev",
+  ".railway.app",
+  ".amplifyapp.com",
+  ".cloudfront.net",
+  // Tunnels
+  ".ngrok.io",
+  ".ngrok.app",
+  ".ngrok-free.app",
+  ".trycloudflare.com",
+  // Private-use names
   ".localhost",
   ".local",
   ".internal",
 ];
 
+/**
+ * Subdomain words that name a non-production environment: `staging.brand.in`,
+ * `console-staging.brand.in`, `dev2.brand.in`. Only labels to the left of the
+ * registrable name count, so `staging.in` or `devrestaurant.in` are not caught.
+ */
+const ENVIRONMENT_WORD =
+  /^(?:staging|stage|stg|dev|develop|development|preview|test|testing|qa|uat|sandbox)\d*$/;
+
+function hasEnvironmentLabel(name: string): boolean {
+  const subdomainLabels = name.split(".").slice(0, -2);
+  return subdomainLabels.some((label) =>
+    label.split("-").some((part) => ENVIRONMENT_WORD.test(part)),
+  );
+}
+
 export function isNonProductionHost(host: string): boolean {
   const name = host.toLowerCase().replace(/:\d+$/, "");
   if (name === "localhost" || name.startsWith("[")) return true;
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(name)) return true;
-  return NON_PRODUCTION_SUFFIXES.some((suffix) => name.endsWith(suffix));
+  if (NON_PRODUCTION_SUFFIXES.some((suffix) => name.endsWith(suffix))) return true;
+  return hasEnvironmentLabel(name);
 }
 
 function parseOrigin(raw: string | undefined): URL | null {
@@ -66,7 +105,8 @@ export function resolveSiteConfig(env: SiteEnv): SiteConfig {
   if (env.SITE_INDEXABLE !== "true") reason = "SITE_INDEXABLE is not 'true'";
   else if (!explicit) reason = "PUBLIC_SITE_URL is missing or invalid";
   else if (explicit.protocol !== "https:") reason = "PUBLIC_SITE_URL is not https";
-  else if (isNonProductionHost(host)) reason = `${host} is a development or platform-default host`;
+  else if (isNonProductionHost(host))
+    reason = `${host} is a development, staging or platform-default host`;
   else reason = "production public site";
 
   return { origin, host, indexable: reason === "production public site", reason };

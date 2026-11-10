@@ -1,3 +1,4 @@
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -64,13 +65,56 @@ describe("console proxy: X-Robots-Tag", () => {
     expect(signedIn.headers.get("x-robots-tag")).toBe("noindex, nofollow");
   });
 
-  it("runs on pages but not on build assets, the API proxy or the service worker", () => {
-    const matcher = new RegExp(`^${config.matcher[0]}$`);
-    for (const path of ["/", "/pricing", "/t/abc", "/app/w/1", "/robots.txt", "/sitemap.xml"]) {
-      expect(matcher.test(path)).toBe(true);
+  it("lets the logo, share image and site images be indexed on the production host only", () => {
+    setProduction();
+    for (const path of [
+      "/logo.png",
+      "/og-image.png",
+      "/_next/image?url=%2Fimages%2Fa.png&w=64&q=75",
+    ]) {
+      expect(proxy(request(path, "www.restaurantos.in")).headers.get("x-robots-tag")).toBeNull();
+      expect(
+        proxy(request(path, "ros-console-staging-367556472616.asia-south1.run.app")).headers.get(
+          "x-robots-tag",
+        ),
+      ).toBe("noindex, nofollow");
     }
-    for (const path of ["/_next/static/chunk.js", "/api/v1/health", "/serwist/sw.js"]) {
-      expect(matcher.test(path)).toBe(false);
-    }
+    expect(
+      proxy(
+        request("/_next/image?url=%2Fapi%2Fv1%2Ffiles%2Fmenu.jpg&w=64&q=75", "www.restaurantos.in"),
+      ).headers.get("x-robots-tag"),
+    ).toBe("noindex, nofollow");
   });
+});
+
+describe("console proxy: matcher (Next.js's own matching)", () => {
+  const matches = (url: string) =>
+    unstable_doesMiddlewareMatch({ config, nextConfig: {}, url: `http://localhost:3130${url}` });
+
+  it.each([
+    "/",
+    "/pricing",
+    "/features/qr-code-ordering",
+    "/t/abc",
+    "/app",
+    "/app/w/1",
+    "/robots.txt",
+    "/sitemap.xml",
+    "/llms.txt",
+    "/logo.png",
+    "/og-image.png",
+    "/health",
+    "/api",
+    "/_next/image?url=%2Fimages%2Fa.png&w=64&q=75",
+    "/images/hero.png",
+  ])("runs on %s", (url) => expect(matches(url)).toBe(true));
+
+  it.each([
+    "/_next/static/chunks/app.js",
+    "/api/v1/health",
+    "/api/v1/public/plans",
+    "/serwist/sw.js",
+    "/icons/icon-192.png",
+    "/favicon.ico",
+  ])("skips %s", (url) => expect(matches(url)).toBe(false));
 });
