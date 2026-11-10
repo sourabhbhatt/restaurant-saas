@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from "@ros/ui/ui/dialog";
 import { Skeleton } from "@ros/ui/ui/skeleton";
+import { Spinner } from "@ros/ui/ui/spinner";
 import { ErrorState } from "@ros/ui/shared/feedback/error-state";
 import { ApiError, errorMessage } from "@ros/api-client";
 import { cn } from "@ros/ui/utils";
@@ -360,6 +361,16 @@ export function CustomerApp() {
         </nav>
       </div>
 
+      {!sheets && (itemOpen || cartOpen) && (
+        // A sheet opened before its code arrived (slow connection): it opens once loaded.
+        <div
+          role="status"
+          className="fixed inset-x-4 bottom-24 z-50 mx-auto flex max-w-sm items-center justify-center gap-2 rounded-xl border bg-background p-4 text-sm shadow-lg"
+        >
+          <Spinner aria-hidden />
+          Loading…
+        </div>
+      )}
       {sheets && (
         <sheets.ItemSheet
           item={item}
