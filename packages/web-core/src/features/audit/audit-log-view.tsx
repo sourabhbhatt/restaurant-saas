@@ -250,6 +250,7 @@ export function AuditLogView({
           rowLabel={(a) => `Show details for ${a.action}`}
           empty={
             <EmptyState
+              headingLevel={2}
               size="compact"
               icon={<ScrollText />}
               title="No audit entries"

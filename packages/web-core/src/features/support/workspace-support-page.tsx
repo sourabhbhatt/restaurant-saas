@@ -237,6 +237,7 @@ export function WorkspaceSupportPage() {
       </FilterBar>
       {d.items.length === 0 ? (
         <EmptyState
+          headingLevel={2}
           icon={<LifeBuoy />}
           title={status ? "No requests with this status" : "No support requests yet"}
           description={

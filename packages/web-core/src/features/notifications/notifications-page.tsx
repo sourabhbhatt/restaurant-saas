@@ -168,6 +168,7 @@ function Inbox() {
         />
       ) : items.length === 0 ? (
         <EmptyState
+          headingLevel={2}
           icon={<InboxIcon />}
           title={filtered ? "No notifications match these filters" : "No notifications yet"}
           description={

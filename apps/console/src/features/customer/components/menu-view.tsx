@@ -370,7 +370,7 @@ function ItemCard({
               "relative z-10 h-11 min-w-24 rounded-full border-primary/40 bg-background font-semibold text-primary shadow-sm hover:bg-primary/5 hover:text-primary",
               item.imageUrl && "-mt-5",
             )}
-            aria-label={customizable ? `Customize ${item.name}` : `Add ${item.name}`}
+            aria-label={customizable ? `Add ${item.name}, choose options` : `Add ${item.name}`}
           >
             <PlusIcon className="size-4" aria-hidden />
             Add

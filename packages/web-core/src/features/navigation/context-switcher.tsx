@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@ros/ui/ui/dropdown-menu";
 import { Skeleton } from "@ros/ui/ui/skeleton";
-import { useWorkspaceStructure } from "../session/queries";
+import { useIdentity, useWorkspaceStructure } from "../session/queries";
 import { WorkspaceSwitcher } from "../workspaces/workspace-switcher";
 
 /** `/app/b/<old>/menu` → `/app/b/<new>/menu`, so the section is kept when the branch changes. */
@@ -25,6 +25,9 @@ export function pathForBranch(pathname: string, branchId: string): string {
 /**
  * Sidebar context: Workspace (business name) → Restaurant → Branch.
  * The workspace block never shows a branch name; the branch is its own control.
+ * Its name comes from workspace-level data (the structure, then the account's
+ * workspace list), so every route shows the same name; `workspaceName` from a
+ * branch-scoped response is only the fallback while those load.
  */
 export function ContextSwitcher({
   workspaceId,
@@ -38,6 +41,11 @@ export function ContextSwitcher({
   const pathname = usePathname();
   const router = useRouter();
   const structure = useWorkspaceStructure(workspaceId);
+  const { workspaces } = useIdentity();
+  const name =
+    (structure.data?.workspaceId === workspaceId ? structure.data.workspaceName : undefined) ??
+    workspaces.find((w) => w.id === workspaceId)?.name ??
+    workspaceName;
   const restaurants = structure.data?.restaurants.filter((r) => r.branches.length > 0) ?? [];
   const current = restaurants
     .flatMap((r) => r.branches.map((b) => ({ restaurant: r, branch: b })))
@@ -45,7 +53,7 @@ export function ContextSwitcher({
 
   return (
     <div className="flex flex-col gap-1">
-      <WorkspaceSwitcher currentId={workspaceId} currentName={workspaceName} />
+      <WorkspaceSwitcher currentId={workspaceId} currentName={name} />
       {structure.isPending ? (
         <Skeleton className="mx-2 h-10" />
       ) : restaurants.length > 0 ? (

@@ -56,6 +56,11 @@ function SettingsForm({ ws, canEdit }: { ws: WorkspaceDto; canEdit: boolean }) {
               await Promise.all([
                 qc.invalidateQueries({ queryKey: sessionKeys.structure(ws.id) }),
                 qc.invalidateQueries({ queryKey: sessionKeys.me }),
+                // Branch contexts carry a copy of the workspace name.
+                qc.invalidateQueries({
+                  queryKey: ["branch"],
+                  predicate: (q) => q.queryKey[2] === "context",
+                }),
               ]);
             }
           }}

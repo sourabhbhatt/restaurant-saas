@@ -181,7 +181,7 @@ function KitchenScreen({ branchId, ctx }: { branchId: string; ctx: BranchContext
     >
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2">
-          <Button variant="ghost" size="icon-sm" asChild>
+          <Button variant="ghost" size="icon" className="-ml-2 shrink-0" asChild>
             <Link
               href={appHref(links.console, `/app/b/${branchId}`)}
               aria-label="Back to branch dashboard"
@@ -189,8 +189,8 @@ function KitchenScreen({ branchId, ctx }: { branchId: string; ctx: BranchContext
               <ArrowLeft aria-hidden />
             </Link>
           </Button>
-          <div className="min-w-0">
-            <p className="truncate text-lg leading-tight font-bold">{ctx.branchName} · Kitchen</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-lg leading-tight font-bold">{ctx.branchName} · Kitchen</h1>
             <p className="truncate text-sm text-muted-foreground">
               {counts.queued} new · {counts.cooking} cooking · {counts.ready} ready
               {delayedCount > 0 && (
@@ -281,6 +281,7 @@ function KitchenScreen({ branchId, ctx }: { branchId: string; ctx: BranchContext
         ) : view === "active" ? (
           active.length === 0 ? (
             <EmptyState
+              headingLevel={2}
               icon={<ChefHat />}
               title="No tickets right now"
               description="Accepted orders appear here instantly. Pending orders wait for a waiter first."
@@ -303,6 +304,7 @@ function KitchenScreen({ branchId, ctx }: { branchId: string; ctx: BranchContext
           )
         ) : (data?.recent ?? []).length === 0 ? (
           <EmptyState
+            headingLevel={2}
             icon={<ChefHat />}
             title="Nothing completed in the last 2 hours"
             className="min-h-[50dvh]"

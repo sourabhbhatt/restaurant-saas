@@ -190,6 +190,7 @@ export function AdminSupportListPage() {
           rowLabel={(r) => `Open request ${r.subject}`}
           empty={
             <EmptyState
+              headingLevel={2}
               size="compact"
               icon={<LifeBuoy />}
               title="No requests match"
@@ -328,7 +329,7 @@ export function AdminSupportDetailPage() {
           )
         }
       />
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
           <Card>
             <CardHeader>

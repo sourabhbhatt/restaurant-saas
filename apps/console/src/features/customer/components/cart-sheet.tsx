@@ -199,16 +199,16 @@ export function CartSheet({
               </p>
             </div>
 
-            <dl className="space-y-1 rounded-lg bg-muted/60 p-3 text-sm">
-              <div className="flex justify-between font-semibold">
+            <div className="space-y-1 rounded-lg bg-muted/60 p-3 text-sm">
+              <dl className="flex justify-between font-semibold">
                 <dt>Subtotal (estimate)</dt>
                 <dd className="tabular-nums">{formatMoney(subtotal, currency)}</dd>
-              </div>
+              </dl>
               <p className="text-xs text-muted-foreground">
                 Final prices are confirmed by the restaurant. Taxes and charges are added to your
                 bill.
               </p>
-            </dl>
+            </div>
           </SheetBody>
         )}
 

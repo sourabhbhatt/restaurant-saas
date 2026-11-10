@@ -410,6 +410,7 @@ export function AdminUpgradeRequestsPage() {
           rowLabel={(r) => `Open request from ${r.workspaceName}`}
           empty={
             <EmptyState
+              headingLevel={2}
               size="compact"
               icon={<ArrowUpCircle />}
               title="No upgrade requests"

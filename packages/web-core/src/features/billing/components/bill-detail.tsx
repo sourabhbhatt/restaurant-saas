@@ -89,6 +89,7 @@ export function BillDetail({
           <BillStatusBadges bill={bill} />
         </div>
         <Button asChild variant="outline" size="sm">
+          {/* Console and ops both serve this page, so it opens where the user is signed in. */}
           <Link href={`/print/bills/${bill.id}`} target="_blank" rel="noopener">
             <Printer aria-hidden /> Print receipt
           </Link>

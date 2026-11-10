@@ -16,6 +16,7 @@ import { Button } from "@ros/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ros/ui/ui/card";
 import { Skeleton } from "@ros/ui/ui/skeleton";
 import { branchConsoles } from "../navigation/nav-config";
+import { SetupChecklist } from "../onboarding/setup-checklist";
 import { useAppLinks } from "../../app-links";
 import { permissionChecker, useBranchContext } from "../session/queries";
 import { ApiError, errorMessage } from "@ros/api-client";
@@ -193,6 +194,10 @@ export function BranchOverview() {
         ))}
       />
 
+      {can("workspace.update") && (
+        <SetupChecklist workspaceId={b.workspaceId} branchId={branchId} />
+      )}
+
       {live.isError ? (
         <ErrorState
           title="Couldn't load live numbers"
@@ -263,7 +268,7 @@ export function BranchOverview() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {can("orders.view") && <RecentOrders branchId={branchId} currency={b.currency} />}
         <WeekTrend branchId={branchId} timezone={b.timezone} currency={b.currency} />
       </div>

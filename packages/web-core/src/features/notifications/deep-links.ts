@@ -1,5 +1,7 @@
 import type { NotificationDto } from "@ros/contracts/notifications";
 
+import { appHref, type AppLinks } from "../../app-links";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function id(value: unknown): string | null {
@@ -31,4 +33,17 @@ export function notificationHref(
     return workspaceId ? `/app/w/${workspaceId}` : "/app";
   }
   return null;
+}
+
+/** Staff consoles live in the ops app; everything else is a console page. */
+const OPS_PATH = /^\/(waiter|kitchen|cashier)\//;
+
+/** Absolute link for a notification, on whichever app serves its page. */
+export function notificationUrl(
+  n: Pick<NotificationDto, "type" | "data" | "branchId" | "workspaceId">,
+  links: AppLinks,
+): string | null {
+  const path = notificationHref(n);
+  if (!path) return null;
+  return appHref(OPS_PATH.test(path) ? links.ops : links.console, path);
 }

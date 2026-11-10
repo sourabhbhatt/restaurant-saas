@@ -1,11 +1,8 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   BarChart3,
-  CheckCircle2,
-  Circle,
   ClipboardList,
   CreditCard,
   MapPin,
@@ -13,28 +10,18 @@ import {
   Store,
   Users,
   Wallet,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { toast } from "sonner";
 
 import { EmptyState, PageHeader, StatCard } from "@ros/ui/shared/feedback";
 import { Button } from "@ros/ui/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@ros/ui/ui/card";
-import { Progress } from "@ros/ui/ui/progress";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ros/ui/ui/card";
 import { Skeleton } from "@ros/ui/ui/skeleton";
 import type { BranchComparisonRowDto } from "@ros/contracts/analytics";
 import type { StructureBranchDto } from "@ros/contracts/structure";
-import { ONBOARDING_STEPS } from "@ros/contracts/workspaces";
 import { branchConsoles } from "../navigation/nav-config";
+import { SetupChecklist } from "../onboarding/setup-checklist";
 import { useAppLinks } from "../../app-links";
 import {
   permissionChecker,
@@ -42,96 +29,19 @@ import {
   useMe,
   useWorkspaceStructure,
 } from "../session/queries";
-import { api, ApiError, errorMessage } from "@ros/api-client";
+import { ApiError } from "@ros/api-client";
 import { PlanUsageCard } from "../subscriptions/limit-notice";
 import { useEntitlements } from "../subscriptions/queries";
 import { StructureExplainer } from "../workspaces/structure-explainer";
 
 import { todayIn } from "./date-range-filter";
 import { formatCount, formatMoney } from "./format";
-import { analyticsKeys, useWorkspaceAnalytics, useWorkspaceDetail } from "./queries";
+import { useWorkspaceAnalytics, useWorkspaceDetail } from "./queries";
 import { AnalyticsError } from "./shared";
-
-const STEP_LABELS: Record<string, string> = {
-  business: "Business details",
-  restaurant: "First restaurant",
-  branch: "First branch",
-  settings: "Taxes & payments",
-  menu: "Menu",
-  tables: "Tables",
-  qr: "QR codes",
-  staff: "Invite staff",
-};
 
 function greeting(): string {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-}
-
-function OnboardingCard({ workspaceId, canEdit }: { workspaceId: string; canEdit: boolean }) {
-  const detail = useWorkspaceDetail(workspaceId);
-  const qc = useQueryClient();
-  const dismiss = useMutation({
-    mutationFn: () => api.put(`/workspaces/${workspaceId}/onboarding`, { dismiss: true }),
-    onSuccess: async () => {
-      toast.success("Setup checklist hidden");
-      await qc.invalidateQueries({ queryKey: analyticsKeys.workspaceDetail(workspaceId) });
-    },
-    onError: (e) => toast.error(errorMessage(e)),
-  });
-  const ob = detail.data?.workspace.onboarding;
-  if (!ob || ob.currentStep === "done" || ob.dismissedAt) return null;
-  const steps = ONBOARDING_STEPS.filter((s) => s !== "done");
-  const done = new Set(ob.completedSteps);
-  const pct = Math.round((steps.filter((s) => done.has(s)).length / steps.length) * 100);
-  return (
-    <Card className="gap-4 border-primary/30 bg-primary/[0.03]">
-      <CardHeader>
-        <CardTitle>Finish setting up your workspace</CardTitle>
-        <CardDescription>
-          {pct}% complete — pick up where you left off to start taking orders.
-        </CardDescription>
-        {canEdit && (
-          <CardAction>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Hide setup checklist"
-              disabled={dismiss.isPending}
-              onClick={() => dismiss.mutate()}
-            >
-              <X aria-hidden />
-            </Button>
-          </CardAction>
-        )}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <Progress value={pct} aria-label="Setup progress" />
-        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {steps.map((s) => (
-            <li key={s} className="flex items-center gap-2 text-sm">
-              {done.has(s) ? (
-                <CheckCircle2 className="size-4 text-success" aria-hidden />
-              ) : (
-                <Circle className="size-4 text-muted-foreground" aria-hidden />
-              )}
-              <span className={done.has(s) ? "text-muted-foreground line-through" : undefined}>
-                {STEP_LABELS[s] ?? s}
-              </span>
-              <span className="sr-only">{done.has(s) ? "(done)" : "(to do)"}</span>
-            </li>
-          ))}
-        </ul>
-        <div>
-          <Button asChild>
-            <Link href="/app/onboarding">
-              Continue setup <ArrowRight aria-hidden />
-            </Link>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
 }
 
 function BranchCard({
@@ -282,6 +192,8 @@ export function WorkspaceOverview() {
     { from: today, to: today },
     Boolean(s) && analyticsAllowed,
   );
+  const canSetUp = can("workspace.update");
+  const detail = useWorkspaceDetail(canSetUp ? workspaceId : undefined);
   if (!s) return null; // The workspace shell renders loading/error states.
 
   const comparison =
@@ -289,6 +201,9 @@ export function WorkspaceOverview() {
       ? new Map(todayReport.data.branchComparison.data.map((r) => [r.branchId, r]))
       : null;
   const branches = s.restaurants.flatMap((r) => r.branches.map((b) => ({ b, r })));
+  // The checklist follows the branch created during onboarding, else the first one.
+  const setupBranch =
+    branches.find(({ b }) => b.id === detail.data?.workspace.onboarding.branchId) ?? branches[0];
   const firstName = me.data?.user.name.split(" ")[0];
 
   const links = [
@@ -328,7 +243,13 @@ export function WorkspaceOverview() {
         storageKey="workspace-overview"
         entitlements={entitlements.data?.entitlements}
       />
-      {can("workspace.update") && <OnboardingCard workspaceId={workspaceId} canEdit />}
+      {canSetUp && setupBranch && (
+        <SetupChecklist
+          workspaceId={workspaceId}
+          branchId={setupBranch.b.id}
+          branchName={branches.length > 1 ? setupBranch.b.name : undefined}
+        />
+      )}
       {analyticsAllowed && <TodayKpis workspaceId={workspaceId} />}
 
       <section aria-labelledby="branches-heading" className="flex flex-col gap-3">

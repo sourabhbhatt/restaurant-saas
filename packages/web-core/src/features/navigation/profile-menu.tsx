@@ -1,6 +1,14 @@
 "use client";
 
-import { Check, LayoutDashboard, LogOut, Settings, ShieldCheck, UserRound } from "lucide-react";
+import {
+  Check,
+  LayoutDashboard,
+  LifeBuoy,
+  LogOut,
+  Settings,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 
 import { Avatar, AvatarFallback, getInitials } from "@ros/ui/ui/avatar";
@@ -14,7 +22,12 @@ import {
   DropdownMenuTrigger,
 } from "@ros/ui/ui/dropdown-menu";
 import { Skeleton } from "@ros/ui/ui/skeleton";
-import { useIdentity, useSignOut } from "../session/queries";
+import {
+  permissionChecker,
+  useIdentity,
+  useSignOut,
+  useWorkspaceStructure,
+} from "../session/queries";
 import { useSwitchWorkspace } from "../workspaces/use-switch-workspace";
 import { appHref, useAppLinks } from "../../app-links";
 import { PrivacyChoicesMenuItem, keepFocusOnPrivacyChoices } from "../../tracking/privacy-choices";
@@ -45,23 +58,29 @@ export function ProfileMenu({
   const signOut = useSignOut();
   const switchWorkspace = useSwitchWorkspace(workspaceId);
   const links = useAppLinks();
+  // Support requests need workspace.support.manage; for other staff the page is a dead end.
+  const structure = useWorkspaceStructure(area === "app" ? workspaceId : undefined);
+  const canGetSupport =
+    !workspaceId || permissionChecker(structure.data?.permissions)("workspace.support.manage");
+  // The account's own workspace list is the source of truth for its name.
+  const contextName = workspaces.find((w) => w.id === workspaceId)?.name ?? workspaceName;
 
   if (!ready || !user) {
     return <Skeleton className="size-9 rounded-full" aria-label="Loading account" />;
   }
+  const initials = user.name ? getInitials(user.name) : "";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           className="h-10 gap-2 rounded-full px-1 sm:pr-3"
-          aria-label={`Account menu for ${user.name}`}
+          // Starts with what is visible (initials, then the name): WCAG 2.5.3 Label in Name.
+          aria-label={`${initials ? `${initials} ` : ""}${user.name}, account menu`}
         >
-          <Avatar className="size-8">
-            <AvatarFallback>
-              {user.name ? getInitials(user.name) : <UserRound className="size-4" />}
-            </AvatarFallback>
-          </Avatar>
+          <Avatar className="size-8" aria-hidden>
+            <AvatarFallback>{initials || <UserRound className="size-4" />}</AvatarFallback>
+          </Avatar>{" "}
           <span className="hidden max-w-32 truncate text-sm font-medium sm:inline">
             {user.name}
           </span>
@@ -75,13 +94,13 @@ export function ProfileMenu({
         <DropdownMenuLabel className="flex flex-col gap-0.5 font-normal">
           <span className="truncate text-sm font-semibold">{user.name}</span>
           <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-          {(roleLabel || workspaceName) && (
+          {(roleLabel || contextName) && (
             <span className="mt-1 text-xs text-muted-foreground">
               {roleLabel ? (
                 <strong className="font-medium text-foreground">{roleLabel}</strong>
               ) : null}
-              {roleLabel && workspaceName ? " · " : ""}
-              {workspaceName}
+              {roleLabel && contextName ? " · " : ""}
+              {contextName}
             </span>
           )}
           {branchLabel && (
@@ -117,6 +136,18 @@ export function ProfileMenu({
             <Settings className="size-4" aria-hidden /> Account settings
           </Link>
         </DropdownMenuItem>
+        {area === "app" && canGetSupport && (
+          <DropdownMenuItem asChild>
+            <Link
+              href={appHref(
+                links.console,
+                workspaceId ? `/app/w/${workspaceId}/support` : "/contact",
+              )}
+            >
+              <LifeBuoy className="size-4" aria-hidden /> Help &amp; support
+            </Link>
+          </DropdownMenuItem>
+        )}
         <PrivacyChoicesMenuItem />
         {area === "app" && "isPlatformAdmin" in user && user.isPlatformAdmin ? (
           <DropdownMenuItem asChild>

@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ros/
 import { FormField } from "@ros/ui/ui/form-field";
 import { Input } from "@ros/ui/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ros/ui/ui/select";
+import type { TableDto } from "@ros/contracts/tables";
 import type { BranchDto, RestaurantDto } from "@ros/contracts/tenancy";
 import type { OrganizationSummaryDto, WorkspaceDto } from "@ros/contracts/workspaces";
 import { toMinor } from "@ros/domain/shared/money";
@@ -65,7 +66,9 @@ function StepForm(props: {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{props.title}</CardTitle>
+        <CardTitle>
+          <h1 className="text-lg">{props.title}</h1>
+        </CardTitle>
         <CardDescription>{props.description}</CardDescription>
       </CardHeader>
       <CardContent>
@@ -226,23 +229,26 @@ function Wizard() {
       {activeStep === "done" && progress.branchId && progress.workspaceId && (
         <Card>
           <CardHeader>
-            <CardTitle>You&apos;re all set 🎉</CardTitle>
+            <CardTitle>
+              <h1 className="text-lg">Your restaurant is set up</h1>
+            </CardTitle>
             <CardDescription>
-              Next: generate and print QR codes for your tables, add more menu items and invite your
-              staff.
+              Next, print your table QR codes and place a test order. The checklist on your
+              dashboard walks you through it in about 10 minutes.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 sm:flex-row">
             <Button
               onClick={async () => {
-                await saveProgress(progress.workspaceId!, { completedStep: "done", dismiss: true });
-                router.push(`/app/b/${progress.branchId}/tables`);
+                // Not dismissed: the dashboard checklist takes over from here.
+                await saveProgress(progress.workspaceId!, { completedStep: "done" });
+                router.push(`/app/b/${progress.branchId}`);
               }}
             >
-              Open tables &amp; QR codes
+              Go to my dashboard
             </Button>
             <Button asChild variant="outline">
-              <Link href={`/app/b/${progress.branchId}`}>Go to dashboard</Link>
+              <Link href={`/print/tables?branchId=${progress.branchId}`}>Print QR codes</Link>
             </Button>
           </CardContent>
         </Card>
@@ -611,7 +617,7 @@ function TablesStep({
   return (
     <StepForm
       title="Add your tables"
-      description="Create tables in bulk, for example T1–T10. Each table gets its own secure QR code on the next screen."
+      description="Create tables in bulk, for example T1–T10. Each table gets its own secure QR code, ready to print."
       pending={pending}
       submitLabel={Number.isInteger(n) && n > 0 ? `Create ${n} tables` : "Create tables"}
       blockedReason={limit.reason}
@@ -633,15 +639,21 @@ function TablesStep({
           setFieldErrors(local);
           return;
         }
-        const ok = await run(() =>
-          api.post(`/branches/${branchId}/tables/bulk`, {
+        const created = await run(async () => {
+          const tables = await api.post<TableDto[]>(`/branches/${branchId}/tables/bulk`, {
             prefix,
             from: 1,
             to: Number.isInteger(n) ? n : 0,
             capacity: Number(capacity),
-          }),
-        );
-        if (ok) await onDone();
+          });
+          // Codes right away, so the first test order needs no extra step. A failure here
+          // is not fatal: the print sheet's "Generate missing" covers any table left out.
+          for (const t of tables) {
+            await api.post(`/tables/${t.id}/qr`).catch(() => undefined);
+          }
+          return tables;
+        });
+        if (created) await onDone();
       }}
     >
       <div className="grid grid-cols-3 gap-3">

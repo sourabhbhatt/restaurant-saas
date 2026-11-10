@@ -109,7 +109,7 @@ export function AdminOverview() {
                 <StatCard label="Users" value={formatCount(t.users)} icon={<Users />} />
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <ChartCard
                   title="New workspaces"
                   description="Registrations per week (Monday, UTC), last 12 weeks"
@@ -157,7 +157,7 @@ export function AdminOverview() {
                 />
               </ChartCard>
 
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <ChartCard title="Plans" description="Workspaces per plan and phase">
                   <DataTable
                     aria-label="Plan distribution"

@@ -2,6 +2,7 @@
 
 import { PAYMENT_METHODS } from "@ros/domain/billing/payments";
 import { Skeleton } from "@ros/ui/ui/skeleton";
+import { useHorizontalOverflow } from "@ros/ui/ui/use-horizontal-overflow";
 import { Button } from "@ros/ui/ui/button";
 import { errorMessage } from "@ros/api-client";
 import { cn } from "@ros/ui/utils";
@@ -18,6 +19,7 @@ export function PaymentSummaryStrip({
   className?: string;
 }) {
   const summary = usePaymentSummary(branchId);
+  const [box, scrolls] = useHorizontalOverflow<HTMLDListElement>();
 
   if (summary.isPending) {
     return (
@@ -52,8 +54,11 @@ export function PaymentSummaryStrip({
   ];
   return (
     <dl
+      ref={box}
       className={cn("flex gap-x-5 gap-y-1 overflow-x-auto text-sm whitespace-nowrap", className)}
       aria-label="Today's collections"
+      // Focusable only while it scrolls sideways (narrow screens), so keyboards can reach it.
+      tabIndex={scrolls ? 0 : undefined}
     >
       {cells.map((cell) => (
         <div key={cell.label} className="flex flex-col">

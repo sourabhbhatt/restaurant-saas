@@ -1,13 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Toaster } from "@ros/ui/ui/sonner";
-
-/** Full-screen waiter console layout (not the dashboard shell). */
+/** Full-screen waiter console layout (not the dashboard shell). Toasts: the app's global container. */
 export default function WaiterLayout({ children }: { children: ReactNode }) {
-  return (
-    <>
-      {children}
-      <Toaster position="top-center" />
-    </>
-  );
+  return children;
 }

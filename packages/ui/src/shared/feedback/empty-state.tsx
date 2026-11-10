@@ -10,6 +10,8 @@ type EmptyStateProps = Omit<React.ComponentProps<"div">, "title"> & {
   /** Call to action, e.g. a `<Button>`. */
   action?: React.ReactNode;
   size?: "default" | "compact";
+  /** Heading level of the title; 2 under a page's h1, 1 when it is the whole page. */
+  headingLevel?: 1 | 2 | 3 | 4;
 };
 
 function EmptyState({
@@ -18,9 +20,11 @@ function EmptyState({
   description,
   action,
   size = "default",
+  headingLevel = 3,
   className,
   ...props
 }: EmptyStateProps) {
+  const Heading = `h${headingLevel}` as const;
   return (
     <div
       data-slot="empty-state"
@@ -40,7 +44,7 @@ function EmptyState({
         </div>
       )}
       <div className="flex max-w-sm flex-col gap-1">
-        <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+        <Heading className="text-base font-semibold tracking-tight">{title}</Heading>
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       {action && (

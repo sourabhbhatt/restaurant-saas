@@ -112,9 +112,6 @@ export function BillBreakdown({
             {m(totals.grandTotal)}
           </dd>
         </div>
-        {totals.pricesIncludeTax && (
-          <p className="text-xs text-muted-foreground">Menu prices include tax.</p>
-        )}
         {paid && (
           <>
             <Row label="Paid" value={m(paid.amountPaid)} className="mt-2" />
@@ -136,6 +133,10 @@ export function BillBreakdown({
           </>
         )}
       </dl>
+      {/* Outside the <dl>: only dt/dd groups belong in it. */}
+      {totals.pricesIncludeTax && (
+        <p className="-mt-2 text-xs text-muted-foreground">Menu prices include tax.</p>
+      )}
     </div>
   );
 }

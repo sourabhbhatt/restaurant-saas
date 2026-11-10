@@ -38,7 +38,6 @@ import {
 } from "@ros/ui/ui/dropdown-menu";
 import { SearchInput } from "@ros/ui/ui/search-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ros/ui/ui/select";
-import { Toaster } from "@ros/ui/ui/sonner";
 import type { TableDto } from "@ros/contracts/tables";
 import { TABLE_STATUSES, type TableStatus } from "@ros/domain/tables/table-status";
 import { errorMessage } from "@ros/api-client";
@@ -148,7 +147,6 @@ export function TablesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Toaster />
       <PageHeader
         title="Tables & QR"
         description={`${all.length} tables at this branch · ${all.filter((t) => t.status !== "AVAILABLE" && t.status !== "CLOSED").length} in use right now. Each table has its own QR code guests scan to order.`}

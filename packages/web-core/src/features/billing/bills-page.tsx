@@ -30,7 +30,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@ros/ui/ui/sheet";
-import { Toaster } from "@ros/ui/ui/sonner";
 import { errorMessage } from "@ros/api-client";
 import { permissionChecker, useBranchContext } from "../session/queries";
 
@@ -245,6 +244,7 @@ export function BillsPage() {
           empty={
             <EmptyState
               size="compact"
+              headingLevel={2}
               icon={<Receipt />}
               title={filtered ? "No bills match these filters" : "No bills yet"}
               description={
@@ -275,7 +275,6 @@ export function BillsPage() {
           )}
         </SheetContent>
       </Sheet>
-      <Toaster position="top-right" />
     </div>
   );
 }

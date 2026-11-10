@@ -107,7 +107,7 @@ export function DateRangeFilter({ value, onChange, timeZone, className }: DateRa
   }
 
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
+    <div className={cn("flex max-w-full min-w-0 flex-col gap-3", className)}>
       <div className="flex flex-wrap items-center gap-2">
         <ToggleGroup
           type="single"

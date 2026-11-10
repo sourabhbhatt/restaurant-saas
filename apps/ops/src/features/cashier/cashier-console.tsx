@@ -2,7 +2,7 @@
 
 import { ArrowLeft, BellRing, Clock, Receipt, RefreshCw, Utensils } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import type { BillListItemDto, SessionAwaitingBillDto } from "@ros/contracts/billing-extra";
 import type { PaymentMethod } from "@ros/domain/billing/payments";
@@ -20,27 +20,19 @@ import {
   PAYMENT_STATUS_TONE,
 } from "@ros/web-core/features/billing/format";
 import { useBill, useCashierQueue } from "@ros/web-core/features/billing/queries";
+import { useNow } from "@ros/web-core/features/orders/use-now";
 import { permissionChecker, useBranchContext } from "@ros/web-core/features/session/queries";
 
 import { PaymentPanel } from "./payment-panel";
 
 type Selection = { kind: "bill"; id: string } | { kind: "session"; id: string } | null;
 
-function useNow(intervalMs = 30_000): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(t);
-  }, [intervalMs]);
-  return now;
-}
-
 export function CashierConsole() {
   const { branchId } = useParams<{ branchId: string }>();
   const ctx = useBranchContext(branchId);
   const queue = useCashierQueue(branchId);
   const [selection, setSelection] = useState<Selection>(null);
-  const now = useNow();
+  const now = useNow(30_000);
   const can = permissionChecker(ctx.data?.permissions);
   const timezone = ctx.data?.timezone;
 

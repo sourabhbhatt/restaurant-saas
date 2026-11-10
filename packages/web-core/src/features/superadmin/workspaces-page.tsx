@@ -168,6 +168,7 @@ export function AdminWorkspacesPage() {
           rowLabel={(w) => `Open workspace ${w.name}`}
           empty={
             <EmptyState
+              headingLevel={2}
               size="compact"
               icon={<Building2 />}
               title="No workspaces match"

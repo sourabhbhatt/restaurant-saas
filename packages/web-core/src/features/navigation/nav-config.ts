@@ -90,6 +90,9 @@ export function branchNav(branchId: string): NavItem[] {
 /**
  * Operational consoles (separate full-screen layouts in the ops app).
  * `opsUrl` is the ops origin from `useAppLinks()`; omit it inside the ops app.
+ * Each permission is exactly what the console's page and API require, so a
+ * link is shown whenever the console would open: Waiter orders.view, Kitchen
+ * kitchen.view, Cashier bills.view (the cashier queue).
  */
 export function branchConsoles(branchId: string, opsUrl = ""): NavItem[] {
   const base = opsUrl.replace(/\/$/, "");
@@ -98,7 +101,7 @@ export function branchConsoles(branchId: string, opsUrl = ""): NavItem[] {
       label: "Waiter",
       href: `${base}/waiter/${branchId}`,
       icon: LayoutGrid,
-      permission: "orders.approve",
+      permission: "orders.view",
     },
     {
       label: "Kitchen",
@@ -110,7 +113,7 @@ export function branchConsoles(branchId: string, opsUrl = ""): NavItem[] {
       label: "Cashier",
       href: `${base}/cashier/${branchId}`,
       icon: Wallet,
-      permission: "payments.record",
+      permission: "bills.view",
     },
   ];
 }

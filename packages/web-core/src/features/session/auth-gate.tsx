@@ -3,7 +3,10 @@
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
 
-import { ErrorState, PageSkeleton } from "@ros/ui/shared/feedback";
+import { WifiOff } from "lucide-react";
+
+import { EmptyState, ErrorState, PageSkeleton } from "@ros/ui/shared/feedback";
+import { Button } from "@ros/ui/ui/button";
 import { ApiError, errorMessage } from "@ros/api-client";
 
 import { useMe } from "./queries";
@@ -41,6 +44,25 @@ function AuthGateInner({
     if (unauthenticated) router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
   }, [unauthenticated, router, pathname]);
 
+  // Offline with no saved account: the request waits for a connection, so say so
+  // instead of showing a skeleton that never resolves. It resumes by itself online.
+  if (hydrated && me.isPending && me.fetchStatus === "paused") {
+    return (
+      <div className="flex min-h-dvh items-center justify-center p-4">
+        <EmptyState
+          headingLevel={1}
+          icon={<WifiOff />}
+          title="You're offline"
+          description="Connect once to sign in. After that, this device keeps working when the connection drops."
+          action={
+            <Button variant="outline" onClick={() => void me.refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
   if (!hydrated || me.isPending || unauthenticated) return <PageSkeleton variant="detail" />;
   if (me.isError) {
     return (

@@ -10,7 +10,6 @@ import { EmptyState, ErrorState, PageSkeleton } from "@ros/ui/shared/feedback";
 import { Alert, AlertDescription } from "@ros/ui/ui/alert";
 import { Button } from "@ros/ui/ui/button";
 import { Spinner } from "@ros/ui/ui/spinner";
-import { Toaster } from "@ros/ui/ui/sonner";
 import { errorMessage } from "@ros/api-client";
 
 import { svgDataUrl } from "./qr-download";
@@ -68,7 +67,6 @@ export function QrPrintSheet() {
 
   return (
     <div className="qr-sheet min-h-dvh bg-muted/40 print:bg-white">
-      <Toaster />
       <style>{`
         @page { size: A4 portrait; margin: 12mm; }
         @media print {

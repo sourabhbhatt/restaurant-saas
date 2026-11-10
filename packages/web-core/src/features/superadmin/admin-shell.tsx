@@ -4,8 +4,6 @@ import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { Toaster } from "@ros/ui/ui/sonner";
-
 import { DashboardShell } from "../../layouts/dashboard-shell";
 import { adminNav } from "../navigation/nav-config";
 import { AuthGate } from "../session/auth-gate";
@@ -35,8 +33,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
       >
         {children}
       </DashboardShell>
-      {/* No admin page mounts its own: without this every success and error toast was lost. */}
-      <Toaster />
     </AuthGate>
   );
 }
