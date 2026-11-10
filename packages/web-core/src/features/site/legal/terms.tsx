@@ -37,8 +37,10 @@ const SECTIONS: LegalSection[] = [
           <li>integrations with POS hardware.</li>
         </ul>
         <p>
-          Offline support is limited: previously loaded screens, drafts and carts work without a
-          connection, but placing orders and confirming payments require one.
+          Offline support is limited: staff screens already loaded on a device keep working, and
+          waiter orders and kitchen updates made offline are queued and sent once the device is back
+          online. Guest QR ordering, approving orders, billing and confirming payments require a
+          connection.
         </p>
       </>
     ),

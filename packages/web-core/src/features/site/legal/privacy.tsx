@@ -104,8 +104,9 @@ const SECTIONS: LegalSection[] = [
             days), so we do not ask on every page.
           </li>
           <li>
-            Browser storage used for offline support — previously loaded menus, drafts and carts are
-            kept on the device until they sync or are cleared.
+            Browser storage used for offline support — staff screens and menus already loaded,
+            queued staff changes, and a guest&apos;s cart and last loaded menu are kept on the
+            device until they sync, expire or are cleared.
           </li>
         </ul>
         <p>
