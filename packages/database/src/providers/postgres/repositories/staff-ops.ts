@@ -38,6 +38,28 @@ import {
 } from "../schema";
 import { notifyUsers, usersWithPermissionAtBranch } from "./notifications";
 
+/**
+ * When an order finished: `coalesce(served_at, completed_at, updated_at)`,
+ * written as CASE. Under row-level security only leakproof clauses can be
+ * index conditions, and Postgres does not treat coalesce as one, so the
+ * coalesce form scanned the branch's whole order history on every kitchen
+ * poll. CASE and IS NOT NULL qualify. orders_branch_done_recent_idx indexes
+ * this exact expression (schema/operations.ts, migration 0010): keep them identical.
+ */
+export const orderFinishedAt = sql`(case when ${orders.servedAt} is not null then ${orders.servedAt} when ${orders.completedAt} is not null then ${orders.completedAt} else ${orders.updatedAt} end)`;
+
+/** Orders the kitchen lists as recently done: served/completed, or accepted then cancelled, since `since`. */
+export function kitchenRecentFilter(since: Date) {
+  return or(
+    and(inArray(orders.status, ["SERVED", "COMPLETED"]), gte(orderFinishedAt, since)),
+    and(
+      eq(orders.status, "CANCELLED"),
+      isNotNull(orders.acceptedAt),
+      gte(orders.cancelledAt, since),
+    ),
+  );
+}
+
 const acceptedByUser = alias(users, "accepted_by_user");
 const placedByUser = alias(users, "placed_by_user");
 
@@ -488,25 +510,7 @@ export function staffOpsRepository(db: Executor): StaffOpsRepository {
         .orderBy(asc(sql`coalesce(${orders.acceptedAt}, ${orders.createdAt})`))
         .limit(200);
       const recentRows = await baseOrderQuery()
-        .where(
-          and(
-            scoped(target),
-            or(
-              and(
-                inArray(orders.status, ["SERVED", "COMPLETED"]),
-                gte(
-                  sql`coalesce(${orders.servedAt}, ${orders.completedAt}, ${orders.updatedAt})`,
-                  recentSince,
-                ),
-              ),
-              and(
-                eq(orders.status, "CANCELLED"),
-                isNotNull(orders.acceptedAt),
-                gte(orders.cancelledAt, recentSince),
-              ),
-            ),
-          ),
-        )
+        .where(and(scoped(target), kitchenRecentFilter(recentSince)))
         .orderBy(desc(orders.updatedAt))
         .limit(50);
       const [active, recent] = await Promise.all([

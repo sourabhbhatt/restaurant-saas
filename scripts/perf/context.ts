@@ -6,11 +6,8 @@
  * Usage: tsx --conditions=react-server scripts/perf/context.ts   (PGLITE_DATA_DIR or PERF_DATABASE_URL)
  */
 import { decryptQrToken } from "../../packages/application/src/modules/tables/qr-tokens";
-import {
-  connectPglite,
-  connectPostgres,
-  type Executor,
-} from "../../packages/database/src/providers/postgres/client";
+import type { Executor } from "../../packages/database/src/providers/postgres/client";
+import { connectPerfDatabase } from "./connect";
 
 async function rows<T>(db: Executor, query: string): Promise<T[]> {
   return ((await db.execute(query)) as unknown as { rows: T[] }).rows;
@@ -19,10 +16,7 @@ async function rows<T>(db: Executor, query: string): Promise<T[]> {
 async function main() {
   const secret = process.env.APP_SECRET;
   if (!secret) throw new Error("APP_SECRET is required to decrypt the seeded QR tokens");
-  const url = process.env.PERF_DATABASE_URL;
-  const handle = url
-    ? await connectPostgres(url, 1)
-    : await connectPglite(process.env.PGLITE_DATA_DIR ?? "");
+  const handle = await connectPerfDatabase();
   try {
     const db = handle.db;
     const [ws] = await rows<{ id: string; restaurant_id: string }>(

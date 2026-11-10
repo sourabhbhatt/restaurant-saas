@@ -33,9 +33,11 @@ export {
   clearDeviceUserData,
   discardOutboxItem,
   enqueueMutation,
+  offlineStorageAvailable,
   probeConnectivity,
   retryOutboxItem,
   retryOutboxItemWithLatest,
+  sendWithoutStorage,
   syncNow,
   unsentChangesCount,
 } from "./runtime";

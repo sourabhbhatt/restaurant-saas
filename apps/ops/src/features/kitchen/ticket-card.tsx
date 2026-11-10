@@ -1,7 +1,8 @@
 "use client";
 
 import { Check, ChefHat, CircleCheckBig, Clock, CloudUpload, Flame } from "lucide-react";
-import { useMemo } from "react";
+import { onlineManager, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@ros/ui/shared/feedback";
@@ -14,6 +15,8 @@ import { cn } from "@ros/ui/utils";
 import {
   enqueueMutation,
   kitchenItemStatusMutation,
+  offlineStorageAvailable,
+  sendWithoutStorage,
   kitchenTransitionMutation,
   queuedKitchenState,
   useSyncStore,
@@ -141,6 +144,32 @@ function ItemRow({
  * blind write. A change shows "Waiting to sync" until the server confirms it;
  * then the server's answer is shown until the feed catches up.
  */
+const subscribeOnline = (notify: () => void) => onlineManager.subscribe(notify);
+const isOnline = () => onlineManager.isOnline();
+// Storage availability does not change while the page is open.
+const subscribeNever = () => () => undefined;
+
+/**
+ * Whether taps can be saved now. With IndexedDB they wait until the offline
+ * runtime knows who is signed in (a fresh page, /auth/me pending): "Connecting…".
+ * Without it (private mode, storage blocked) a tap is sent directly while
+ * online, one at a time; offline nothing can be saved in this browser.
+ */
+function useKitchenSaving() {
+  const userId = useSyncStore((s) => s.userId);
+  // The server render assumes storage; the browser answers once hydrated.
+  const storage = useSyncExternalStore(subscribeNever, offlineStorageAvailable, () => true);
+  const online = useSyncExternalStore(subscribeOnline, isOnline, () => true);
+  const [sending, setSending] = useState(false);
+  return {
+    storage,
+    sending,
+    setSending,
+    connecting: storage && !userId,
+    unavailable: !storage && !online,
+  };
+}
+
 export function TicketCard({
   branchId,
   order: feedOrder,
@@ -172,7 +201,25 @@ export function TicketCard({
   const startQueued =
     queued.actions.includes("start") || Object.values(queued.itemStatus).length > 0;
 
+  const queryClient = useQueryClient();
+  const saving = useKitchenSaving();
+  const canTap = !saving.connecting && !saving.unavailable && !saving.sending;
   const queue = (input: EnqueueInput) => {
+    if (!saving.storage) {
+      // No IndexedDB: straight to the server; the ticket changes only once it answered.
+      saving.setSending(true);
+      sendWithoutStorage(input)
+        .then(() =>
+          Promise.all(
+            (input.invalidateKeys ?? []).map((queryKey) =>
+              queryClient.invalidateQueries({ queryKey }),
+            ),
+          ),
+        )
+        .catch((error: unknown) => toast.error(errorMessage(error)))
+        .finally(() => saving.setSending(false));
+      return;
+    }
     enqueueMutation(input).catch((error: unknown) => toast.error(errorMessage(error)));
   };
   const runAction = (kind: KitchenAction) => {
@@ -225,6 +272,12 @@ export function TicketCard({
           Delayed · {elapsedMin} min
         </p>
       )}
+      {saving.unavailable && (
+        <p className="rounded-lg bg-destructive/10 px-3 py-1 text-base font-semibold text-destructive">
+          Changes can&apos;t be saved in this browser while offline (its storage is blocked).
+          Reconnect to update tickets.
+        </p>
+      )}
       {queued.needsAttention && (
         <p className="rounded-lg bg-destructive/10 px-3 py-1 text-base font-semibold text-destructive">
           A change to this ticket was not saved. Open the sync status to retry or discard it.
@@ -241,7 +294,7 @@ export function TicketCard({
             key={i.id}
             item={i}
             queuedStatus={queued.itemStatus[i.id]}
-            interactive={canUpdate && active && !readyQueued}
+            interactive={canUpdate && active && !readyQueued && canTap}
             onToggle={() => {
               const next = NEXT_ITEM_STATUS[queued.itemStatus[i.id] ?? i.status];
               if (!next) return;
@@ -253,7 +306,12 @@ export function TicketCard({
       {canUpdate && active && (
         <div className="mt-auto flex gap-2">
           {order.status === "ACCEPTED" && !startQueued && (
-            <Button size="lg" className="h-14 flex-1 text-lg" onClick={() => runAction("start")}>
+            <Button
+              size="lg"
+              className="h-14 flex-1 text-lg"
+              disabled={!canTap}
+              onClick={() => runAction("start")}
+            >
               <ChefHat aria-hidden />
               Start preparing
             </Button>
@@ -262,11 +320,11 @@ export function TicketCard({
             size="lg"
             variant="success"
             className="h-14 flex-1 text-lg"
-            disabled={readyQueued || allItemsQueuedReady}
+            disabled={readyQueued || allItemsQueuedReady || !canTap}
             onClick={() => runAction("ready")}
           >
             <CircleCheckBig aria-hidden />
-            Mark ready
+            {saving.connecting ? "Connecting…" : "Mark ready"}
           </Button>
         </div>
       )}

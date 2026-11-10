@@ -1,0 +1,2 @@
+CREATE INDEX IF NOT EXISTS "orders_branch_done_recent_idx" ON "orders" USING btree ("workspace_id","branch_id",(case when "served_at" is not null then "served_at" when "completed_at" is not null then "completed_at" else "updated_at" end));--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "orders_branch_cancelled_at_idx" ON "orders" USING btree ("workspace_id","branch_id","cancelled_at");

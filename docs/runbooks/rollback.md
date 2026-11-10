@@ -37,7 +37,7 @@ A released migration is never edited or reverted in place. If a new migration mi
 1. Roll the API back to the previous revision (above); the extra columns or tables are ignored.
 2. Write a new forward migration that corrects it, and release it.
 
-Only the RLS migrations have down scripts (`packages/database/src/providers/postgres/migrations-down/`: `0002_tenant_rls`, and the RLS parts of `0003_organizations` and `0005_payments`). They remove policies only, never data; use them through [disable RLS](disable-rls-emergency.md).
+Down scripts live in `packages/database/src/providers/postgres/migrations-down/`. The RLS ones (`0002_tenant_rls`, and the RLS parts of `0003_organizations` and `0005_payments`) remove policies only, never data; use them through [disable RLS](disable-rls-emergency.md). The index migrations `0009_perf_indexes` and `0010_kitchen_recent_indexes` only drop their indexes (no data change; queries keep working, slower). The others are listed with their conditions in [database schema → Migrations](../database-schema.md#migrations).
 
 ## Data
 

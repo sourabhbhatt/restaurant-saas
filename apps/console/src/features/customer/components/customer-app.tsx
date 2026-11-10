@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from "@ros/ui/ui/dialog";
 import { Skeleton } from "@ros/ui/ui/skeleton";
+import { Spinner } from "@ros/ui/ui/spinner";
 import { ErrorState } from "@ros/ui/shared/feedback/error-state";
 import { ApiError, errorMessage } from "@ros/api-client";
 import { cn } from "@ros/ui/utils";
@@ -35,21 +36,70 @@ import { cn } from "@ros/ui/utils";
 import { brandStyle } from "../brand";
 import { cartTotals, useCartStore } from "../cart-store";
 import { useGuestSession, useJoinedSessionId, useQrMenu } from "../queries";
+import type { CartSheet as CartSheetComponent } from "./cart-sheet";
+import type { ItemSheet as ItemSheetComponent } from "./item-sheet";
 import { MenuView } from "./menu-view";
 
 /*
  * Only the menu is on screen when a guest scans the QR code. The sheets and the
  * other tabs (with their form controls and the menu contract's labels, which
- * pull in zod) are separate chunks, prefetched once the menu has rendered.
+ * pull in zod) are separate chunks, loaded once the menu has rendered.
  */
 const loadItemSheet = () => import("./item-sheet");
 const loadCartSheet = () => import("./cart-sheet");
 const loadOrdersView = () => import("./orders-view");
 const loadBillView = () => import("./bill-view");
-const ItemSheet = dynamic(() => loadItemSheet().then((m) => m.ItemSheet), { ssr: false });
-const CartSheet = dynamic(() => loadCartSheet().then((m) => m.CartSheet), { ssr: false });
-const OrdersView = dynamic(() => loadOrdersView().then((m) => m.OrdersView), { ssr: false });
-const BillView = dynamic(() => loadBillView().then((m) => m.BillView), { ssr: false });
+
+interface Sheets {
+  ItemSheet: typeof ItemSheetComponent;
+  CartSheet: typeof CartSheetComponent;
+}
+
+/**
+ * The item and cart sheets are always in the tree (closed), so they are loaded
+ * from an effect rather than with next/dynamic: a lazy boundary rendered during
+ * hydration commits a fallback, and React then holds the page's next commits
+ * for up to 300 ms, which delayed the menu request by about that much. They
+ * load once the menu is on screen (or when one is opened first); a failed load
+ * is retried the next time a sheet is opened.
+ */
+function useSheets(wanted: boolean, retryKey: unknown): Sheets | null {
+  const [sheets, setSheets] = useState<Sheets | null>(null);
+  useEffect(() => {
+    if (!wanted || sheets) return;
+    let live = true;
+    Promise.all([loadItemSheet(), loadCartSheet()])
+      .then(([item, cart]) => {
+        if (live) setSheets({ ItemSheet: item.ItemSheet, CartSheet: cart.CartSheet });
+      })
+      .catch(() => {
+        // Offline or a deploy in progress: opening a sheet again retries.
+      });
+    return () => {
+      live = false;
+    };
+  }, [wanted, sheets, retryKey]);
+  return sheets;
+}
+
+/** Shown if a tab is opened before its chunk has arrived (slow connection). */
+function TabLoading() {
+  return (
+    <div aria-busy="true" aria-label="Loading" className="space-y-3 p-4">
+      <Skeleton className="h-6 w-40" />
+      <Skeleton className="h-24 w-full rounded-xl" />
+      <Skeleton className="h-24 w-full rounded-xl" />
+    </div>
+  );
+}
+const OrdersView = dynamic(() => loadOrdersView().then((m) => m.OrdersView), {
+  ssr: false,
+  loading: TabLoading,
+});
+const BillView = dynamic(() => loadBillView().then((m) => m.BillView), {
+  ssr: false,
+  loading: TabLoading,
+});
 
 type Tab = "menu" | "orders" | "bill";
 
@@ -73,11 +123,12 @@ export function CustomerApp() {
     void hydrate(token);
   }, [hydrate, token]);
 
-  // Warm the lazily loaded sheets and tabs as soon as the menu is on screen.
+  // Load the sheets and warm the other tabs as soon as the menu is on screen.
   const menuReady = menu.isSuccess;
+  const sheets = useSheets(menuReady || itemOpen || cartOpen, `${itemOpen}:${cartOpen}`);
   useEffect(() => {
     if (!menuReady) return;
-    for (const load of [loadItemSheet, loadCartSheet, loadOrdersView, loadBillView]) void load();
+    for (const load of [loadOrdersView, loadBillView]) void load().catch(() => undefined);
   }, [menuReady]);
 
   useEffect(() => {
@@ -310,33 +361,47 @@ export function CustomerApp() {
         </nav>
       </div>
 
-      <ItemSheet
-        item={item}
-        open={itemOpen}
-        onOpenChange={setItemOpen}
-        currency={data.currency}
-        showAllergens={data.branding.showAllergens}
-        showPrepTime={data.branding.showPrepTime}
-        canAdd={canOrder}
-        onAdd={(line) => {
-          addLine(line);
-          toast.success(`${line.name} added`, { duration: 1500 });
-        }}
-      />
-      <CartSheet
-        open={cartOpen}
-        onOpenChange={setCartOpen}
-        token={token}
-        currency={data.currency}
-        canOrder={canOrder}
-        onJoined={joined.setSessionId}
-        onMenuOutdated={() => void menu.refetch()}
-        onPlaced={(order) => {
-          setCartOpen(false);
-          setPlaced(order);
-          setTab("orders");
-        }}
-      />
+      {!sheets && (itemOpen || cartOpen) && (
+        // A sheet opened before its code arrived (slow connection): it opens once loaded.
+        <div
+          role="status"
+          className="fixed inset-x-4 bottom-24 z-50 mx-auto flex max-w-sm items-center justify-center gap-2 rounded-xl border bg-background p-4 text-sm shadow-lg"
+        >
+          <Spinner aria-hidden />
+          Loading…
+        </div>
+      )}
+      {sheets && (
+        <sheets.ItemSheet
+          item={item}
+          open={itemOpen}
+          onOpenChange={setItemOpen}
+          currency={data.currency}
+          showAllergens={data.branding.showAllergens}
+          showPrepTime={data.branding.showPrepTime}
+          canAdd={canOrder}
+          onAdd={(line) => {
+            addLine(line);
+            toast.success(`${line.name} added`, { duration: 1500 });
+          }}
+        />
+      )}
+      {sheets && (
+        <sheets.CartSheet
+          open={cartOpen}
+          onOpenChange={setCartOpen}
+          token={token}
+          currency={data.currency}
+          canOrder={canOrder}
+          onJoined={joined.setSessionId}
+          onMenuOutdated={() => void menu.refetch()}
+          onPlaced={(order) => {
+            setCartOpen(false);
+            setPlaced(order);
+            setTab("orders");
+          }}
+        />
+      )}
 
       <Dialog open={placed !== null} onOpenChange={(o) => !o && setPlaced(null)}>
         <DialogContent className="max-w-sm text-center">

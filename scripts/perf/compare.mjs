@@ -15,15 +15,15 @@ function delta(a, b, d = 0) {
 
 function lighthouseTable(a, b) {
   const rows = [
-    "| Page | Form | Perf score | LCP ms | CLS | TBT ms | FCP ms | TTFB ms | Script KB (transfer) |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Page | Form | Perf score | LCP ms | CLS | TBT ms | FCP ms | TTFB ms | Script KB (transfer) | First API request ms (observed) | First API data ms (observed) | 0-byte requests |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
   ];
   for (const name of Object.keys(b ?? a ?? {})) {
     const x = a?.[name]?.median ?? {};
     const y = b?.[name]?.median ?? {};
     const cell = (k, d = 0) => `${fmt(x[k], d)} → ${fmt(y[k], d)}`;
     rows.push(
-      `| ${name} | ${(b ?? a)[name].form} | ${cell("performance")} | ${cell("lcpMs")} | ${cell("cls", 3)} | ${cell("tbtMs")} | ${cell("fcpMs")} | ${cell("ttfbMs")} | ${cell("scriptKB")} |`,
+      `| ${name} | ${(b ?? a)[name].form} | ${cell("performance")} | ${cell("lcpMs")} | ${cell("cls", 3)} | ${cell("tbtMs")} | ${cell("fcpMs")} | ${cell("ttfbMs")} | ${cell("scriptKB")} | ${cell("firstApiMs")} | ${cell("firstDataMs")} | ${cell("zeroTransferRequests")} |`,
     );
   }
   return rows.join("\n");
@@ -60,7 +60,13 @@ function apiTable(a, b, title) {
   for (const n of names) {
     const x = a?.reads?.[n] ?? {};
     const y = b?.reads?.[n] ?? {};
-    const c = (r, k) => `${fmt(x[r]?.[k], 1)} → ${fmt(y[r]?.[k], 1)}`;
+    // With several series: median, and [min–max] across series.
+    const range = (side, r, k) => {
+      const v = side?.readSpread?.[n]?.[r]?.[k];
+      return v ? ` [${fmt(v[0], 1)}–${fmt(v[1], 1)}]` : "";
+    };
+    const c = (r, k) =>
+      `${fmt(x[r]?.[k], 1)}${range(a, r, k)} → ${fmt(y[r]?.[k], 1)}${range(b, r, k)}`;
     rows.push(
       `| ${n} | ${c("c1", "p50")} | ${c("c1", "p95")} | ${c("c8", "p50")} | ${c("c8", "p95")} |`,
     );
@@ -88,6 +94,18 @@ function statementsTable(a, b) {
     const y = qb[n] ?? {};
     rows.push(
       `| ${n} | ${fmt(x.statements)} → ${fmt(y.statements)} | ${fmt(x.transactions)} → ${fmt(y.transactions)} | ${fmt(x.dataStatements)} → ${fmt(y.dataStatements)} |`,
+    );
+  }
+  return rows.join("\n");
+}
+
+function precacheTable(a, b) {
+  const rows = ["| App | Precache entries | Raw KB | Gzip KB |", "| --- | --- | --- | --- |"];
+  for (const app of Object.keys({ ...(a ?? {}), ...(b ?? {}) })) {
+    const x = a?.[app] ?? {};
+    const y = b?.[app] ?? {};
+    rows.push(
+      `| ${app} | ${fmt(x.entries)} → ${fmt(y.entries)} | ${fmt(x.rawKB)} → ${fmt(y.rawKB)} | ${fmt(x.gzipKB)} → ${fmt(y.gzipKB)} |`,
     );
   }
   return rows.join("\n");
@@ -129,6 +147,14 @@ export function compareMarkdown(a, b) {
     "",
     "### Cold start (standalone server.js, median)",
     coldTable(a.coldStart, b.coldStart),
+    "",
+    "### Service worker precache (installed on first visit where the worker registers)",
+    precacheTable(a.precache, b.precache),
+    "",
+    "### Payloads and run conditions",
+    `- Guest menu JSON: ${fmt(a.payloads?.guestMenu?.bytes)} → ${fmt(b.payloads?.guestMenu?.bytes)} bytes as served (gzip would be ${fmt(a.payloads?.guestMenu?.gzipBytes)} → ${fmt(b.payloads?.guestMenu?.gzipBytes)})`,
+    `- Postgres read series: ${a.pg?.readSeries ?? 1} → ${b.pg?.readSeries ?? 1}; pool churn (new connections for 6 polls 11 s apart): ${fmt(a.pg?.poolChurn?.connectionsOpened)} → ${fmt(b.pg?.poolChurn?.connectionsOpened)}`,
+    `- Load average at phase start (1/5/15 min): baseline ${JSON.stringify(a.machine?.load ?? {})}; final ${JSON.stringify(b.machine?.load ?? {})}`,
   ].join("\n");
 }
 

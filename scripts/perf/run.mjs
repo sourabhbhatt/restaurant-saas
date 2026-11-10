@@ -27,7 +27,9 @@
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { parseArgs } from "node:util";
+import { gzipSync } from "node:zlib";
 
 import { apiSuite, explainPass, signInAll } from "./api.mjs";
 import { analyzeAll, bundlesMarkdown } from "./bundles.mjs";
@@ -38,6 +40,7 @@ import {
   assertPerfDatabase,
   frontendEnv,
   log,
+  median,
   ORIGINS,
   PORTS,
   ROOT,
@@ -59,6 +62,10 @@ const { values: args } = parseArgs({
     "skip-build": { type: "boolean", default: false },
     "keep-raw": { type: "boolean", default: false },
     "keep-next-cache": { type: "boolean", default: false },
+    // Lighthouse with the service worker allowed (not comparable across builds; see lighthouse.mjs).
+    "allow-sw": { type: "boolean", default: false },
+    // Read-latency series on Postgres; the summary keeps the median and the spread.
+    series: { type: "string", default: "3" },
     compare: { type: "string" },
   },
 });
@@ -153,6 +160,86 @@ async function assertProxyServesJson(app) {
 
 let lighthouseCookies;
 
+function noteLoad(phase) {
+  summary.machine.load[phase] = os.loadavg().map((v) => Math.round(v * 100) / 100);
+}
+
+/** Entries and bytes the service worker precaches on install (from the prebuilt sw.js). */
+function precacheStats() {
+  const out = {};
+  for (const app of ["console", "ops"]) {
+    const next = path.join(ROOT, "apps", app, ".next");
+    const swFile = path.join(next, "sw-prebuilt", "sw.js");
+    if (!existsSync(swFile)) continue;
+    const urls = [
+      ...new Set(
+        [...readFileSync(swFile, "utf8").matchAll(/"(\/_next\/static\/[^"]+)"/g)].map((m) => m[1]),
+      ),
+    ];
+    let raw = 0;
+    let gzip = 0;
+    for (const u of urls) {
+      const file = path.join(next, u.replace(/^\/_next\//, ""));
+      if (!existsSync(file)) continue;
+      const bytes = readFileSync(file);
+      raw += bytes.length;
+      gzip += gzipSync(bytes).length;
+    }
+    out[app] = {
+      entries: urls.length,
+      rawKB: Math.round(raw / 1024),
+      gzipKB: Math.round(gzip / 1024),
+    };
+  }
+  return out;
+}
+
+/** Bytes of the largest JSON payload (the guest menu), as served and as gzip would send it. */
+async function payloadSizes(ctx) {
+  const token = ctx.branches[0].qr.T2.token;
+  const res = await fetch(`${ORIGINS.api}/api/v1/public/qr/${token}`, {
+    headers: { "x-forwarded-for": "10.250.0.1", "accept-encoding": "gzip" },
+  });
+  const body = Buffer.from(await res.arrayBuffer());
+  return {
+    guestMenu: {
+      status: res.status,
+      contentEncoding: res.headers.get("content-encoding"),
+      bytes: body.length,
+      gzipBytes: gzipSync(body).length,
+    },
+  };
+}
+
+/**
+ * Read latency over several series: per endpoint and metric, the median of the
+ * series and their [min, max]. Statement counts and writes come from the first.
+ */
+function combineSeries(first, more) {
+  const all = [first, ...more];
+  const reads = {};
+  const spread = {};
+  for (const name of Object.keys(first.reads)) {
+    if (first.reads[name].error) {
+      reads[name] = first.reads[name];
+      continue;
+    }
+    reads[name] = {};
+    spread[name] = {};
+    for (const level of ["c1", "c8"]) {
+      const runs = all.map((r) => r.reads[name]?.[level]).filter(Boolean);
+      reads[name][level] = { ...first.reads[name][level] };
+      spread[name][level] = {};
+      for (const k of ["p50", "p95"]) {
+        const v = runs.map((r) => r[k]);
+        reads[name][level][k] = median(v);
+        spread[name][level][k] = [Math.min(...v), Math.max(...v)];
+      }
+    }
+  }
+  return { ...first, reads, readSeries: all.length, readSpread: spread };
+}
+
 /**
  * Connection churn under polling: one kitchen-feed request every 11 s (screens
  * poll every 10 s, plus jitter), counting the database sessions the API opens.
@@ -180,13 +267,22 @@ async function main() {
   summary.label = args.label;
   summary.git = gitRev();
   summary.startedAt = new Date().toISOString();
-  summary.machine = { node: process.version, platform: `${process.platform}-${process.arch}` };
+  summary.machine = {
+    node: process.version,
+    platform: `${process.platform}-${process.arch}`,
+    cpus: os.cpus().length,
+    cpuModel: os.cpus()[0]?.model ?? null,
+    memoryGB: Math.round(os.totalmem() / 2 ** 30),
+    // 1/5/15-minute load averages at the start of each phase (other work on the machine).
+    load: {},
+  };
   log(`output: ${OUT} (git ${summary.git})`);
 
   if (phases.has("build")) {
-    log("build: pnpm build");
+    log("build: pnpm build --force (no Turbo cache replay, so output sizes are comparable)");
+    noteLoad("build");
     const t0 = performance.now();
-    run("pnpm", ["build", "--concurrency=2"], { env: { NEXT_TELEMETRY_DISABLED: "1" } });
+    run("pnpm", ["build", "--concurrency=2", "--force"], { env: { NEXT_TELEMETRY_DISABLED: "1" } });
     summary.buildSeconds = Math.round((performance.now() - t0) / 1000);
     // Disk: the Turbopack cache (~100 MB per app) only speeds up the next build.
     if (!args["keep-next-cache"])
@@ -200,6 +296,11 @@ async function main() {
     const result = analyzeAll();
     writeFileSync(path.join(OUT, "bundles.json"), JSON.stringify(result, null, 2));
     summary.bundles = result;
+    summary.precache = precacheStats();
+    for (const [app, p] of Object.entries(summary.precache))
+      log(
+        `  ${app} service worker precache: ${p.entries} entries, ${p.rawKB} KB raw, ${p.gzipKB} KB gzip`,
+      );
     save();
   }
 
@@ -226,13 +327,17 @@ async function main() {
         await startFrontends();
         lighthouseCookies = await signInAll();
         const cookies = lighthouseCookies;
-        log(`lighthouse: ${LIGHTHOUSE}, ${args.runs} runs per page, chrome ${chromePath()}`);
+        log(
+          `lighthouse: ${LIGHTHOUSE}, ${args.runs} runs per page, service worker ${args["allow-sw"] ? "allowed" : "blocked"}, chrome ${chromePath()}`,
+        );
+        noteLoad("lighthouse");
         summary.lighthouse = lighthouseSuite(
           ctx,
           cookies,
           OUT,
           Number(args.runs),
           args["keep-raw"],
+          { blockServiceWorker: !args["allow-sw"] },
         );
         save();
       }
@@ -243,7 +348,10 @@ async function main() {
         await stop(api);
         api = await startApi(pgliteEnv);
         log("api: latency on PGlite (single embedded connection; not a production number)");
+        noteLoad("api");
         summary.apiPglite = await apiSuite(ctx, { cookies: lighthouseCookies });
+        summary.payloads = await payloadSizes(ctx);
+        log(`  guest menu payload: ${JSON.stringify(summary.payloads.guestMenu)}`);
         save();
       }
       await stopAll();
@@ -288,7 +396,14 @@ async function main() {
           // Statement counts and latency with auto_explain off.
           await stopAll();
           await startApi(runtime);
-          const result = await apiSuite(pctx, { counter: pg.countStatements, cookies });
+          noteLoad("pg");
+          const first = await apiSuite(pctx, { counter: pg.countStatements, cookies });
+          const more = [];
+          for (let i = 1; i < Number(args.series); i++) {
+            log(`  [pg] read series ${i + 1} of ${args.series}`);
+            more.push(await apiSuite(pctx, { cookies, writes: false }));
+          }
+          const result = combineSeries(first, more);
           const poolChurn = await measurePoolChurn(pctx, cookies);
           summary.pg = {
             poolChurn,
