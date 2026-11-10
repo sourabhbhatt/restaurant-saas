@@ -1,6 +1,6 @@
 {
-  "id": "c781f6c5-71e6-4bb9-980c-04c309089187",
-  "prevId": "734188ae-bbee-4de6-a642-dad6a3362dff",
+  "id": "010bff05-3772-4bfc-bce3-56ef28b4a47a",
+  "prevId": "adf00642-0968-4cd7-a51c-26542e33e120",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -4525,7 +4525,6 @@
             }
           ],
           "isUnique": false,
-          "where": "\"orders\".\"status\" in ('SERVED', 'COMPLETED')",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -7847,6 +7846,12 @@
         "created_by": {
           "name": "created_by",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "analytics_client_id": {
+          "name": "analytics_client_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

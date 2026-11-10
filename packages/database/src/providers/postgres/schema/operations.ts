@@ -442,10 +442,14 @@ export const orders = pgTable(
     index("orders_session_idx").on(t.sessionId),
     index("orders_branch_created_idx").on(t.branchId, t.createdAt),
     // Kitchen "recently done" list (polled every few seconds): only orders that finished or were
-    // cancelled recently are read, instead of scanning the branch's whole order history.
-    index("orders_branch_done_recent_idx")
-      .on(t.workspaceId, t.branchId, sql`coalesce(${t.servedAt}, ${t.completedAt}, ${t.updatedAt})`)
-      .where(sql`${t.status} in ('SERVED', 'COMPLETED')`),
+    // cancelled recently are read, instead of scanning the branch's whole order history. Not
+    // partial on purpose: Postgres ignores expression statistics of partial indexes, and without
+    // them it estimates a third of the table and keeps the sequential scan.
+    index("orders_branch_done_recent_idx").on(
+      t.workspaceId,
+      t.branchId,
+      sql`coalesce(${t.servedAt}, ${t.completedAt}, ${t.updatedAt})`,
+    ),
     index("orders_branch_cancelled_recent_idx")
       .on(t.workspaceId, t.branchId, t.cancelledAt)
       .where(sql`${t.status} = 'CANCELLED' and ${t.acceptedAt} is not null`),
