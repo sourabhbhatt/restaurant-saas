@@ -3,6 +3,8 @@
 import { onlineManager, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { liveQuery } from "dexie";
 
+import { api, newIdempotencyKey } from "@ros/api-client";
+
 import {
   clearUserData,
   getOfflineDb,
@@ -10,7 +12,7 @@ import {
   type OfflineDatabase,
   type OutboxItem,
 } from "./db";
-import { hydrateQueries, startQueryPersistence } from "./persist-queries";
+import { hydrateQueries, persistExistingQueries, startQueryPersistence } from "./persist-queries";
 import { backoffDelay, SyncEngine, type EnqueueInput } from "./sync-engine";
 import { countItems, EMPTY_COUNTS, setSyncState, useSyncStore } from "./sync-store";
 
@@ -34,6 +36,12 @@ const LOCK_NAME = "restaurantos-outbox-sync";
 
 /** Device user: owner of new local changes (may come from cached data while offline). */
 let deviceUserId: string | null = null;
+/**
+ * Whether the runtime has learned who is (or is not) signed in since it
+ * started. Until then a change waits for it (see waitForDeviceUser).
+ */
+let userKnown = false;
+let userWaiters: (() => void)[] = [];
 /** User confirmed by a live server response for the current session cookie. */
 let sessionUserId: string | null = null;
 let engine: SyncEngine | null = null;
@@ -180,6 +188,8 @@ export async function probeConnectivity(): Promise<boolean> {
     });
     // Any HTTP response means the server is reachable.
     setOnline(true);
+    // The body is never needed: release it, or the request stays open until the 5 s abort.
+    void res.body?.cancel().catch(() => undefined);
     return res.ok;
   } catch {
     setOnline(false);
@@ -212,6 +222,33 @@ function watchOutbox(db: OfflineDatabase): void {
 }
 
 /**
+ * How long a change made before the runtime knows the signed-in user waits for
+ * it (a fresh page: the screen can be tappable before /auth/me has answered).
+ */
+export const DEVICE_USER_WAIT_MS = 5_000;
+
+function userBecameKnown(): void {
+  userKnown = true;
+  for (const wake of userWaiters.splice(0)) wake();
+}
+
+/** Resolves when the device user is known, or after DEVICE_USER_WAIT_MS. */
+function waitForDeviceUser(): Promise<void> {
+  if (deviceUserId || userKnown) return Promise.resolve();
+  return new Promise((resolve) => {
+    const wake = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      userWaiters = userWaiters.filter((w) => w !== wake);
+      resolve();
+    }, DEVICE_USER_WAIT_MS);
+    userWaiters.push(wake);
+  });
+}
+
+/**
  * Called on explicit sign-out so the next account never sees this one's cached
  * data, outbox items or counts, and never queues changes under this account.
  * Its unsynced items stay in IndexedDB (hidden, counted as another account's).
@@ -225,6 +262,8 @@ export async function clearDeviceUserData(): Promise<void> {
   if (wakeTimer) clearTimeout(wakeTimer);
   wakeTimer = null;
   setSyncState({ userId: null, items: [], counts: EMPTY_COUNTS, authRequired: false });
+  // Signed out on purpose: a change now fails at once instead of waiting.
+  userBecameKnown();
   if (!db) return;
   watchOutbox(db);
   await clearUserData(db).catch(() => {
@@ -261,6 +300,9 @@ export async function setCurrentUser(userId: string | null, confirmed: boolean):
       await db.queryCache.clear().catch(() => {});
     }
     sessionUserId = userId;
+    // Results that resolved before the session user was confirmed (not written then).
+    if (userId && queryClientRef)
+      persistExistingQueries(queryClientRef, db, () => sessionUserId, hydratedKeys);
   }
   // A user restored from cache never overrides the one the server confirmed.
   const nextDevice = confirmed ? userId : (sessionUserId ?? userId);
@@ -269,6 +311,7 @@ export async function setCurrentUser(userId: string | null, confirmed: boolean):
     setSyncState({ userId: nextDevice });
     watchOutbox(db);
   }
+  userBecameKnown();
   if (sessionUserId) void getSyncEngine()?.syncNow();
 }
 
@@ -304,6 +347,8 @@ export function startOfflineRuntime(queryClient: QueryClient): () => void {
 
   stopFns.push(trackUser(queryClient));
   stopFns.push(startQueryPersistence(queryClient, db, () => sessionUserId));
+  // A new page: changes wait (briefly) until the runtime learns who is signed in.
+  if (!deviceUserId) userKnown = false;
 
   // Pick up a user that a live request already loaded (nothing is restored yet).
   const meId = queryClient.getQueryData<{ user?: { id?: string } }>(["me"])?.user?.id;
@@ -400,9 +445,34 @@ export function stopOfflineRuntime(): void {
 export async function enqueueMutation(input: EnqueueInput): Promise<OutboxItem> {
   const sync = getSyncEngine();
   if (!sync) throw new Error("Offline storage is not available in this browser.");
+  await waitForDeviceUser();
   const item = await sync.enqueue(input);
   if (useSyncStore.getState().online) void sync.syncNow();
   return item;
+}
+
+/** Whether this browser can keep changes on the device (IndexedDB is usable). */
+export function offlineStorageAvailable(): boolean {
+  return getSyncEngine() !== null;
+}
+
+/**
+ * Without IndexedDB (private mode on some browsers, a storage policy) nothing
+ * can be queued. While online, a change is sent at once, built as the engine
+ * would send it: the same body with its version field and an idempotency key.
+ * It rejects on any error (a 409 included) with the server's message; the
+ * caller shows nothing as done until it resolves.
+ */
+export async function sendWithoutStorage(input: EnqueueInput): Promise<void> {
+  const field = input.versionField ?? "version";
+  const base = (input.body ?? {}) as Record<string, unknown>;
+  const body =
+    input.expectedVersion === undefined ? input.body : { ...base, [field]: input.expectedVersion };
+  const opts = { idempotencyKey: input.idempotencyKey ?? newIdempotencyKey() };
+  if (input.method === "POST") await api.post(input.path, body, opts);
+  else if (input.method === "PATCH") await api.patch(input.path, body, opts);
+  else if (input.method === "PUT") await api.put(input.path, body, opts);
+  else await api.delete(input.path, opts);
 }
 
 /** Manual "Sync now": probes connectivity and ignores backoff timers. */

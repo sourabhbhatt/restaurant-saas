@@ -79,6 +79,45 @@ export async function hydrateQueries(
  * `getUserId` must return the server-confirmed user; nothing is written
  * while it is unknown (except ["me"], which carries its own user id).
  */
+/**
+ * Write the persistable queries that already hold a network result: those that
+ * resolved before persistence started, or before the session user was
+ * confirmed (their success events were skipped then). `exclude` lists keys
+ * restored from IndexedDB, which need no rewrite.
+ */
+export function persistExistingQueries(
+  queryClient: QueryClient,
+  db: OfflineDatabase,
+  getUserId: () => string | null,
+  exclude: QueryKey[] = [],
+): void {
+  const skip = new Set(exclude.map(queryCacheKey));
+  for (const query of queryClient.getQueryCache().getAll()) {
+    if (query.state.status !== "success" || !shouldPersistQuery(query)) continue;
+    if (skip.has(queryCacheKey(query.queryKey))) continue;
+    writeQuery(db, query, getUserId);
+  }
+}
+
+function writeQuery(db: OfflineDatabase, query: Query, getUserId: () => string | null): void {
+  const data = query.state.data;
+  if (data === undefined) return;
+  const isMe = query.queryKey.length === 1 && query.queryKey[0] === "me";
+  const userId = isMe ? userIdFromMe(data) : getUserId();
+  if (!userId) return;
+  void db.queryCache
+    .put({
+      key: queryCacheKey(query.queryKey),
+      queryKey: [...query.queryKey],
+      data,
+      updatedAt: query.state.dataUpdatedAt || Date.now(),
+      userId,
+    })
+    .catch(() => {
+      // Quota or private mode: persistence is best-effort.
+    });
+}
+
 export function startQueryPersistence(
   queryClient: QueryClient,
   db: OfflineDatabase,
@@ -86,24 +125,7 @@ export function startQueryPersistence(
 ): () => void {
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  const write = (query: Query) => {
-    const data = query.state.data;
-    if (data === undefined) return;
-    const isMe = query.queryKey.length === 1 && query.queryKey[0] === "me";
-    const userId = isMe ? userIdFromMe(data) : getUserId();
-    if (!userId) return;
-    void db.queryCache
-      .put({
-        key: queryCacheKey(query.queryKey),
-        queryKey: [...query.queryKey],
-        data,
-        updatedAt: query.state.dataUpdatedAt || Date.now(),
-        userId,
-      })
-      .catch(() => {
-        // Quota or private mode: persistence is best-effort.
-      });
-  };
+  const write = (query: Query) => writeQuery(db, query, getUserId);
 
   const pendingQueries = new Map<string, Query>();
   /** Keys written since this page loaded: only later updates are debounced. */
@@ -153,6 +175,14 @@ export function startQueryPersistence(
     window.addEventListener("pagehide", flush);
     document.addEventListener("visibilitychange", onHidden);
   }
+
+  // Results that resolved before this subscription (a page's first queries can) are
+  // saved now; their later updates are debounced like any other.
+  for (const query of queryClient.getQueryCache().getAll()) {
+    if (query.state.status === "success" && shouldPersistQuery(query))
+      written.add(queryCacheKey(query.queryKey));
+  }
+  persistExistingQueries(queryClient, db, getUserId);
 
   return () => {
     unsubscribe();

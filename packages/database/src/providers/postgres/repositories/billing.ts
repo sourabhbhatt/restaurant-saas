@@ -45,6 +45,13 @@ import {
   workspaces,
 } from "../schema";
 
+/**
+ * Open (issued) bills, written with a literal so bills_branch_open_idx (a
+ * partial index `WHERE status = 'ISSUED'`, migration 0009) also matches when
+ * the statement is prepared with a generic plan (`status = $1` would not).
+ */
+const billIsOpen = sql`${bills.status} = 'ISSUED'`;
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const DEFAULT_SETTINGS: BranchBillingSettings = {
@@ -630,7 +637,7 @@ export function billingRepository(db: Executor): BillingRepository {
 
     async listOpenBills(key) {
       const rows = await listQuery()
-        .where(and(billScope(key), eq(bills.status, "ISSUED")))
+        .where(and(billScope(key), billIsOpen))
         .orderBy(asc(bills.issuedAt));
       return rows.map(toListItem);
     },
@@ -859,7 +866,7 @@ export function billingRepository(db: Executor): BillingRepository {
             ),
         })
         .from(bills)
-        .where(and(billScope(key), eq(bills.status, "ISSUED")));
+        .where(and(billScope(key), billIsOpen));
       const [issued] = await db
         .select({ n: sql<number>`count(*)`.mapWith(Number) })
         .from(bills)

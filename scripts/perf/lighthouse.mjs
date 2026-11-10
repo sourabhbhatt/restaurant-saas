@@ -95,9 +95,33 @@ const METRICS = {
       .reduce((s, i) => s + (i.transferSize ?? 0), 0) / 1024,
   totalKB: (r) => (r.audits["total-byte-weight"]?.numericValue ?? 0) / 1024,
   requests: (r) => (r.audits["network-requests"]?.details?.items ?? []).length,
+  // Observed (not simulated) timings: Lantern does not model client-side delays such as a
+  // Suspense boundary holding commits, so the first API request and response are recorded too.
+  firstApiMs: (r) => {
+    const t = apiRequests(r).map((i) => i.networkRequestTime);
+    return t.length ? Math.min(...t) : null;
+  },
+  firstDataMs: (r) => {
+    const t = apiRequests(r)
+      .filter((i) => !i.url.includes("/sync/ping") && (i.statusCode ?? 0) < 400)
+      .map((i) => i.networkEndTime);
+    return t.length ? Math.min(...t) : null;
+  },
+  // Requests answered without network bytes (a service worker or memory cache): non-zero
+  // means Lantern simulated them as free, so runs are only comparable when this matches.
+  zeroTransferRequests: (r) =>
+    (r.audits["network-requests"]?.details?.items ?? []).filter(
+      (i) => (i.transferSize ?? 0) === 0 && !i.url.startsWith("data:"),
+    ).length,
 };
 
-/** LCP element and the requests on the page (first run only), so raw reports can be dropped. */
+function apiRequests(r) {
+  return (r.audits["network-requests"]?.details?.items ?? []).filter((i) =>
+    /^https?:\/\/[^/]+\/api\/v1\//.test(i.url),
+  );
+}
+
+/** LCP element, layout shifts and the requests of one run, so raw reports can be dropped. */
 function diagnostics(r) {
   const lcp = r.audits["lcp-breakdown-insight"]?.details?.items?.find((i) => i.type === "node");
   const reqs = (r.audits["network-requests"]?.details?.items ?? []).map((i) => ({
@@ -109,6 +133,7 @@ function diagnostics(r) {
     kb: round((i.transferSize ?? 0) / 1024, 1),
     startMs: round(i.networkRequestTime, 0),
     endMs: round(i.networkEndTime, 0),
+    status: i.statusCode ?? null,
     priority: i.priority ?? null,
   }));
   const shifts = (r.audits["layout-shifts"]?.details?.items ?? []).slice(0, 3).map((i) => ({
@@ -125,16 +150,25 @@ function diagnostics(r) {
 
 /**
  * Runs every target `runs` times. Raw JSON reports are written to
- * `outDir/lighthouse` and deleted after parsing unless `keepRaw`.
+ * `outDir/lighthouse` and deleted after parsing unless `keepRaw`. The service
+ * worker is blocked by default: whether it takes control mid-run decides which
+ * requests Lantern treats as free, so runs with it are not comparable.
  */
-export function lighthouseSuite(ctx, cookies, outDir, runs = 3, keepRaw = false) {
+export function lighthouseSuite(
+  ctx,
+  cookies,
+  outDir,
+  runs = 3,
+  keepRaw = false,
+  { blockServiceWorker = true } = {},
+) {
   const dir = path.join(outDir, "lighthouse");
   mkdirSync(dir, { recursive: true });
   const env = { CHROME_PATH: chromePath() };
   const results = {};
   for (const t of targets(ctx, cookies)) {
     const per = [];
-    let diag = null;
+    const diags = [];
     const slug = t.name
       .replace(/[^a-z0-9]+/gi, "-")
       .replace(/^-|-$/g, "")
@@ -153,6 +187,7 @@ export function lighthouseSuite(ctx, cookies, outDir, runs = 3, keepRaw = false)
         "--max-wait-for-load=45000",
       ];
       if (t.form === "desktop") args.push("--preset=desktop");
+      if (blockServiceWorker) args.push("--blocked-url-patterns=*/serwist/sw.js");
       if (t.cookie) {
         const headers = path.join(dir, `${slug}-headers.json`);
         writeFileSync(headers, JSON.stringify({ Cookie: t.cookie }));
@@ -165,7 +200,7 @@ export function lighthouseSuite(ctx, cookies, outDir, runs = 3, keepRaw = false)
       }
       const report = JSON.parse(readFileSync(file, "utf8"));
       if (!keepRaw) rmSync(file, { force: true });
-      if (!diag) diag = diagnostics(report);
+      diags.push(diagnostics(report));
       const m = {};
       for (const [k, f] of Object.entries(METRICS)) m[k] = f(report);
       m.finalUrl = report.finalDisplayedUrl ?? report.finalUrl;
@@ -178,7 +213,7 @@ export function lighthouseSuite(ctx, cookies, outDir, runs = 3, keepRaw = false)
     const ok = per.filter((p) => !p.error);
     const med = {};
     for (const k of Object.keys(METRICS))
-      med[k] = round(median(ok.map((p) => p[k])), k === "cls" ? 3 : 0);
+      med[k] = round(median(ok.map((p) => p[k]).filter((v) => v !== null)), k === "cls" ? 3 : 0);
     results[t.name] = {
       url: t.url.replace(/\/t\/[^/]+$/, "/t/<token>"),
       form: t.form,
@@ -188,10 +223,15 @@ export function lighthouseSuite(ctx, cookies, outDir, runs = 3, keepRaw = false)
       finalUrl: ok[0]?.finalUrl?.replace(/\/t\/[^/?]+/, "/t/<token>") ?? null,
       warnings: [...new Set(ok.flatMap((p) => p.warnings))].slice(0, 3),
       errors: per.filter((p) => p.error).map((p) => p.error),
-      diagnostics: diag,
+      serviceWorkerBlocked: blockServiceWorker,
+      perRun: ok.map((p) =>
+        Object.fromEntries(Object.keys(METRICS).map((k) => [k, round(p[k], k === "cls" ? 3 : 0)])),
+      ),
+      diagnostics: diags[0] ?? null,
+      diagnosticsRuns: diags,
     };
     log(
-      `  ${t.name}: perf ${med.performance} LCP ${med.lcpMs} CLS ${med.cls} TBT ${med.tbtMs} FCP ${med.fcpMs} TTFB ${med.ttfbMs} JS ${med.scriptKB} KB (${ok.length}/${per.length} ok)`,
+      `  ${t.name}: perf ${med.performance} LCP ${med.lcpMs} CLS ${med.cls} TBT ${med.tbtMs} FCP ${med.fcpMs} TTFB ${med.ttfbMs} JS ${med.scriptKB} KB first API ${med.firstApiMs} data ${med.firstDataMs} ms (${ok.length}/${per.length} ok)`,
     );
   }
   return results;

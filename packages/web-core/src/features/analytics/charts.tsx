@@ -1,7 +1,8 @@
 "use client";
 
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { Component, lazy, Suspense, useState, type ReactNode } from "react";
 
+import { Button } from "@ros/ui/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ros/ui/ui/card";
 import { Skeleton } from "@ros/ui/ui/skeleton";
 import { cn } from "@ros/ui/utils";
@@ -99,17 +100,48 @@ export function Legend({
  * page never shifts when the chunk arrives.
  */
 const loadPlots = () => import("./charts-recharts");
-if (typeof window !== "undefined") void loadPlots();
+// Warm-up only: a failure here surfaces (once) in the chart's own boundary below.
+if (typeof window !== "undefined") void loadPlots().catch(() => undefined);
 
 const TrendPlot = lazy(() => loadPlots().then((m) => ({ default: m.TrendPlot })));
 const ColumnPlot = lazy(() => loadPlots().then((m) => ({ default: m.ColumnPlot })));
 const BarPlot = lazy(() => loadPlots().then((m) => ({ default: m.BarPlot })));
 const DonutPlot = lazy(() => loadPlots().then((m) => ({ default: m.DonutPlot })));
 
+/**
+ * If the plots chunk cannot be fetched, only the chart says so; the report
+ * around it stays usable. React.lazy keeps a failed import, so "Reload" reloads
+ * the page.
+ */
+class PlotErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div
+        role="status"
+        className="flex size-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-center text-sm text-muted-foreground"
+      >
+        <span>Chart unavailable</span>
+        <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+          Reload
+        </Button>
+      </div>
+    );
+  }
+}
+
 function PlotBox({ height, children }: { height: number; children: ReactNode }) {
   return (
     <div style={{ height }} className="w-full">
-      <Suspense fallback={<Skeleton className="size-full" />}>{children}</Suspense>
+      <PlotErrorBoundary>
+        <Suspense fallback={<Skeleton className="size-full" />}>{children}</Suspense>
+      </PlotErrorBoundary>
     </div>
   );
 }
@@ -243,9 +275,11 @@ export function DonutChart({
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
       <div className="relative size-44 shrink-0">
-        <Suspense fallback={<Skeleton className="size-full rounded-full" />}>
-          <DonutPlot slices={slices} formatValue={formatValue} />
-        </Suspense>
+        <PlotErrorBoundary>
+          <Suspense fallback={<Skeleton className="size-full rounded-full" />}>
+            <DonutPlot slices={slices} formatValue={formatValue} />
+          </Suspense>
+        </PlotErrorBoundary>
         {centerValue && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
             <span className="text-sm font-semibold">{centerValue}</span>

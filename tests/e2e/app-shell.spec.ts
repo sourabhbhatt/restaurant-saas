@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, freshTable, qrToken, test } from "./support/fixtures";
 
 test("home page renders", async ({ page }) => {
   await page.goto("/");
@@ -20,12 +20,16 @@ test("web app manifest is linked and valid", async ({ page, request }) => {
   );
 });
 
-test("service worker is served and takes control", async ({ page, request }) => {
+test("service worker is served and takes control on the signed-in area", async ({
+  request,
+  newContext,
+}) => {
   const sw = await request.get("/serwist/sw.js");
   expect(sw.ok()).toBeTruthy();
   expect(sw.headers()["cache-control"]).toContain("no-cache");
 
-  await page.goto("/");
+  const { page } = await newContext("owner");
+  await page.goto("/app");
   const scope = await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.ready;
     return registration.scope;
@@ -33,11 +37,27 @@ test("service worker is served and takes control", async ({ page, request }) => 
   expect(scope).toMatch(/\/$/);
 });
 
-test("offline fallback page is shown for uncached pages when offline", async ({
+test("public and guest pages do not install the service worker", async ({
   page,
-  context,
+  ownerApi,
+  demo,
 }) => {
-  await page.goto("/");
+  const table = await freshTable(ownerApi, demo.otherBranchId);
+  const token = await qrToken(ownerApi, table.branchId, table.id);
+  // Marketing visitors and guests on mobile data never download the staff precache.
+  for (const path of ["/", "/pricing", "/sign-in", `/t/${token}`]) {
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+    const registrations = await page.evaluate(
+      async () => (await navigator.serviceWorker.getRegistrations()).length,
+    );
+    expect(registrations, path).toBe(0);
+  }
+});
+
+test("offline fallback page is shown for uncached pages when offline", async ({ newContext }) => {
+  const { page, context } = await newContext("owner");
+  await page.goto("/app");
   await page.evaluate(() => navigator.serviceWorker.ready);
   // Let the worker finish precaching before cutting the network.
   await page.waitForFunction(async () => {

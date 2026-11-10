@@ -4,6 +4,7 @@ import { GeistMono } from "./fonts";
 import { Suspense } from "react";
 
 import { AppProviders } from "@ros/web-core/app-providers";
+import { StaffOffline } from "@ros/web-core/staff-offline";
 import { RuntimeAppLinks } from "@ros/web-core/runtime-app-links";
 import "./globals.css";
 
@@ -58,6 +59,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Suspense fallback={null}>
             <RuntimeAppLinks />
           </Suspense>
+          {/* Every ops screen works offline: service worker, sync engine, saved data. */}
+          <StaffOffline />
           {children}
         </AppProviders>
       </body>

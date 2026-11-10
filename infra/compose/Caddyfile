@@ -5,14 +5,37 @@
 	auto_https off
 }
 
+# Next.js compresses pages and static files itself but not route handlers, so API JSON
+# relayed by the frontends (a guest menu is ~190 KB raw, ~30 KB gzip) is compressed here.
+# Responses that already carry Content-Encoding are left alone. Event streams are not in
+# the list: compressing them would buffer realtime events.
+(compress) {
+	encode {
+		zstd
+		gzip
+		match {
+			header Content-Type application/json*
+			header Content-Type application/manifest+json*
+			header Content-Type text/html*
+			header Content-Type text/css*
+			header Content-Type text/javascript*
+			header Content-Type application/javascript*
+			header Content-Type image/svg+xml*
+		}
+	}
+}
+
 :3000 {
+	import compress
 	reverse_proxy console:3000
 }
 
 :3001 {
+	import compress
 	reverse_proxy ops:3000
 }
 
 :3002 {
+	import compress
 	reverse_proxy admin:3000
 }
