@@ -8,22 +8,24 @@ import type { OrderDto } from "@ros/contracts/orders";
 import type { TableDto } from "@ros/contracts/tables";
 
 import { SetupChecklist } from "./setup-checklist";
-import { setupDone } from "./setup-progress";
+import { SETUP_POLL_MS, setupDone, setupGoalReached } from "./setup-progress";
 
 const WS = "11111111-1111-4111-8111-111111111111";
 const BR = "22222222-2222-4222-8222-222222222222";
 const T1 = "33333333-3333-4333-8333-333333333333";
+const T2 = "44444444-4444-4444-8444-444444444444";
+const ORDERS = `/api/v1/branches/${BR}/orders`;
 
 const menuWith = (items: number): BranchMenu =>
   ({
     categories: [{ id: "c1", name: "Mains", items: Array.from({ length: items }, () => ({})) }],
   }) as unknown as BranchMenu;
 
-const table = (qr: boolean, isActive = true): TableDto =>
+const table = (qr: boolean, isActive = true, id = T1): TableDto =>
   ({
-    id: T1,
+    id,
     branchId: BR,
-    name: "T1",
+    name: id === T1 ? "T1" : "Counter",
     isActive,
     qr: { active: qr, createdAt: qr ? new Date().toISOString() : null },
   }) as unknown as TableDto;
@@ -40,15 +42,20 @@ function workspace(dismissedAt: string | null = null) {
   };
 }
 
-function mockApi(routes: Record<string, unknown>) {
-  const calls: { method: string; path: string; body?: unknown }[] = [];
+type Route = unknown | ((url: URL) => unknown);
+
+/** Answers `METHOD /path` routes; a function route sees the full URL (query string). */
+function mockApi(routes: Record<string, Route>) {
+  const calls: { method: string; path: string; search: string; body?: unknown }[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
-      const path = new URL(url, "http://localhost").pathname;
+      const u = new URL(url, "http://localhost");
       const method = init?.method ?? "GET";
-      calls.push({ method, path, body: init?.body ? JSON.parse(String(init.body)) : undefined });
-      const data = routes[`${method} ${path}`];
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      calls.push({ method, path: u.pathname, search: u.search, body });
+      const route = routes[`${method} ${u.pathname}`];
+      const data = typeof route === "function" ? (route as (url: URL) => unknown)(u) : route;
       if (data === undefined) return new Response("{}", { status: 404 });
       return new Response(JSON.stringify({ data }), {
         status: 200,
@@ -58,6 +65,12 @@ function mockApi(routes: Record<string, unknown>) {
   );
   return calls;
 }
+
+/** Orders route: `status=` asks for accepted orders, otherwise any order. */
+const ordersRoute =
+  (state: { any: OrderDto[]; accepted: OrderDto[] }) =>
+  (u: URL): OrderDto[] =>
+    u.searchParams.get("status") ? state.accepted : state.any;
 
 function renderChecklist() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -72,16 +85,18 @@ function renderChecklist() {
       expect(qc.isFetching()).toBe(0);
       expect(qc.getQueryCache().findAll().length).toBeGreaterThan(0);
     });
-  return { ...view, settled };
+  return { ...view, qc, settled };
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 describe("setupDone", () => {
   it("is driven by the branch's real menu, tables, QR codes and orders", () => {
-    expect(setupDone({ menu: menuWith(0), tables: [], orders: [] })).toEqual({
+    const none = { anyOrder: [], acceptedOrder: [] };
+    expect(setupDone({ menu: menuWith(0), tables: [], ...none })).toEqual({
       menu: false,
       tables: false,
       qr: false,
@@ -89,38 +104,55 @@ describe("setupDone", () => {
       accept: false,
     });
     expect(
-      setupDone({ menu: menuWith(2), tables: [table(true)], orders: [order("PENDING")] }),
+      setupDone({
+        menu: menuWith(2),
+        tables: [table(true)],
+        anyOrder: [order("PENDING")],
+        acceptedOrder: [],
+      }),
     ).toEqual({ menu: true, tables: true, qr: true, "test-order": true, accept: false });
     expect(
-      setupDone({ menu: menuWith(1), tables: [table(true)], orders: [order("PREPARING")] }).accept,
+      setupDone({
+        menu: menuWith(1),
+        tables: [table(true)],
+        anyOrder: [order("PREPARING")],
+        acceptedOrder: [order("PREPARING")],
+      }).accept,
     ).toBe(true);
   });
 
-  it("ignores inactive tables and needs a QR code on every active one", () => {
-    expect(setupDone({ menu: undefined, tables: [table(false, false)], orders: [] }).tables).toBe(
-      false,
-    );
-    expect(
-      setupDone({
-        menu: undefined,
-        tables: [table(true), { ...table(false), id: "t2" }],
-        orders: [],
-      }).qr,
-    ).toBe(false);
+  it("needs one active table with a QR code, not every table", () => {
+    const none = { menu: undefined, anyOrder: [], acceptedOrder: [] };
+    expect(setupDone({ ...none, tables: [table(false, false)] }).tables).toBe(false);
+    // A counter or parcel table without a printed code does not hold the checklist open.
+    expect(setupDone({ ...none, tables: [table(true), table(false, true, T2)] }).qr).toBe(true);
+    expect(setupDone({ ...none, tables: [table(true, false)] }).qr).toBe(false);
+  });
+
+  it("is reached once a QR code is live and an order has been accepted", () => {
+    const done = setupDone({
+      menu: menuWith(0),
+      tables: [table(true)],
+      anyOrder: [order("SERVED")],
+      acceptedOrder: [order("SERVED")],
+    });
+    expect(setupGoalReached(done)).toBe(true);
+    expect(setupGoalReached({ ...done, accept: false })).toBe(false);
+    expect(setupGoalReached({ ...done, qr: false })).toBe(false);
   });
 });
 
 describe("SetupChecklist", () => {
-  it("points a new owner at the next real step", async () => {
+  it("points a new owner at the next real step, in a labelled region", async () => {
     mockApi({
       [`GET /api/v1/workspaces/${WS}`]: workspace(),
       [`GET /api/v1/branches/${BR}/menu`]: menuWith(1),
       [`GET /api/v1/branches/${BR}/tables`]: [table(false)],
-      [`GET /api/v1/branches/${BR}/orders`]: [],
+      [`GET ${ORDERS}`]: [],
     });
     renderChecklist();
-    const card = await screen.findByRole("heading", { name: "Get ready for your first order" });
-    const list = within(card.closest("[data-slot=card]") as HTMLElement).getByRole("list");
+    const region = await screen.findByRole("region", { name: "Get ready for your first order" });
+    const list = within(region).getByRole("list");
     expect(screen.getByText(/2 of 5 done/)).toBeInTheDocument();
 
     const next = within(list)
@@ -136,12 +168,26 @@ describe("SetupChecklist", () => {
     expect(screen.queryByRole("link", { name: /Open guest menu/ })).not.toBeInTheDocument();
   });
 
+  it("keeps the print link once codes exist and says how many tables have one", async () => {
+    mockApi({
+      [`GET /api/v1/workspaces/${WS}`]: workspace(),
+      [`GET /api/v1/branches/${BR}/menu`]: menuWith(1),
+      [`GET /api/v1/branches/${BR}/tables`]: [table(true), table(false, true, T2)],
+      [`GET ${ORDERS}`]: [],
+      [`GET /api/v1/tables/${T1}/qr`]: { tableId: T1, url: "http://localhost:3000/t/abc" },
+    });
+    renderChecklist();
+    const step = (await screen.findByText(/1 of 2 tables have a QR code/)).closest("li")!;
+    expect(step).toHaveTextContent("Print table QR codes (done)");
+    expect(within(step).getByRole("link", { name: /Print QR codes/ })).toBeInTheDocument();
+  });
+
   it("lets the owner place a test order on a real table's guest page", async () => {
     mockApi({
       [`GET /api/v1/workspaces/${WS}`]: workspace(),
       [`GET /api/v1/branches/${BR}/menu`]: menuWith(3),
       [`GET /api/v1/branches/${BR}/tables`]: [table(true)],
-      [`GET /api/v1/branches/${BR}/orders`]: [],
+      [`GET ${ORDERS}`]: [],
       [`GET /api/v1/tables/${T1}/qr`]: {
         tableId: T1,
         tableName: "T1",
@@ -157,19 +203,87 @@ describe("SetupChecklist", () => {
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
-  it("disappears once the first order has been accepted", async () => {
-    const calls = mockApi({
+  it("explains the separate staff sign-in and how to clear the test order", async () => {
+    mockApi({
       [`GET /api/v1/workspaces/${WS}`]: workspace(),
       [`GET /api/v1/branches/${BR}/menu`]: menuWith(3),
       [`GET /api/v1/branches/${BR}/tables`]: [table(true)],
-      [`GET /api/v1/branches/${BR}/orders`]: [order("ACCEPTED")],
+      [`GET ${ORDERS}`]: ordersRoute({ any: [order("PENDING")], accepted: [] }),
     });
-    const { container, settled } = renderChecklist();
+    renderChecklist();
+    const link = await screen.findByRole("link", { name: /Open waiter console/ });
+    const step = link.closest("li")!;
+    expect(step).toHaveTextContent(/sign in once with the same account/i);
+    expect(step).toHaveTextContent(/cancel the test order and close the table/i);
+  });
+
+  it("finishes for good once an order is accepted, even with a table that has no code", async () => {
+    const state = { dismissedAt: null as string | null };
+    const calls = mockApi({
+      [`GET /api/v1/workspaces/${WS}`]: () => workspace(state.dismissedAt),
+      [`PUT /api/v1/workspaces/${WS}/onboarding`]: () => {
+        state.dismissedAt = "2026-11-10T09:00:00.000Z";
+        return {};
+      },
+      [`GET /api/v1/branches/${BR}/menu`]: menuWith(3),
+      [`GET /api/v1/branches/${BR}/tables`]: [table(true), table(false, true, T2)],
+      [`GET ${ORDERS}`]: ordersRoute({ any: [order("ACCEPTED")], accepted: [order("ACCEPTED")] }),
+    });
+    const { container, qc, settled } = renderChecklist();
     await waitFor(() =>
-      expect(calls.some((c) => c.path === `/api/v1/branches/${BR}/orders`)).toBe(true),
+      expect(calls.filter((c) => c.method === "PUT")).toEqual([
+        {
+          method: "PUT",
+          path: `/api/v1/workspaces/${WS}/onboarding`,
+          search: "",
+          body: { completedStep: "done", dismiss: true },
+        },
+      ]),
     );
     await settled();
     expect(container).toBeEmptyDOMElement();
+
+    // Every checklist query is switched off, so revisits and refetches send nothing more.
+    const before = calls.length;
+    await qc.refetchQueries({ type: "active" });
+    await settled();
+    expect(calls.slice(before).filter((c) => c.path !== `/api/v1/workspaces/${WS}`)).toEqual([]);
+    expect(calls.filter((c) => c.method === "PUT")).toHaveLength(1);
+  });
+
+  it("checks for the test order only while waiting for it, then stops", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const orders = { any: [] as OrderDto[], accepted: [] as OrderDto[] };
+    const calls = mockApi({
+      [`GET /api/v1/workspaces/${WS}`]: workspace(),
+      [`PUT /api/v1/workspaces/${WS}/onboarding`]: {},
+      [`GET /api/v1/branches/${BR}/menu`]: menuWith(3),
+      [`GET /api/v1/branches/${BR}/tables`]: [table(true)],
+      [`GET /api/v1/tables/${T1}/qr`]: { tableId: T1, url: "http://localhost:3000/t/abc" },
+      [`GET ${ORDERS}`]: ordersRoute(orders),
+    });
+    const { container, settled } = renderChecklist();
+    await screen.findByRole("link", { name: /Open guest menu/ });
+    const orderCalls = () => calls.filter((c) => c.path === ORDERS).length;
+
+    // Waiting for the guest's order: polled.
+    const waiting = orderCalls();
+    await vi.advanceTimersByTimeAsync(SETUP_POLL_MS + 1_000);
+    await settled();
+    expect(orderCalls()).toBeGreaterThan(waiting);
+
+    // The order arrives and is accepted: one poll sees the order, the next sees it
+    // accepted (only one lookup polls at a time); the checklist finishes and polling stops.
+    orders.any = [order("ACCEPTED")];
+    orders.accepted = [order("ACCEPTED")];
+    await vi.advanceTimersByTimeAsync(SETUP_POLL_MS + 1_000);
+    await settled();
+    await vi.advanceTimersByTimeAsync(SETUP_POLL_MS + 1_000);
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    await settled();
+    const after = orderCalls();
+    await vi.advanceTimersByTimeAsync(3 * SETUP_POLL_MS);
+    expect(orderCalls()).toBe(after);
   });
 
   it("stays hidden after it was dismissed and does not load branch data", async () => {
@@ -185,7 +299,7 @@ describe("SetupChecklist", () => {
       [`GET /api/v1/workspaces/${WS}`]: workspace(),
       [`GET /api/v1/branches/${BR}/menu`]: menuWith(0),
       [`GET /api/v1/branches/${BR}/tables`]: [],
-      [`GET /api/v1/branches/${BR}/orders`]: [],
+      [`GET ${ORDERS}`]: [],
       [`PUT /api/v1/workspaces/${WS}/onboarding`]: {},
     });
     renderChecklist();
@@ -194,6 +308,7 @@ describe("SetupChecklist", () => {
       expect(calls).toContainEqual({
         method: "PUT",
         path: `/api/v1/workspaces/${WS}/onboarding`,
+        search: "",
         body: { dismiss: true },
       }),
     );

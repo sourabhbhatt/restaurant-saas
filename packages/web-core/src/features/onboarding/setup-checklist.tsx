@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CheckCircle2, Circle, ExternalLink, X } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@ros/ui/ui/button";
@@ -22,12 +22,16 @@ import { api, errorMessage } from "@ros/api-client";
 import { analyticsKeys, useWorkspaceDetail } from "../analytics/queries";
 import { appHref, useAppLinks } from "../../app-links";
 
-import { useBranchSetupProgress, type SetupStepKey } from "./setup-progress";
+import { setupGoalReached, useBranchSetupProgress, type SetupStepKey } from "./setup-progress";
 
 interface Step {
   key: SetupStepKey;
   title: string;
   description: string;
+  /** Shown instead of the description once the step is done. */
+  doneNote?: string;
+  /** Keep the action available after the step is done (e.g. reprinting codes). */
+  keepAction?: boolean;
   action: { href: string; label: string; external?: boolean } | null;
 }
 
@@ -60,9 +64,10 @@ function StepLink({
 
 /**
  * "Get ready for your first order": a short checklist for workspace owners,
- * driven by the branch's real menu, tables, QR codes and orders. It hides
- * itself once everything is done, and can be hidden for good (server-side,
- * the same flag as the onboarding wizard) at any time.
+ * driven by the branch's real menu, tables, QR codes and orders. Its goal is a
+ * live QR code and a first accepted order; when that is reached it records
+ * onboarding as done and hidden (server-side, once), and stops fetching. It can
+ * also be hidden for good at any time.
  */
 export function SetupChecklist({
   workspaceId,
@@ -80,7 +85,24 @@ export function SetupChecklist({
   const links = useAppLinks();
   const detail = useWorkspaceDetail(workspaceId);
   const dismissed = Boolean(detail.data?.workspace.onboarding.dismissedAt);
-  const progress = useBranchSetupProgress(branchId, detail.isSuccess && !dismissed);
+  const complete = useMutation({
+    mutationFn: () =>
+      api.put(`/workspaces/${workspaceId}/onboarding`, { completedStep: "done", dismiss: true }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: analyticsKeys.workspaceDetail(workspaceId) }),
+  });
+  // Nothing is fetched or polled once the goal is reached or the checklist is hidden.
+  const progress = useBranchSetupProgress(
+    branchId,
+    detail.isSuccess && !dismissed && complete.isIdle,
+  );
+  const reached = progress.ready && setupGoalReached(progress.done);
+  const markComplete = complete.mutate;
+  const sent = useRef(false);
+  useEffect(() => {
+    if (!reached || dismissed || sent.current) return;
+    sent.current = true;
+    markComplete();
+  }, [reached, dismissed, markComplete]);
   const hide = useMutation({
     mutationFn: () => api.put(`/workspaces/${workspaceId}/onboarding`, { dismiss: true }),
     onSuccess: async () => {
@@ -90,8 +112,10 @@ export function SetupChecklist({
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  if (!detail.isSuccess || dismissed || !progress.ready) return null;
-  const { done } = progress;
+  if (!detail.isSuccess || dismissed || !progress.ready || reached || !complete.isIdle) {
+    return null;
+  }
+  const { done, qrTables } = progress;
   const steps: Step[] = [
     {
       key: "menu",
@@ -109,6 +133,8 @@ export function SetupChecklist({
       key: "qr",
       title: "Print table QR codes",
       description: "Each table gets its own code. Guests scan it with their phone camera — no app.",
+      doneNote: `${qrTables.withCode} of ${qrTables.total} tables have a QR code. Print them and put one on each table.`,
+      keepAction: true,
       action: { href: `/print/tables?branchId=${branchId}`, label: "Print QR codes" },
     },
     {
@@ -125,7 +151,7 @@ export function SetupChecklist({
       key: "accept",
       title: "Accept it as a waiter",
       description:
-        "New orders wait for a waiter to accept them, then appear on the Kitchen display.",
+        "Opens the staff app: sign in once with the same account. Accept the order there and it goes to the Kitchen display. Afterwards, cancel the test order and close the table — no bill needed.",
       action: done["test-order"]
         ? {
             href: appHref(links.ops, `/waiter/${branchId}`),
@@ -143,6 +169,7 @@ export function SetupChecklist({
 
   return (
     <Card
+      role="region"
       className={cn("gap-4 border-primary/30 bg-primary/[0.03]", className)}
       aria-labelledby="setup-checklist-title"
     >
@@ -189,9 +216,13 @@ export function SetupChecklist({
                     {s.title}
                     <span className="sr-only">{isDone ? " (done)" : " (to do)"}</span>
                   </p>
-                  {!isDone && <p className="text-sm text-muted-foreground">{s.description}</p>}
+                  {!isDone ? (
+                    <p className="text-sm text-muted-foreground">{s.description}</p>
+                  ) : s.doneNote ? (
+                    <p className="text-sm text-muted-foreground">{s.doneNote}</p>
+                  ) : null}
                 </div>
-                {!isDone && action ? (
+                {(!isDone || s.keepAction) && action ? (
                   <div className="max-sm:w-full max-sm:pl-8 max-sm:*:w-full">
                     <StepLink
                       href={action.href}
