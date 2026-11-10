@@ -44,6 +44,8 @@ export function ProfileMenu({
   const signOut = useSignOut();
   const switchWorkspace = useSwitchWorkspace(workspaceId);
   const links = useAppLinks();
+  // The account's own workspace list is the source of truth for its name.
+  const contextName = workspaces.find((w) => w.id === workspaceId)?.name ?? workspaceName;
 
   if (!ready || !user) {
     return <Skeleton className="size-9 rounded-full" aria-label="Loading account" />;
@@ -70,13 +72,13 @@ export function ProfileMenu({
         <DropdownMenuLabel className="flex flex-col gap-0.5 font-normal">
           <span className="truncate text-sm font-semibold">{user.name}</span>
           <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-          {(roleLabel || workspaceName) && (
+          {(roleLabel || contextName) && (
             <span className="mt-1 text-xs text-muted-foreground">
               {roleLabel ? (
                 <strong className="font-medium text-foreground">{roleLabel}</strong>
               ) : null}
-              {roleLabel && workspaceName ? " · " : ""}
-              {workspaceName}
+              {roleLabel && contextName ? " · " : ""}
+              {contextName}
             </span>
           )}
           {branchLabel && (

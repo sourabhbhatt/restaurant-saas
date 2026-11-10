@@ -36,6 +36,7 @@ export function WorkspaceSwitcher({
       <DropdownMenuTrigger
         className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-sidebar-accent"
         aria-label={`Workspace ${currentName}. Switch workspace`}
+        title={currentName}
       >
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
           {currentName.slice(0, 1).toUpperCase()}
