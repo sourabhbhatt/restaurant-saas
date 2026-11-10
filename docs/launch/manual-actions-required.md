@@ -27,30 +27,30 @@ Project facts used below (from `docs/runbooks/staging-gcp.md`, `infra/gcp/deploy
 
 ## Summary
 
-| #   | Priority                | Action                                                                                                                | Cost                                                    |
-| --- | ----------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| A1  | P0                      | Check whether the Google Cloud billing account is a free trial or paid                                                | ₹0                                                      |
-| A2  | P0                      | Decide on the proxy secret; if approved, create it, grant access and redeploy all four apps                           | ≈₹5/month + Cloud SQL time, **needs approval**          |
-| A3  | P0                      | Protect the `staging` and `main` branches                                                                             | ₹0                                                      |
-| A4  | P0                      | Push the audit branch and watch the first CI run (the e2e job runs on push to `staging`/`main`, not on pull requests) | ₹0                                                      |
-| A5  | P0 (compose users only) | Add `PROXY_SHARED_SECRET` to `infra/compose/.env.compose`; validate the Caddy file once                               | ₹0                                                      |
-| B1  | P1                      | Schedule `/api/v1/jobs/subscriptions` hourly with Cloud Scheduler                                                     | ₹0 within the free jobs, verify first                   |
-| B2  | P1                      | Provision production (separate project); the production workflow fails closed today                                   | **needs approval**                                      |
-| B3  | P1                      | Domain and DNS, then the indexing variables on production only, and switch off production's `*.run.app` URL           | domain price, **needs approval**                        |
-| B4  | P1                      | Pin GitHub Actions to commit SHAs and enable Dependabot for actions                                                   | ₹0                                                      |
-| B5  | P1                      | Legal review of the privacy policy; set the real legal entity and support e-mail                                      | lawyer's fees, **needs approval**                       |
-| B6  | P1                      | GA4: two properties, Enhanced measurement off (hard gate), IDs, API secret, DebugView check, key events               | ₹0 for GA4; secret and Cloud SQL time **need approval** |
-| B7  | P1                      | E-mail provider (Resend)                                                                                              | free tier, verify limits; secret **needs approval**     |
-| B8  | P1                      | Search Console and Bing Webmaster Tools, after the domain exists                                                      | ₹0                                                      |
-| B9  | P1                      | Razorpay test-mode checkout by hand, and the dashboard webhook check                                                  | ₹0 locally; staging needs Cloud SQL time                |
-| B10 | P1                      | Real-device tests: phones, thermal printer, kitchen screen, real Wi-Fi drops                                          | ₹0 with your own devices                                |
-| B11 | P1                      | Track the remaining engineering items                                                                                 | ₹0                                                      |
-| B12 | P1                      | Check whether Cloud Run compresses API JSON (one read-only request)                                                   | during an approved testing window                       |
-| C1  | P2                      | List RestaurantOS honestly on software directories; genuine reviews only                                              | ₹0 for free listings                                    |
-| C2  | P2                      | Decide whether AI training crawlers may read the public site                                                          | ₹0                                                      |
-| C3  | P2                      | A short usability session with 2–3 real restaurant owners                                                             | ₹0                                                      |
-| C4  | P2                      | Decide on the growth recommendations                                                                                  | ₹0 to build and run                                     |
-| C5  | P2                      | Keep or discard the audit working files                                                                               | ₹0                                                      |
+| #   | Priority                | Action                                                                                                                             | Cost                                                    |
+| --- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| A1  | P0                      | Check whether the Google Cloud billing account is a free trial or paid                                                             | ₹0                                                      |
+| A2  | P0                      | Decide on the proxy secret; if approved, create it, grant access and redeploy all four apps                                        | ≈₹5/month + Cloud SQL time, **needs approval**          |
+| A3  | P0                      | Protect the `staging` and `main` branches                                                                                          | ₹0                                                      |
+| A4  | Done                    | The audit branch is pushed; its first CI run on GitHub passed (the e2e job runs on push to `staging`/`main`, not on pull requests) | ₹0                                                      |
+| A5  | P0 (compose users only) | Add `PROXY_SHARED_SECRET` to `infra/compose/.env.compose`; validate the Caddy file once                                            | ₹0                                                      |
+| B1  | P1                      | Schedule `/api/v1/jobs/subscriptions` hourly with Cloud Scheduler                                                                  | ₹0 within the free jobs, verify first                   |
+| B2  | P1                      | Provision production (separate project); the production workflow fails closed today                                                | **needs approval**                                      |
+| B3  | P1                      | Domain and DNS, then the indexing variables on production only, and switch off production's `*.run.app` URL                        | domain price, **needs approval**                        |
+| B4  | P1                      | Pin GitHub Actions to commit SHAs and enable Dependabot for actions                                                                | ₹0                                                      |
+| B5  | P1                      | Legal review of the privacy policy; set the real legal entity and support e-mail                                                   | lawyer's fees, **needs approval**                       |
+| B6  | P1                      | GA4: two properties, Enhanced measurement off (hard gate), IDs, API secret, DebugView check, key events                            | ₹0 for GA4; secret and Cloud SQL time **need approval** |
+| B7  | P1                      | E-mail provider (Resend)                                                                                                           | free tier, verify limits; secret **needs approval**     |
+| B8  | P1                      | Search Console and Bing Webmaster Tools, after the domain exists                                                                   | ₹0                                                      |
+| B9  | P1                      | Razorpay test-mode checkout by hand, and the dashboard webhook check                                                               | ₹0 locally; staging needs Cloud SQL time                |
+| B10 | P1                      | Real-device tests: phones, thermal printer, kitchen screen, real Wi-Fi drops                                                       | ₹0 with your own devices                                |
+| B11 | P1                      | Track the remaining engineering items                                                                                              | ₹0                                                      |
+| B12 | P1                      | Check whether Cloud Run compresses API JSON (one read-only request)                                                                | during an approved testing window                       |
+| C1  | P2                      | List RestaurantOS honestly on software directories; genuine reviews only                                                           | ₹0 for free listings                                    |
+| C2  | P2                      | Decide whether AI training crawlers may read the public site                                                                       | ₹0                                                      |
+| C3  | P2                      | A short usability session with 2–3 real restaurant owners                                                                          | ₹0                                                      |
+| C4  | P2                      | Decide on the growth recommendations                                                                                               | ₹0 to build and run                                     |
+| C5  | P2                      | Keep or discard the audit working files                                                                                            | ₹0                                                      |
 
 ---
 
@@ -141,21 +141,13 @@ With a single maintainer, a required approval would block your own merges, becau
 
 **Cost.** ₹0 (public repository).
 
-### A4. Push the audit branch and watch the first CI run
+### A4. First CI run on GitHub (done)
 
-**Why.** The audit branch has never run on GitHub. The `e2e` job (four production builds, 183 browser tests, then the consent run) and the `integration-pg` job (the Postgres-only tests, including `postgres-resilience.test.ts`, which has never executed) run for the first time there.
+**Status.** Done. The controller pushed the audited head `ea29797` to `claude/epic-turing-vhor3y` and to `staging`. **Deploy staging** run [42813872728](https://github.com/sourabhbhatt/restaurant-saas/actions/runs/42813872728) passed every check: `verify`, `integration-pg` (including the Postgres-only `postgres-resilience.test.ts`), `storage-s3`, `secrets`, `audit` and `e2e` (156 passed, 0 failed, 27 skipped in 3.3 minutes, then the consent run: 16 passed, 2 skipped). The gate found Cloud SQL stopped and ended with **"Staging deploy pending"**: nothing was built for Cloud Run or deployed, at ₹0. The whole pipeline took about 14 minutes, well inside the e2e job's 30-minute limit.
 
-**When the e2e job runs.** Only on a **push to `staging` or `main`**, never on a pull request. A push to `staging` starts **Deploy staging**, which runs the full CI (including `e2e`) first. While Cloud SQL is stopped, that pipeline runs every check and then ends green with **"Staging deploy pending"**: nothing is built for Cloud Run, nothing is deployed, and it costs ₹0.
+**When the e2e job runs.** Only on a **push to `staging` or `main`**, never on a pull request. While Cloud SQL is stopped, a push to `staging` runs every check and ends green with "Staging deploy pending".
 
-**Steps.**
-
-1. Push `audit/integration` and open a pull request into `staging`. On the pull request, CI runs the affected-package checks (`verify`), `integration-pg`, `storage-s3`, gitleaks, `pnpm audit` and the image builds, but **not** `e2e`.
-2. Merge into `staging` (with Cloud SQL stopped). Watch **Actions → Deploy staging → checks → e2e**. Expected end state: all checks green and the summary "Staging deploy pending".
-3. If a test fails, download the `playwright-report` artifact (kept 7 days) for traces. In CI, Playwright retries a failed test twice; a test that passed on retry still shows in the report.
-
-**Expected outcome.** `verify`, `integration-pg`, `storage-s3`, `secrets`, `audit` and `e2e` all green. The local final run took about 30 s of test time plus four production builds; if `e2e` on GitHub comes close to its 30-minute limit, raise `timeout-minutes` to 45 (final backend review I2) rather than removing the gate.
-
-**Cost.** ₹0 (public repository; artifacts expire after 7 days).
+**Your part.** Nothing now. When a test fails in a later run, download the `playwright-report` artifact (kept 7 days) for traces; in CI a failed test is retried twice and a test that passed on retry still shows in the report.
 
 ### A5. Compose users: add `PROXY_SHARED_SECRET`
 
