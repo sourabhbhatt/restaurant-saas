@@ -155,6 +155,11 @@ describe("BranchShell sidebar", () => {
     const menu = await screen.findByRole("menu");
     expect(within(menu).getByText(/Sharma Hospitality/)).toBeInTheDocument();
     expect(within(menu).getByText("Dosa Corner · Koregaon Park")).toBeInTheDocument();
+    // Help is one tap away from every screen.
+    expect(within(menu).getByRole("menuitem", { name: /Help & support/ })).toHaveAttribute(
+      "href",
+      `http://localhost:3000/app/w/${WS}/support`,
+    );
   });
 
   it("shows the full workspace name on hover when it is truncated", async () => {

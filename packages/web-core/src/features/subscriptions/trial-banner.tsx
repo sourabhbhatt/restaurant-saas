@@ -89,6 +89,7 @@ export function TrialBanner({
             {days} day{days === 1 ? "" : "s"} left
           </strong>{" "}
           in your free trial of {e.planName ?? "the plan"} (ends {formatDate(e.trialEndsAt)}).
+          {dismissible ? null : " Choose a plan to keep full access — your data stays as it is."}
         </>
       );
       break;
@@ -142,10 +143,13 @@ export function TrialBanner({
       className={cn("border-b px-4 py-2 text-sm", toneClass[tone])}
       role={tone === "info" ? "status" : "alert"}
     >
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1">
         {icon}
-        <p className="min-w-0 flex-1 text-foreground">{message}</p>
-        <div className="flex items-center gap-1">
+        {/* Phones: the message gets the whole first line, actions go below it. */}
+        <p className="min-w-0 flex-1 basis-[calc(100%-1.75rem)] text-foreground sm:basis-0">
+          {message}
+        </p>
+        <div className="flex items-center gap-1 max-sm:ml-7">
           {showUpgrade ? (
             <Button size="sm" onClick={() => setUpgradeOpen(true)}>
               <Sparkles aria-hidden /> Upgrade

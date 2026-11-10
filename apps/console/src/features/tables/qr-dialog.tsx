@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, Copy, Download, QrCode, RefreshCw } from "lucide-react";
+import { Ban, Copy, Download, ExternalLink, QrCode, RefreshCw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -118,6 +118,15 @@ function QrBody({ table }: { table: TableDto }) {
         </div>
         <p className="text-xs text-muted-foreground">
           Created {new Date(data.createdAt).toLocaleString()}
+        </p>
+        <Button asChild className="w-full">
+          <a href={data.url} target="_blank" rel="noopener noreferrer">
+            <ExternalLink aria-hidden /> Open guest menu
+            <span className="sr-only">(opens in a new tab)</span>
+          </a>
+        </Button>
+        <p className="-mt-2 text-center text-xs text-muted-foreground">
+          Try it: place a test order exactly as a guest at {table.name} would.
         </p>
         <div className="grid w-full grid-cols-2 gap-2">
           <Button variant="outline" onClick={() => downloadSvg(data.svg, `${file}.svg`)}>

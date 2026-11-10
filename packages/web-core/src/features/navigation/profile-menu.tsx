@@ -1,6 +1,14 @@
 "use client";
 
-import { Check, LayoutDashboard, LogOut, Settings, ShieldCheck, UserRound } from "lucide-react";
+import {
+  Check,
+  LayoutDashboard,
+  LifeBuoy,
+  LogOut,
+  Settings,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 
 import { Avatar, AvatarFallback, getInitials } from "@ros/ui/ui/avatar";
@@ -114,6 +122,18 @@ export function ProfileMenu({
             <Settings className="size-4" aria-hidden /> Account settings
           </Link>
         </DropdownMenuItem>
+        {area === "app" && (
+          <DropdownMenuItem asChild>
+            <Link
+              href={appHref(
+                links.console,
+                workspaceId ? `/app/w/${workspaceId}/support` : "/contact",
+              )}
+            >
+              <LifeBuoy className="size-4" aria-hidden /> Help &amp; support
+            </Link>
+          </DropdownMenuItem>
+        )}
         {area === "app" && "isPlatformAdmin" in user && user.isPlatformAdmin ? (
           <DropdownMenuItem asChild>
             <Link href={appHref(links.admin, "/admin")}>
