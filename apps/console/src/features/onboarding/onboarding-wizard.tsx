@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@ros/
 import { FormField } from "@ros/ui/ui/form-field";
 import { Input } from "@ros/ui/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ros/ui/ui/select";
+import type { TableDto } from "@ros/contracts/tables";
 import type { BranchDto, RestaurantDto } from "@ros/contracts/tenancy";
 import type { OrganizationSummaryDto, WorkspaceDto } from "@ros/contracts/workspaces";
 import { toMinor } from "@ros/domain/shared/money";
@@ -616,7 +617,7 @@ function TablesStep({
   return (
     <StepForm
       title="Add your tables"
-      description="Create tables in bulk, for example T1–T10. Each table gets its own secure QR code on the next screen."
+      description="Create tables in bulk, for example T1–T10. Each table gets its own secure QR code, ready to print."
       pending={pending}
       submitLabel={Number.isInteger(n) && n > 0 ? `Create ${n} tables` : "Create tables"}
       blockedReason={limit.reason}
@@ -638,15 +639,21 @@ function TablesStep({
           setFieldErrors(local);
           return;
         }
-        const ok = await run(() =>
-          api.post(`/branches/${branchId}/tables/bulk`, {
+        const created = await run(async () => {
+          const tables = await api.post<TableDto[]>(`/branches/${branchId}/tables/bulk`, {
             prefix,
             from: 1,
             to: Number.isInteger(n) ? n : 0,
             capacity: Number(capacity),
-          }),
-        );
-        if (ok) await onDone();
+          });
+          // Codes right away, so the first test order needs no extra step. A failure here
+          // is not fatal: the print sheet's "Generate missing" covers any table left out.
+          for (const t of tables) {
+            await api.post(`/tables/${t.id}/qr`).catch(() => undefined);
+          }
+          return tables;
+        });
+        if (created) await onDone();
       }}
     >
       <div className="grid grid-cols-3 gap-3">

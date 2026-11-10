@@ -154,3 +154,58 @@ describe("OnboardingWizard last step", () => {
     });
   });
 });
+
+describe("OnboardingWizard tables step", () => {
+  it("gives every new table its QR code, and a failed code does not block setup", async () => {
+    const TA = "44444444-4444-4444-8444-444444444444";
+    const TB = "55555555-5555-4555-8555-555555555555";
+    const calls = mockApi({
+      [`GET /api/v1/workspaces/${WS}`]: ok({
+        workspace: {
+          id: WS,
+          onboarding: {
+            completedSteps: ["business", "branch", "menu"],
+            restaurantId: R1,
+            branchId: B1,
+          },
+        },
+      }),
+      [`PUT /api/v1/workspaces/${WS}/onboarding`]: ok({}),
+      [`POST /api/v1/branches/${B1}/tables/bulk`]: () => ({
+        status: 201,
+        body: {
+          data: [
+            { id: TA, name: "T1" },
+            { id: TB, name: "T2" },
+          ],
+        },
+      }),
+      [`POST /api/v1/tables/${TA}/qr`]: ok({ tableId: TA, url: "http://localhost/t/a" }),
+      [`POST /api/v1/tables/${TB}/qr`]: () => ({
+        status: 500,
+        body: { error: { code: "INTERNAL", message: "boom" } },
+      }),
+    });
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    qc.setQueryData(sessionKeys.me, me);
+    render(
+      <QueryClientProvider client={qc}>
+        <OnboardingWizard />
+      </QueryClientProvider>,
+    );
+
+    const count = await screen.findByLabelText(/How many/);
+    await userEvent.clear(count);
+    await userEvent.type(count, "2");
+    await userEvent.click(screen.getByRole("button", { name: "Create 2 tables" }));
+
+    await screen.findByRole("heading", { name: "Your restaurant is set up" });
+    const qrPosts = calls.filter((c) => c.method === "POST" && c.path.endsWith("/qr"));
+    expect(qrPosts.map((c) => c.path)).toEqual([
+      `/api/v1/tables/${TA}/qr`,
+      `/api/v1/tables/${TB}/qr`,
+    ]);
+  });
+});
