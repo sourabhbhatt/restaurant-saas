@@ -19,7 +19,8 @@ import type { NotificationDto, NotificationType } from "@ros/contracts/notificat
 import { absoluteTime, relativeTime } from "../offline/format-time";
 import { cn } from "@ros/ui/utils";
 
-import { notificationHref } from "./deep-links";
+import { useAppLinks } from "../../app-links";
+import { notificationUrl } from "./deep-links";
 
 const ICONS: Partial<Record<NotificationType, ComponentType<SVGProps<SVGSVGElement>>>> = {
   "order.created": ReceiptTextIcon,
@@ -52,7 +53,8 @@ export function NotificationItem({
   dense = false,
 }: NotificationItemProps) {
   const Icon = ICONS[n.type] ?? BellIcon;
-  const href = notificationHref(n);
+  const links = useAppLinks();
+  const href = notificationUrl(n, links);
   const unread = !n.readAt;
 
   const content = (

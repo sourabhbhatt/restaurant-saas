@@ -72,7 +72,8 @@ describe("NotificationBell", () => {
 
     await userEvent.click(trigger);
     const link = await screen.findByRole("link", { name: /New order at table 4/ });
-    expect(link).toHaveAttribute("href", `/waiter/${br}`);
+    // The waiter screen is in the ops app, not the console.
+    expect(link).toHaveAttribute("href", `http://localhost:3001/waiter/${br}`);
     expect(screen.getByRole("link", { name: "View all notifications" })).toHaveAttribute(
       "href",
       "/app/notifications",
