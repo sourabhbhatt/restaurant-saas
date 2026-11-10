@@ -26,7 +26,8 @@ export function ConsentBanner({ current }: { current: ConsentChoice | null }) {
         <p className="text-muted-foreground">
           With your permission we use Google Analytics cookies to see which pages and features are
           used. No advertising, and nothing about your restaurant&apos;s data. You can change this
-          any time from &ldquo;Cookie settings&rdquo; in the footer.{" "}
+          any time from &ldquo;Cookie settings&rdquo; at the bottom of the page or, once signed in,
+          in your account menu.{" "}
           <Link href="/legal/privacy#cookies" className="underline underline-offset-4">
             Privacy policy
           </Link>

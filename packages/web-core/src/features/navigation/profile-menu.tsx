@@ -17,6 +17,7 @@ import { Skeleton } from "@ros/ui/ui/skeleton";
 import { useIdentity, useSignOut } from "../session/queries";
 import { useSwitchWorkspace } from "../workspaces/use-switch-workspace";
 import { appHref, useAppLinks } from "../../app-links";
+import { PrivacyChoicesMenuItem } from "../../tracking/privacy-choices";
 
 export interface ProfileContext {
   /** Workspace being worked in (omit on platform/account pages). */
@@ -112,6 +113,7 @@ export function ProfileMenu({
             <Settings className="size-4" aria-hidden /> Account settings
           </Link>
         </DropdownMenuItem>
+        <PrivacyChoicesMenuItem />
         {area === "app" && "isPlatformAdmin" in user && user.isPlatformAdmin ? (
           <DropdownMenuItem asChild>
             <Link href={appHref(links.admin, "/admin")}>

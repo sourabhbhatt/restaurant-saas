@@ -36,12 +36,12 @@ export function trackPageView(pathname: string): boolean {
   const pagePath = sanitizePath(pathname);
   const pageReferrer =
     previousLocation ?? sanitizeReferrer(document.referrer, window.location.origin);
-  // Marketing titles are static copy; app titles can name a restaurant, so they use the path.
-  const pageTitle = group === "marketing" ? document.title.slice(0, 300) : pagePath;
   const page = {
     page_location: pageLocation,
     page_referrer: pageReferrer,
-    page_title: pageTitle,
+    // Never document.title: app titles can name a restaurant, and on a client navigation the
+    // previous route's title can still be showing. The sanitized path stands in for it.
+    page_title: pagePath,
     content_group: group,
   };
   // Later events on this page (sign-up, checkout, ...) carry the same sanitized page fields.

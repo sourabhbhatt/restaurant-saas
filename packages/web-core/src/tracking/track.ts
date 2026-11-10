@@ -8,7 +8,7 @@ import {
   type TrackingParams,
 } from "@ros/contracts/tracking-events";
 
-import { useTrackingStore } from "./consent";
+import { readConsentCookie, useTrackingStore } from "./consent";
 import { configuredMeasurementId, gtagEvent } from "./gtag";
 import { contentGroupFor } from "./sanitize";
 
@@ -17,11 +17,18 @@ type ParamsArg<E extends ClientEventName> =
     ? [params?: TrackingParams<E>]
     : [params: TrackingParams<E>];
 
-/** True only when a Measurement ID is configured, the visitor opted in and gtag is set up. */
+/**
+ * True only when a Measurement ID is configured, the visitor opted in and gtag
+ * is set up. The cookie is checked too, so a withdrawal made in another tab
+ * stops this tab's events before it has even heard about it.
+ */
 export function trackingActive(): boolean {
   const { measurementId, consent } = useTrackingStore.getState();
   return (
-    Boolean(measurementId) && consent === "granted" && configuredMeasurementId() === measurementId
+    Boolean(measurementId) &&
+    consent === "granted" &&
+    configuredMeasurementId() === measurementId &&
+    readConsentCookie() === "granted"
   );
 }
 

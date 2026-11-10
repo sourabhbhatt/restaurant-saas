@@ -34,6 +34,29 @@ export const PRODUCT_SEGMENTS = new Set([
   "w",
 ]);
 
+/**
+ * Static segments of the public site and the auth pages (`(public)/**`,
+ * `(auth)/**`). Outside `/app` anything else (a future tenant slug such as
+ * `/r/spice-garden`, a token, a mistyped URL) becomes `:redacted`; a test
+ * keeps this list in step with the route tree.
+ */
+export const PUBLIC_SEGMENTS = new Set([
+  "contact",
+  "faq",
+  "features",
+  "forgot-password",
+  "invite",
+  "legal",
+  "pricing",
+  "privacy",
+  "refunds",
+  "reset-password",
+  "sign-in",
+  "sign-up",
+  "terms",
+  "verify-email",
+]);
+
 /** Campaign parameters GA4 uses for acquisition; everything else (token, next, email, q) is dropped. */
 const KEPT_QUERY = new Set([
   "utm_source",
@@ -45,8 +68,6 @@ const KEPT_QUERY = new Set([
 ]);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** A route word on the public site: short, lowercase, no long digit runs. */
-const SAFE_SEGMENT = /^[a-z][a-z0-9-]{0,39}$/;
 
 function sanitizeSegment(segment: string, inProduct: boolean): string {
   let decoded: string;
@@ -57,7 +78,7 @@ function sanitizeSegment(segment: string, inProduct: boolean): string {
   }
   if (UUID.test(decoded) || /^\d+$/.test(decoded)) return ":id";
   if (inProduct) return PRODUCT_SEGMENTS.has(decoded) ? decoded : ":id";
-  return SAFE_SEGMENT.test(decoded) && !/\d{3,}/.test(decoded) ? decoded : ":redacted";
+  return PUBLIC_SEGMENTS.has(decoded) ? decoded : ":redacted";
 }
 
 /** `/t/<token>` → `/t/:token`, `/app/w/<uuid>/menu` → `/app/w/:id/menu`. */
@@ -66,6 +87,7 @@ export function sanitizePath(pathname: string): string {
   const inProduct = segments[1] === "app";
   const out = segments.map((segment, i) => {
     if (!segment) return segment;
+    if (i === 1 && TOKEN_ROUTES.has(segment)) return segment;
     if (i === 2 && TOKEN_ROUTES.has(segments[1]!)) return ":token";
     return sanitizeSegment(segment, inProduct);
   });
