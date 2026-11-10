@@ -121,7 +121,7 @@ export function compareMarkdown(a, b) {
     "### API latency, PGlite (ms)",
     apiTable(a.apiPglite, b.apiPglite, "Endpoint (PGlite)"),
     "",
-    "### API latency, Postgres 18 in Docker (ms)",
+    "### API latency, Postgres 18 (throwaway local cluster) (ms)",
     apiTable(a.pg, b.pg, "Endpoint (Postgres 18)"),
     "",
     "### Database statements per request (Postgres 18, pg_stat_statements)",

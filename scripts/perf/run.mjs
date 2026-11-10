@@ -11,8 +11,12 @@
  *   coldstart  standalone `node server.js` start-to-healthy, first request, output size
  *   lighthouse `next start` servers + Lighthouse (3 runs per page, median)
  *   api        API latency p50/p95 against PGlite (the default dev database)
- *   pg         Postgres 18 in Docker: statements per request, EXPLAIN ANALYZE (auto_explain),
- *              API latency against a real server with the production role setup
+ *   pg         Postgres 18 in a throwaway cluster (local binaries on 127.0.0.1:PERF_PG_PORT,
+ *              or Docker): statements per request, EXPLAIN ANALYZE (auto_explain), API latency
+ *              with the production role setup, connection churn under 10 s polling
+ *
+ * Safety: the API only ever gets the harness's own database (assertPerfDatabase in lib.mjs:
+ * PGlite under .data/ or 127.0.0.1:PERF_PG_PORT), never a system Postgres on 5432.
  *
  * Output: --out <dir> (default .data/perf-results/<label>) with summary.json,
  * summary.md and raw files. Nothing leaves the machine; no cloud calls.
