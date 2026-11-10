@@ -13,10 +13,14 @@ Impact and effort are estimates: **S** = under a day, **M** = 1-3 days,
 
 ## The first-value journey today
 
-Measured on a local build (see the W3 audit report for the script and numbers):
-sign up → name the business → restaurant and first branch → first dish →
+Sign up → name the business → restaurant and first branch → first dish →
 tables → dashboard → print QR codes → test order on a real table's guest page →
 accept it in the waiter console → it appears on the kitchen display.
+
+After this audit a scripted new owner (390 px phone, production build) follows
+only on-screen guidance through that path in 14 clicks with no dead ends, and
+the checklist hides itself once the first order is accepted. The script and
+numbers are in the W3 audit report.
 
 What a new owner ran into before this audit:
 
@@ -30,26 +34,31 @@ What a new owner ran into before this audit:
 4. Help and support lived only in the sidebar of the workspace area.
 5. On phones the trial banner was a four-line column beside its buttons, the
    waiter screen scrolled sideways, and the menu editor was 881 px wide.
-6. Back links in the waiter, kitchen and cashier screens and notification links
-   pointed at the wrong app (404) after the platform split.
+6. Notification links pointed at the wrong app (404) after the platform split.
+7. "Print receipt" on every bill opened a page that did not exist (404).
+8. The staff start page offered Waiter, Kitchen and Cashier to everyone, so a
+   kitchen user tapping Cashier hit an access error.
 
 ## Implemented in this audit
 
-| #   | Stage        | Change                                                                                                                                                                                                                                              | Commit               | Expected impact                                                      | Effort |
-| --- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------- | ------ |
-| 1   | Activation   | "Get ready for your first order" checklist on the branch and workspace overviews, driven by the branch's real menu, tables, QR codes and orders; each step links to the page that completes it; hides itself when done; one click hides it for good | `bdd2e97`            | High: it is the only guidance between onboarding and the first order | M      |
-| 2   | Activation   | Onboarding hands over to that checklist (no longer dismisses it) and offers "Print QR codes" directly                                                                                                                                               | `a818b3d`            | Medium                                                               | S      |
-| 3   | Activation   | Owner can place a test order: "Open guest menu" in the checklist and in every table's QR dialog                                                                                                                                                     | `bdd2e97`, `c4508ca` | High: removes the "does this actually work?" doubt before printing   | S      |
-| 4   | Retention    | "Help & support" in the account menu on every console and ops screen                                                                                                                                                                                | `c4508ca`            | Medium: support is one tap away at the moment of confusion           | S      |
-| 5   | Monetization | Trial banner readable on phones; in the last week it says what to do and that data is kept (no countdown theatrics)                                                                                                                                 | `c4508ca`            | Medium: clear, honest expiry messaging                               | S      |
-| 6   | Retention    | Sidebar always names the workspace (never the branch); account menu agrees                                                                                                                                                                          | `761dfbc`            | Low-medium: fewer "where am I?" moments                              | S      |
-| 7   | Retention    | Staff and owner screens usable at 360 px; zero axe violations on 26 audited screens                                                                                                                                                                 | `cc31d32`, `a95d28d` | Medium: most owners and waiters use budget Android phones            | M      |
-| 8   | Retention    | Notification links open the right app                                                                                                                                                                                                               | `aa7adef`            | Low-medium                                                           | S      |
+| #   | Stage        | Change                                                                                                                                                                                                                                              | Commit                          | Expected impact                                                      | Effort |
+| --- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------- | ------ |
+| 1   | Activation   | "Get ready for your first order" checklist on the branch and workspace overviews, driven by the branch's real menu, tables, QR codes and orders; each step links to the page that completes it; hides itself when done; one click hides it for good | `bdd2e97`                       | High: it is the only guidance between onboarding and the first order | M      |
+| 2   | Activation   | Onboarding hands over to that checklist (no longer dismisses it) and offers "Print QR codes" directly                                                                                                                                               | `a818b3d`                       | Medium                                                               | S      |
+| 3   | Activation   | Owner can place a test order: "Open guest menu" in the checklist and in every table's QR dialog                                                                                                                                                     | `bdd2e97`, `c4508ca`            | High: removes the "does this actually work?" doubt before printing   | S      |
+| 4   | Retention    | "Help & support" in the account menu on every console and ops screen                                                                                                                                                                                | `c4508ca`                       | Medium: support is one tap away at the moment of confusion           | S      |
+| 5   | Monetization | Trial banner readable on phones; in the last week it says what to do and that data is kept (no countdown theatrics)                                                                                                                                 | `c4508ca`                       | Medium: clear, honest expiry messaging                               | S      |
+| 6   | Retention    | Sidebar always names the workspace (never the branch); account menu agrees                                                                                                                                                                          | `761dfbc`                       | Low-medium: fewer "where am I?" moments                              | S      |
+| 7   | Retention    | Staff, owner and guest screens usable at 360 px; zero axe violations and no sideways scrolling on 31 audited screens                                                                                                                                | `cc31d32`, `a95d28d`, `a3d84d9` | Medium: most owners and waiters use budget Android phones            | M      |
+| 8   | Retention    | Notification links open the right app                                                                                                                                                                                                               | `aa7adef`                       | Low-medium                                                           | S      |
+| 9   | Retention    | Printable bill receipt (business details, GSTIN, items, taxes, payments; 80 mm or A4) in both the console and the ops cashier                                                                                                                       | `2944a25`, `1346dc2`            | Medium: cashiers hand guests a proper bill from day one              | S      |
+| 10  | Retention    | Staff start page shows only the consoles each role can use                                                                                                                                                                                          | `1764846`                       | Low-medium: no access errors on a waiter's or cook's first day       | S      |
 
 Already in the base before this audit (not W3 work, listed so they are not
 re-proposed): plan limits shown in the console with upgrade prompts at the
 limit, plain-words explainer of workspace/restaurant/branch, inline validation
-in onboarding.
+in onboarding, and back links from the waiter, kitchen and cashier screens to
+the console.
 
 ## Recommendations (not implemented)
 
