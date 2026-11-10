@@ -1,4 +1,8 @@
-import { cacheCurrentPage, isCacheableStaffPage } from "./cache-current-page";
+import {
+  cacheCurrentPage,
+  isCacheableStaffPage,
+  purgeCachedStaffPages,
+} from "./cache-current-page";
 
 function setup(options: { cached?: boolean; online?: boolean; active?: boolean } = {}) {
   const postMessage = vi.fn();
@@ -33,6 +37,33 @@ describe("cacheCurrentPage", () => {
       await expect(cacheCurrentPage(env)).resolves.toBe(false);
       expect(postMessage).not.toHaveBeenCalled();
     }
+  });
+
+  it("at sign-out, removes cached staff pages and leaves public pages", async () => {
+    const stored: Record<string, string[]> = {
+      others: ["/app/b/b1/orders", "/pricing", "/kitchen/b1?view=all", "/t/abc123"],
+      "pages-rsc": ["/app/w/w1/members", "/"],
+    };
+    const deleted: string[] = [];
+    const caches = {
+      has: vi.fn(async (name: string) => name in stored),
+      open: vi.fn(async (name: string) => ({
+        keys: async () => stored[name]!.map((p) => new Request(`http://localhost:3111${p}`)),
+        delete: async (req: Request) => {
+          const url = new URL(req.url);
+          deleted.push(`${name}:${url.pathname}${url.search}`);
+          return true;
+        },
+      })),
+    } as unknown as CacheStorage;
+    await expect(purgeCachedStaffPages({ caches })).resolves.toBe(3);
+    expect(deleted.sort()).toEqual([
+      "others:/app/b/b1/orders",
+      "others:/kitchen/b1?view=all",
+      "pages-rsc:/app/w/w1/members",
+    ]);
+    // Without Cache Storage (or the caches) nothing happens.
+    await expect(purgeCachedStaffPages({ caches: undefined })).resolves.toBeGreaterThanOrEqual(0);
   });
 
   it("caches only staff screens, never public, auth or guest pages or token URLs", async () => {

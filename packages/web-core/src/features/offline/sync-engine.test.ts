@@ -145,6 +145,21 @@ describe("SyncEngine", () => {
     expect(calls[0]!.body).toEqual({ name: "Dal", version: 7 });
   });
 
+  it("keeps the order of two changes queued at the same moment (no createdAt tie)", async () => {
+    // Same millisecond, both writes in flight at once (a quick double tap).
+    const [a, b, c] = await Promise.all([
+      engine.enqueue(input({ label: "first" })),
+      engine.enqueue(input({ label: "second" })),
+      engine.enqueue(input({ label: "third" })),
+    ]);
+    const stored = await db.outbox.orderBy("createdAt").toArray();
+    expect(stored.map((i) => i.label)).toEqual(["first", "second", "third"]);
+    expect(new Set(stored.map((i) => i.createdAt)).size).toBe(3);
+    expect([a, b, c].map((i) => i.createdAt)).toEqual(stored.map((i) => i.createdAt));
+    await engine.syncNow();
+    expect(calls).toHaveLength(3);
+  });
+
   it("processes FIFO per scope and blocks a scope behind an unsynced head", async () => {
     const a1 = await engine.enqueue(input({ path: "/a1", scopeKey: "branch:a" }));
     const b1 = await engine.enqueue(input({ path: "/b1", scopeKey: "branch:b" }));

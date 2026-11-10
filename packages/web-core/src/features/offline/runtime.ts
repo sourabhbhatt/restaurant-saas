@@ -12,6 +12,7 @@ import {
   type OfflineDatabase,
   type OutboxItem,
 } from "./db";
+import { purgeCachedStaffPages } from "./cache-current-page";
 import { hydrateQueries, persistExistingQueries, startQueryPersistence } from "./persist-queries";
 import { backoffDelay, SyncEngine, type EnqueueInput } from "./sync-engine";
 import { countItems, EMPTY_COUNTS, setSyncState, useSyncStore } from "./sync-store";
@@ -53,6 +54,22 @@ let hydratedKeys: QueryKey[] = [];
 /** Consecutive failed session checks (401, 5xx, offline) and when the next may run. */
 let confirmFailures = 0;
 let confirmBackoffUntil = 0;
+
+/**
+ * A successful session check is reused for this long: every sync run asks
+ * /auth/me first, so without this each online kitchen tap cost two round trips.
+ */
+export const SESSION_CHECK_TTL_MS = 30_000;
+/** When the server last confirmed `sessionUserId` (0: ask before the next send). */
+let sessionCheckedAt = 0;
+
+/**
+ * Ask the server again before the next send: on `online`, when the tab
+ * becomes visible, at sign-out or a user change, and after any 401.
+ */
+export function forgetSessionCheck(): void {
+  sessionCheckedAt = 0;
+}
 
 /**
  * Forget the session-check backoff: called on `online`, `visibilitychange`,
@@ -119,7 +136,10 @@ export function getSyncEngine(): SyncEngine | null {
     onConnectivity: (online) => {
       if (online !== useSyncStore.getState().online) setOnline(online);
     },
-    onAuthRequired: (authRequired) => setSyncState({ authRequired }),
+    onAuthRequired: (authRequired) => {
+      if (authRequired) forgetSessionCheck();
+      setSyncState({ authRequired });
+    },
   });
   return engine;
 }
@@ -130,6 +150,9 @@ export function getSyncEngine(): SyncEngine | null {
  * re-asking the server on every wake-up.
  */
 async function confirmSession(): Promise<string | null> {
+  if (sessionUserId && sessionCheckedAt && Date.now() - sessionCheckedAt < SESSION_CHECK_TTL_MS) {
+    return sessionUserId;
+  }
   if (Date.now() < confirmBackoffUntil) return null;
   try {
     const res = await fetch("/api/v1/auth/me", {
@@ -139,6 +162,7 @@ async function confirmSession(): Promise<string | null> {
       signal: AbortSignal.timeout(10_000),
     });
     if (res.status === 401) {
+      forgetSessionCheck();
       setSyncState({ authRequired: true });
       return sessionCheckFailed();
     }
@@ -150,6 +174,7 @@ async function confirmSession(): Promise<string | null> {
     }
     if (!id) return sessionCheckFailed();
     resetSessionBackoff();
+    sessionCheckedAt = Date.now();
     setSyncState({ authRequired: false });
     return id;
   } catch {
@@ -259,11 +284,14 @@ export async function clearDeviceUserData(): Promise<void> {
   sessionUserId = null;
   deviceUserId = null;
   resetSessionBackoff();
+  forgetSessionCheck();
   if (wakeTimer) clearTimeout(wakeTimer);
   wakeTimer = null;
   setSyncState({ userId: null, items: [], counts: EMPTY_COUNTS, authRequired: false });
   // Signed out on purpose: a change now fails at once instead of waiting.
   userBecameKnown();
+  // The worker's cached staff pages go with the account (best effort).
+  void purgeCachedStaffPages().catch(() => undefined);
   if (!db) return;
   watchOutbox(db);
   await clearUserData(db).catch(() => {
@@ -299,6 +327,8 @@ export async function setCurrentUser(userId: string | null, confirmed: boolean):
       // Signed out / session expired: forget cached server data on this device.
       await db.queryCache.clear().catch(() => {});
     }
+    // A live answer for this user counts as a session check; no user (or another one) does not.
+    sessionCheckedAt = userId ? Date.now() : 0;
     sessionUserId = userId;
     // Results that resolved before the session user was confirmed (not written then).
     if (userId && queryClientRef)
@@ -390,6 +420,7 @@ export function startOfflineRuntime(queryClient: QueryClient): () => void {
   };
   const onOnline = () => {
     resetSessionBackoff();
+    forgetSessionCheck();
     reprobeAttempt = 0;
     syncSoon();
   };
@@ -400,6 +431,7 @@ export function startOfflineRuntime(queryClient: QueryClient): () => void {
   const onVisible = () => {
     if (document.visibilityState !== "visible") return;
     resetSessionBackoff();
+    forgetSessionCheck();
     syncSoon();
   };
   window.addEventListener("online", onOnline);

@@ -109,21 +109,3 @@ export function useOrderPriority(branchId: string) {
     onSettled: () => qc.invalidateQueries({ queryKey: staffOpsKeys.branch(branchId) }),
   });
 }
-
-export function useItemStatus(branchId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: { orderId: string; itemId: string; status: "PREPARING" | "READY" }) =>
-      api.patch<OrderDto>(`/orders/${input.orderId}/items/${input.itemId}`, {
-        status: input.status,
-      }),
-    onSuccess: (order) => {
-      qc.setQueryData(staffOpsKeys.order(branchId, order.id), order);
-      if (order.status === "READY") toast.success(`Order #${order.orderNumber} is ready`);
-    },
-    onError: (error) => {
-      toast[isConflict(error) ? "warning" : "error"](errorMessage(error));
-    },
-    onSettled: () => qc.invalidateQueries({ queryKey: staffOpsKeys.branch(branchId) }),
-  });
-}

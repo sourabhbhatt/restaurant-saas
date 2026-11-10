@@ -202,12 +202,17 @@ export class SyncEngine {
       syncedAt: null,
       invalidateKeys: input.invalidateKeys,
     };
-    // Keep FIFO stable even when two items are queued in the same millisecond.
-    const last = await this.deps.db.outbox.orderBy("createdAt").last();
-    if (last && last.createdAt >= item.createdAt) {
-      item.createdAt = last.createdAt + 1;
-    }
-    await this.deps.db.outbox.add(item);
+    // Keep FIFO stable even when two items are queued in the same millisecond. One rw
+    // transaction: concurrent enqueues (a quick double tap) are serialised, so the second
+    // reads the first one's row and never ties on createdAt (ties sort by random id).
+    const { db } = this.deps;
+    await db.transaction("rw", db.outbox, async () => {
+      const last = await db.outbox.orderBy("createdAt").last();
+      if (last && last.createdAt >= item.createdAt) {
+        item.createdAt = last.createdAt + 1;
+      }
+      await db.outbox.add(item);
+    });
     return item;
   }
 
@@ -362,13 +367,14 @@ export class SyncEngine {
   }
 
   /**
-   * The version a chained change is sent on. It carries the version its screen
-   * showed; when our own earlier changes of the same scope, made on that
-   * version, were already answered, it follows the versions they returned. The
-   * rebase at sync time (rebaseScope) misses a change whose write landed after
-   * the earlier one was answered: a quick second tap must not become a 409.
-   * Only this device's answered changes are followed, never another device's
-   * edits, so a real conflict still is one.
+   * The version a chained change is sent on: the version its screen showed,
+   * or the newest version this device's own earlier changes of the same scope
+   * got back from the server, whichever is higher. The rebase at sync time
+   * (rebaseScope) misses a change whose write landed after the earlier one was
+   * answered, and a change queued behind one the user resent with "Retry with
+   * latest" (that one moved to the server's version): neither may become a
+   * second 409. Only this device's answers are followed, never a version
+   * another device produced, so a real conflict still is one.
    */
   private async chainedVersion(item: OutboxItem): Promise<number | undefined> {
     if (!item.chainVersion || item.expectedVersion === undefined) return item.expectedVersion;
@@ -387,9 +393,7 @@ export class SyncEngine {
     let version = item.expectedVersion;
     for (const done of answered) {
       const returned = isPlainObject(done.serverResponse) ? done.serverResponse.version : undefined;
-      if (done.expectedVersion === version && typeof returned === "number" && returned > version) {
-        version = returned;
-      }
+      if (typeof returned === "number" && returned > version) version = returned;
     }
     return version;
   }

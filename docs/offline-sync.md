@@ -93,9 +93,11 @@ await enqueueMutation({
 - `chainVersion: true` is for scopes that edit **one** record whose new `version` comes back in
   the response (`order:<id>`). When an item synced, later pending items of the scope that were
   made on the same version are rebased on the returned one, so a chain of offline changes to one
-  order doesn't conflict with itself. The version is resolved again when an item is sent: it
-  follows the versions this device's earlier answered changes of the scope returned, so a quick
-  second tap stored only after the first one was answered (the rebase never saw it) is not a 409. A real concurrent change still conflicts: another device's edits are never followed.
+  order doesn't conflict with itself. The version is resolved again when an item is sent: the
+  higher of its own and the newest version this device's earlier answered changes of the scope
+  got back. So a quick second tap stored only after the first one was answered (the rebase never
+  saw it), and taps queued behind one the user resent with **Retry with latest**, are not a
+  second 409. A real concurrent change still conflicts: only this device's answers are followed.
 
 `useOfflineDraft(key, initial)` → `{ value, setValue, clear, restored, savedAt, ready }`. Values
 are saved per user and device (debounced 400 ms) and restored on the next mount. Call `clear()`
@@ -197,7 +199,10 @@ A framework-free class with injectable `db`, `fetch`, clock, randomness and lock
   resolved. Different scopes run in parallel. Pick a narrow scope (e.g. `menuItem:<id>`) for
   changes that don't depend on each other.
 - **Session check.** Before sending, the runtime asks `/api/v1/auth/me` who the session cookie
-  belongs to. If it is not the item's user, nothing is sent. A failed check (401, 5xx, offline)
+  belongs to. If it is not the item's user, nothing is sent. A successful check (or a live
+  `/auth/me` answer of the page for the confirmed user) is reused for 30 s
+  (`SESSION_CHECK_TTL_MS`), so an online tap costs one round trip, not two. It is forgotten on any
+  401 (check or send), at sign-out or a user change, on `online` and when the tab becomes visible. A failed check (401, 5xx, offline)
   backs off 1 s, 2 s, 4 s … up to 5 min before the next check; `online`, the tab becoming
   visible, manual **Sync now** and any successful `/auth/me` answer reset it. While the session
   is expired (401) no wake-up is scheduled at all; signing in again restarts syncing.
@@ -235,22 +240,30 @@ startup; after that the 30 s interval takes over. Background Sync API is not use
 
 ## Service worker (`apps/console/src/app/sw.ts` and `apps/ops/src/app/sw.ts`, Serwist 9)
 
+- **Registered on staff routes only** (`StaffOffline`, `packages/web-core/src/staff-offline.tsx`):
+  console `/app/**` and `/print/**` and every ops route. Public, sign-in and guest QR pages never
+  register it (no precache download for them). The scope is still `/`: a worker installed by an
+  earlier version, or by a staff visit on the same origin, keeps controlling every page of that
+  origin and keeps updating itself, so returning visitors still get its runtime caching.
 - Precache (build manifest + `/~offline`), `skipWaiting`, `clientsClaim`, navigation preload.
 - `/api/**` → **NetworkOnly**. The worker never caches API responses. Data for offline use lives
   in IndexedDB.
-- Customer pages `/t/*`: navigations NetworkFirst (5 s timeout, cache `customer-pages`, 24 h).
-  `/_next/static/**` is cache-first, so the QR menu shell loads on a flaky connection. Ordering
-  still needs the network.
+- Customer pages `/t/*`: navigations NetworkFirst (5 s timeout, cache `customer-pages`, 24 h),
+  and `/_next/static/**` cache-first. This applies only where a worker is already installed (see
+  above): a new guest's phone gets no worker, so the QR menu shell is not cached for them.
+  Ordering always needs the network.
 - Everything else uses Serwist's `defaultCache` for Next.js.
 - First page of a tab (`cache-current-page.ts`): it loads before the worker controls the tab, so
   `cacheOnNavigation` never sees it. `OfflineRuntime` sends it to the worker with `CACHE_URLS`
   when it is a staff screen (`/app/**` in the console; `/waiter`, `/kitchen`, `/cashier` in ops)
   without a token in its query and no cache holds it yet. It lands in Serwist's `others` cache
-  (NetworkFirst, 32 entries, 24 h), keyed by URL only and not cleared at sign-out. Public, auth,
+  (NetworkFirst, 32 entries, 24 h), keyed by URL only. At sign-out every cached staff page is
+  removed from `others`, `pages`, `pages-rsc` and `pages-rsc-prefetch` (`purgeCachedStaffPages`,
+  best effort). Public, auth,
   invite and guest pages are never cached this way; the guest's first `/t/<token>` page is not
   reloadable offline (out of scope: ordering needs the network anyway).
-- **Frontend HTML must stay user-agnostic.** Pages are cached per URL across sign-outs and
-  accounts, which is safe only because every page is a client shell: all user and tenant data
+- **Frontend HTML must stay user-agnostic.** Pages are cached per URL (public pages across
+  sign-outs and accounts), which is safe only because every page is a client shell: all user and tenant data
   comes from the API into per-user IndexedDB. Never render user data on the server in a page
   (no `cookies()`/`headers()` in console or ops pages).
 - Navigation fallback: `/~offline`. It explains what works offline and shows the number of unsynced
@@ -273,7 +286,7 @@ startup; after that the 30 s interval takes over. Background Sync API is not use
 | Waiter          | Saved orders, tables and menu. **Composing staff orders** (queued per table, "Not sent — will send when online", sent once with the draft's idempotency key) | **Accepting/rejecting** (and serving/cancelling) orders, generating bills                                                                       |
 | Kitchen         | Saved kitchen feed. **Item status and Start / Mark ready** (queued per order with the order version, "Waiting to sync"; conflicts kept for the user)         | Nothing else on the kitchen screen                                                                                                              |
 | Cashier         | Saved queue and bills (read-only)                                                                                                                            | **Generating bills, recording payments**, refunds, voids, closing tables                                                                        |
-| Customer (QR)   | Cached page shell/assets of `/t/*`                                                                                                                           | Viewing live menu data, placing orders (submit says it is not sent), requesting the bill                                                        |
+| Customer (QR)   | Only with a worker already installed on that device (see Service worker): the cached `/t/*` page shell and assets. A new guest gets no offline shell.        | Viewing live menu data, placing orders (submit says it is not sent), requesting the bill                                                        |
 
 Feature modules add to the "works offline" column only by using `enqueueMutation`,
 `useOfflineDraft` or `meta: { persist: true }`.

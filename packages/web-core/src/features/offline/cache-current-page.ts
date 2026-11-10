@@ -40,3 +40,33 @@ export async function cacheCurrentPage(
   registration.active?.postMessage({ type: "CACHE_URLS", payload: { urlsToCache: [url] } });
   return Boolean(registration.active);
 }
+
+/**
+ * Worker caches that can hold staff pages: `others` (first pages sent with
+ * CACHE_URLS, see above) and Serwist's page caches for Next.js navigations.
+ */
+const PAGE_CACHES = ["others", "pages", "pages-rsc", "pages-rsc-prefetch"] as const;
+
+/**
+ * Sign-out: remove cached staff pages so their URLs (branch and workspace
+ * ids) do not stay on a shared device. The HTML holds no user data, but the
+ * next account has no use for the previous one's screens either. Public pages
+ * stay cached. Returns how many entries were removed.
+ */
+export async function purgeCachedStaffPages(env: { caches?: CacheStorage } = {}): Promise<number> {
+  const cacheStorage =
+    "caches" in env ? env.caches : typeof caches !== "undefined" ? caches : undefined;
+  if (!cacheStorage) return 0;
+  let removed = 0;
+  for (const name of PAGE_CACHES) {
+    if (!(await cacheStorage.has(name))) continue;
+    const cache = await cacheStorage.open(name);
+    for (const request of await cache.keys()) {
+      const url = new URL(request.url);
+      if (isCacheableStaffPage(url.pathname, url.search) && (await cache.delete(request))) {
+        removed += 1;
+      }
+    }
+  }
+  return removed;
+}
