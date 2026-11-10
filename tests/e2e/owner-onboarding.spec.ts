@@ -3,7 +3,8 @@ import { data, expect, test, uniqueSuffix } from "./support/fixtures";
 /**
  * A new owner from the sign-up form to a table a guest can order from
  * (desktop project only): account, workspace, restaurant and branch, first
- * dish, tables, then the QR code a guest scans.
+ * dish, tables (their QR codes are created with them), the dashboard's
+ * first-order checklist, then the QR code a guest scans.
  */
 test("a new owner signs up, sets up the restaurant and a guest orders from the first QR code", async ({
   page,
@@ -37,21 +38,21 @@ test("a new owner signs up, sets up the restaurant and a guest orders from the f
   await page.getByLabel("How many").fill("3");
   await page.getByRole("button", { name: "Create 3 tables" }).click();
 
-  await expect(page.getByText("You're all set")).toBeVisible();
-  await page.getByRole("button", { name: "Open tables & QR codes" }).click();
-  await expect(page).toHaveURL(/\/app\/b\/[^/]+\/tables/);
-  const branchId = /\/app\/b\/([^/]+)\/tables/.exec(page.url())![1]!;
-  await expect(page.getByRole("heading", { name: "Tables & QR" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your restaurant is set up" })).toBeVisible();
+  await page.getByRole("button", { name: "Go to my dashboard" }).click();
+  await expect(page).toHaveURL(/\/app\/b\/[^/?#]+$/);
+  const branchId = /\/app\/b\/([^/?#]+)/.exec(page.url())![1]!;
 
-  // New tables have no QR code yet: the print sheet offers to generate them.
-  const [print] = await Promise.all([
-    page.waitForEvent("popup"),
-    page.getByRole("link", { name: "Print QR codes" }).click(),
-  ]);
-  await expect(print.getByText("3 tables without a QR code")).toBeVisible();
-  await print.getByRole("button", { name: "Generate missing" }).click();
-  await expect(print.getByText("3 QR codes generated")).toBeVisible();
-  await expect(print.getByText("without a QR code")).toHaveCount(0);
+  // The tables got their QR codes during setup; the checklist leads to the test order.
+  const checklist = page.getByRole("region", { name: "Get ready for your first order" });
+  await expect(checklist.getByText("3 of 3 tables have a QR code", { exact: false })).toBeVisible();
+  await expect(checklist.getByRole("link", { name: /Open guest menu/ })).toBeVisible();
+
+  // The print sheet has every code and nothing missing.
+  await checklist.getByRole("link", { name: /Print QR codes/ }).click();
+  await expect(page).toHaveURL(/\/print\/tables\?branchId=/);
+  await expect(page.getByRole("img", { name: /^QR code for T\d$/ })).toHaveCount(3);
+  await expect(page.getByText("without a QR code")).toHaveCount(0);
 
   // The QR codes a guest would scan.
   const sheet = await data<{ tables: { tableName: string; url: string }[]; missing: unknown[] }>(
