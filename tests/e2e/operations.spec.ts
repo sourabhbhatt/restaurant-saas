@@ -83,21 +83,23 @@ test("kitchen starts a ticket, marks items ready and the waiter sees it ready", 
     .poll(async () => (await ordersWithNote(ownerApi, demo.branchId, note))[0]!.status)
     .toBe("PREPARING");
 
-  // Item-level progress: each tap moves an item one step towards ready.
-  // Once every line is ready the ticket stops offering item toggles.
-  for (const item of ["1 Paneer Tikka", "2 Masala Chai"]) {
-    const toggle = ticket.getByRole("button", { name: new RegExp(`^${item}: `) });
-    // pending → preparing → ready: at most two taps per line.
-    let label: string | null = null;
-    for (let tap = 0; tap < 3; tap++) {
-      label = (await toggle.count()) ? await toggle.getAttribute("aria-label") : null;
-      if (!label || / ready\. /.test(label)) break;
-      await toggle.click();
-      await expect(toggle.and(ticket.getByRole("button", { name: label }))).toHaveCount(0);
-    }
-    // Ready, or the toggle is gone because the whole ticket is ready.
-    if (label !== null) expect(label).toMatch(/ ready\. /);
-  }
+  // Item-level progress: pending → preparing → ready, one tap per step. Each tap targets the
+  // line by the step it will take, so a tap can never land on a line that moved on.
+  const line = (item: string, state: string, next: "preparing" | "ready") =>
+    ticket.getByRole("button", { name: new RegExp(`^${item}: ${state}\\. Tap to mark ${next}$`) });
+  const notSaved = ticket.getByText("A change to this ticket was not saved");
+
+  // Two quick taps: the second is made before the first reaches the server. Both must
+  // arrive, in order (the second on the version the first returned).
+  await line("1 Paneer Tikka", "pending", "preparing").click();
+  await line("1 Paneer Tikka", "(waiting to sync|preparing)", "ready").click();
+  await expect(line("1 Paneer Tikka", "ready", "preparing")).toBeVisible();
+
+  // Waiting for the server between taps works the same way.
+  await line("2 Masala Chai", "pending", "preparing").click();
+  await expect(line("2 Masala Chai", "preparing", "ready")).toBeVisible();
+  await line("2 Masala Chai", "preparing", "ready").click();
+  await expect(notSaved).toHaveCount(0);
   await expect
     .poll(async () =>
       (await ordersWithNote(ownerApi, demo.branchId, note))[0]!.items.map((i) => i.status),
