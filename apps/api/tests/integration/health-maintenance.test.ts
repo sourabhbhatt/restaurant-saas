@@ -18,6 +18,7 @@ import { connectPglite } from "@ros/database/providers/postgres/client";
 import { platformSettings } from "@ros/database/providers/postgres/schema";
 import { buildContainer, setContainerForTests, type Container } from "@/composition/container";
 import { getEnv, resetEnvCache } from "@ros/application/config/env";
+import { setContainerFactory } from "@ros/application/container";
 import { createWorkspaceAs, signUpUser, type TestUser } from "@/test/fixtures";
 import { call, createTestContainer, makePlatformAdmin, uniqueEmail } from "@/test/harness";
 
@@ -79,6 +80,74 @@ describe("health endpoints", () => {
       const res = await call(ready);
       expect(res.status).toBe(503);
       expect(res.body.error).toMatchObject({ code: "INTERNAL_ERROR", message: "not ready" });
+    } finally {
+      setContainerForTests(c);
+    }
+  });
+});
+
+describe("database unavailable", () => {
+  const refused = () =>
+    Object.assign(new Error("connect ECONNREFUSED 10.0.0.5:5432"), {
+      code: "ECONNREFUSED",
+    });
+
+  it("a request that hits a dropped connection gets a clean 503 with Retry-After and no internals", async () => {
+    const broken: Container = {
+      ...c,
+      repos: {
+        ...c.repos,
+        rateLimit: {
+          hit: async () => {
+            throw refused();
+          },
+        },
+      },
+    };
+    setContainerForTests(broken);
+    try {
+      const res = await call(signIn, { body: { email: uniqueEmail(), password: "whatever-1" } });
+      expect(res.status).toBe(503);
+      expect(res.body.error).toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+      expect(res.headers.get("retry-after")).toBe("5");
+      expect(JSON.stringify(res.body)).not.toContain("10.0.0.5");
+      expect(JSON.stringify(res.body)).not.toContain("at ");
+    } finally {
+      setContainerForTests(c);
+    }
+  });
+
+  it("a server shutdown SQLSTATE from the driver is also a 503", async () => {
+    const broken: Container = {
+      ...c,
+      identity: {
+        ...c.identity,
+        resolveSession: async () => {
+          throw Object.assign(new Error("terminating connection due to administrator command"), {
+            code: "57P01",
+          });
+        },
+      },
+    };
+    setContainerForTests(broken);
+    try {
+      const res = await call(me, { cookie: "ros_session=" + "a".repeat(43) });
+      expect(res.status).toBe(503);
+      expect(res.body.error?.code).toBe("SERVICE_UNAVAILABLE");
+    } finally {
+      setContainerForTests(c);
+    }
+  });
+
+  it("when the container itself cannot be built because the database is down, the API answers 503, not 500", async () => {
+    setContainerForTests(undefined);
+    setContainerFactory(() => Promise.reject(refused()));
+    try {
+      const res = await call(health);
+      expect(res.status).toBe(200); // liveness never needs the database
+      const api = await call(me);
+      expect(api.status).toBe(503);
+      expect(api.body.error?.code).toBe("SERVICE_UNAVAILABLE");
     } finally {
       setContainerForTests(c);
     }

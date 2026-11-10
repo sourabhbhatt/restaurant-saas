@@ -12,6 +12,10 @@ const MAX_BODY = 256 * 1024;
 export const POST = route(
   { auth: "public", skipOriginCheck: true, allowInMaintenance: true },
   async ({ req, meta, c }) => {
+    // Refuse oversized deliveries before buffering them; the length check after reading
+    // covers senders that omit or understate Content-Length.
+    const declared = Number(req.headers.get("content-length") ?? "0");
+    if (declared > MAX_BODY) return { status: 413, data: { received: false } };
     const rawBody = await req.text();
     if (rawBody.length > MAX_BODY) return { status: 413, data: { received: false } };
     return {
