@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   },
   description:
     "Restaurant management software: QR table ordering without an app, waiter approval, kitchen display, counter billing and multi-branch management.",
+  // Default for every route; public pages opt in to indexing at runtime (see seo/page-metadata.ts).
+  robots: { index: false, follow: false },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
