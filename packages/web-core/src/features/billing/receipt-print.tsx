@@ -71,6 +71,17 @@ export function ReceiptPrint() {
           {r.taxId ? <p>GSTIN {r.taxId}</p> : null}
           {r.receiptHeader ? <p className="mt-2 whitespace-pre-line">{r.receiptHeader}</p> : null}
         </header>
+        {b.status === "VOID" ? (
+          // Printed too: a voided bill must never pass for a valid one.
+          <div
+            role="note"
+            aria-label="Bill status"
+            className="border-2 border-neutral-900 p-2 text-center"
+          >
+            <p className="text-2xl font-black tracking-[0.3em]">VOID</p>
+            <p className="font-semibold">This bill was voided. It is not a valid bill.</p>
+          </div>
+        ) : null}
         <dl className="grid grid-cols-2 gap-x-4 gap-y-0.5 border-y border-dashed py-2">
           <dt>Bill</dt>
           <dd className="text-right tabular-nums">#{b.billNumber}</dd>
