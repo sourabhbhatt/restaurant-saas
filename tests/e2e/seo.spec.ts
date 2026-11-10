@@ -63,9 +63,15 @@ test.describe("public pages are server-rendered for crawlers", () => {
 
       // Metadata is in the initial <head>, not streamed later (rel=canonical only counts there).
       expect(decode(titleOf(head) ?? "")).toBe(fullTitle(page));
-      expect(decode(attr(head, /<meta name="description" content="([^"]+)"/) ?? "")).toBe(
-        page.description,
-      );
+      const description = decode(attr(head, /<meta name="description" content="([^"]+)"/) ?? "");
+      if (page.path === "/pricing") {
+        // Leads with the live starting price (the E2E API is seeded with plans).
+        expect(description).toMatch(/^Plans from ₹[\d,]+ a month, excluding GST,/);
+        const shown = description.match(/₹[\d,]+/)![0];
+        expect(html.slice(html.indexOf('<article aria-labelledby="plan-'))).toContain(shown);
+      } else {
+        expect(description).toBe(page.description);
+      }
       const origin = SITE_URL;
       expect(canonicalOf(head)).toBe(`${origin}${page.path}`);
       expect(attr(head, /<meta property="og:url" content="([^"]+)"/)).toBe(`${origin}${page.path}`);
@@ -85,14 +91,6 @@ test.describe("public pages are server-rendered for crawlers", () => {
       // Exactly one h1, and it is real server-rendered text.
       const h1s = [...html.matchAll(/<h1[\s>][\s\S]*?<\/h1>/g)];
       expect(h1s).toHaveLength(1);
-
-      // Heading levels never skip (h1 → h3 without an h2 in between).
-      const levels = [...html.matchAll(/<h([1-6])[\s>]/g)].map((m) => Number(m[1]));
-      expect(levels[0]).toBe(1);
-      const skips = levels.flatMap((level, i) =>
-        i > 0 && level > levels[i - 1]! + 1 ? [`h${levels[i - 1]} → h${level}`] : [],
-      );
-      expect(skips).toEqual([]);
 
       // Fragment links (#no-app, #offline …) need unique element ids.
       const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
@@ -176,6 +174,26 @@ test.describe("browsers see the same metadata after streaming", () => {
     await expect(page.getByText(/₹\d/).first()).toBeVisible();
     await expect(page.getByRole("status", { name: "Loading plans" })).toHaveCount(0);
   });
+
+  // Checked in the hydrated DOM: streamed content (plan cards, "Compare plans")
+  // arrives at the end of the raw HTML, so the HTML order is not the page order.
+  for (const sitePage of SITE_PAGES) {
+    test(`${sitePage.path}: heading levels never skip`, async ({ page }) => {
+      await page.goto(sitePage.path);
+      if (sitePage.path === "/" || sitePage.path === "/pricing") {
+        await expect(page.locator("article[aria-labelledby^='plan-']").first()).toBeVisible();
+      }
+      const levels = await page.$$eval("h1, h2, h3, h4, h5, h6", (headings) =>
+        headings.filter((h) => !h.closest("[hidden]")).map((h) => Number(h.tagName[1])),
+      );
+      expect(levels[0]).toBe(1);
+      expect(levels.filter((level) => level === 1)).toHaveLength(1);
+      const skips = levels.flatMap((level, i) =>
+        i > 0 && level > levels[i - 1]! + 1 ? [`h${levels[i - 1]} → h${level}`] : [],
+      );
+      expect(skips).toEqual([]);
+    });
+  }
 
   test("feature pages are reachable from the features page and footer", async ({ page }) => {
     await page.goto("/features");
@@ -278,6 +296,10 @@ test.describe("robots.txt, sitemap.xml and llms.txt", () => {
     const body = await res.text();
     expect(body.startsWith("# RestaurantOS\n")).toBe(true);
     expect(body).toMatch(/\]\(https?:\/\/[^)]+\/pricing\)/);
+    // Live prices as plain text (the E2E API is seeded with plans).
+    const pricing = body.slice(body.indexOf("## Pricing"), body.indexOf("## Common questions"));
+    expect(pricing).toMatch(/^- .+: ₹[\d,]+\/month/m);
+    expect(pricing).toContain("Prices exclude GST.");
   });
 
   test("the Open Graph image and logo are PNGs of the declared size", async ({ request }) => {
