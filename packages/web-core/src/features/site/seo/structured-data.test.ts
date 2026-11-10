@@ -40,9 +40,28 @@ describe("pageGraph", () => {
   it("never publishes ratings, reviews or template placeholders", () => {
     const json = JSON.stringify(pageGraph(PROD, "/", plans));
     expect(json).not.toMatch(/aggregateRating|"review"|ratingValue/);
-    // Default BRAND values are placeholders ("[Your company legal name]", *.example).
+    // Default contact values are placeholders ("[Your company legal name]", *.example).
     expect(json).not.toContain("[Your company legal name]");
     expect(json).not.toMatch(/restaurantos\.example/);
+  });
+
+  it("publishes the runtime contact details once they are real", () => {
+    const config = resolveSiteConfig({
+      SITE_INDEXABLE: "true",
+      PUBLIC_SITE_URL: "https://www.restaurantos.in",
+      SITE_SUPPORT_EMAIL: "hello@restaurantos.in",
+      SITE_LEGAL_ENTITY: "RestaurantOS Technologies Private Limited",
+    });
+    const [org] = ofType(pageGraph(config, "/", plans), "Organization");
+    expect(org).toMatchObject({
+      legalName: "RestaurantOS Technologies Private Limited",
+      email: "hello@restaurantos.in",
+      contactPoint: { "@type": "ContactPoint", email: "hello@restaurantos.in" },
+    });
+    const [placeholderOrg] = ofType(pageGraph(PROD, "/", plans), "Organization");
+    expect(placeholderOrg).not.toHaveProperty("legalName");
+    expect(placeholderOrg).not.toHaveProperty("email");
+    expect(placeholderOrg).not.toHaveProperty("contactPoint");
   });
 
   it("states the live plan prices as offers, excluding custom-priced plans", () => {

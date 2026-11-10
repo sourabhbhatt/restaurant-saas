@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { BRAND } from "../brand";
 import { LegalDocument, type LegalSection } from "./legal-document";
+import { SupportEmail } from "../site-contact";
 
 const n = BRAND.name;
 
@@ -34,7 +35,7 @@ const SECTIONS: LegalSection[] = [
     body: (
       <ul>
         <li>
-          Email {BRAND.supportEmail} from the workspace owner&apos;s address to cancel. You can also
+          Email <SupportEmail /> from the workspace owner&apos;s address to cancel. You can also
           simply not renew.
         </li>
         <li>
@@ -111,7 +112,7 @@ const SECTIONS: LegalSection[] = [
     title: "Contact",
     body: (
       <p>
-        Questions about billing, cancellation or refunds: {BRAND.supportEmail}. See also our{" "}
+        Questions about billing, cancellation or refunds: <SupportEmail />. See also our{" "}
         <Link href="/legal/terms">terms of service</Link>.
       </p>
     ),

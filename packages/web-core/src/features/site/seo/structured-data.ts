@@ -24,11 +24,6 @@ const ids = (config: SiteConfig) => ({
   app: absoluteUrl(config, "/#software"),
 });
 
-/** Template placeholders ("[Your company legal name]", *.example addresses) are never published. */
-function isPlaceholder(value: string): boolean {
-  return /^\[.*\]$/.test(value.trim()) || /\.example$/i.test(value.trim());
-}
-
 export function organizationNode(config: SiteConfig): Node {
   const node: Node = {
     "@type": "Organization",
@@ -44,13 +39,15 @@ export function organizationNode(config: SiteConfig): Node {
     description: BRAND.description,
     areaServed: { "@type": "Country", name: "India" },
   };
-  if (!isPlaceholder(BRAND.legalEntity)) node.legalName = BRAND.legalEntity;
-  if (!isPlaceholder(BRAND.supportEmail)) {
-    node.email = BRAND.supportEmail;
+  // Runtime settings; placeholders ("[…]", *.example) are never published.
+  const { contact } = config;
+  if (!contact.legalEntityIsPlaceholder) node.legalName = contact.legalEntity;
+  if (!contact.supportEmailIsPlaceholder) {
+    node.email = contact.supportEmail;
     node.contactPoint = {
       "@type": "ContactPoint",
       contactType: "customer support",
-      email: BRAND.supportEmail,
+      email: contact.supportEmail,
       availableLanguage: ["English"],
     };
   }

@@ -5,7 +5,7 @@ import { Section, SectionHeading } from "../section";
 
 const OFFLINE_OK = [
   "Install on any phone, tablet or computer as an app (PWA)",
-  "Menus and screens you've already opened keep working",
+  "Staff screens and menus you've already opened keep working",
   "Waiters can keep taking orders; the kitchen can keep updating tickets",
   "Queued changes sync automatically, in order, when you're back online",
 ];

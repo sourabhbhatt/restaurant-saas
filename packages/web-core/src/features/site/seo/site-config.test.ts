@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
-import { absoluteUrl, getSiteConfig, isNonProductionHost, resolveSiteConfig } from "./site-config";
+import {
+  absoluteUrl,
+  getSiteConfig,
+  isNonProductionHost,
+  PLACEHOLDER_LEGAL_ENTITY,
+  PLACEHOLDER_SUPPORT_EMAIL,
+  resolveSiteConfig,
+} from "./site-config";
 
 const STAGING = "https://ros-console-staging-367556472616.asia-south1.run.app";
 
@@ -152,6 +159,50 @@ describe("isNonProductionHost", () => {
   ])("flags the environment subdomain %s under a two-level suffix", (host) =>
     expect(isNonProductionHost(host)).toBe(true),
   );
+});
+
+describe("contact details (SITE_SUPPORT_EMAIL, SITE_LEGAL_ENTITY)", () => {
+  it("defaults to clearly marked placeholders", () => {
+    expect(resolveSiteConfig({}).contact).toEqual({
+      supportEmail: PLACEHOLDER_SUPPORT_EMAIL,
+      supportEmailIsPlaceholder: true,
+      legalEntity: PLACEHOLDER_LEGAL_ENTITY,
+      legalEntityIsPlaceholder: true,
+    });
+    expect(PLACEHOLDER_SUPPORT_EMAIL).toMatch(/\.example$/);
+    expect(PLACEHOLDER_LEGAL_ENTITY).toMatch(/^\[.*\]$/);
+  });
+
+  it("uses the runtime settings, trimmed", () => {
+    const { contact } = resolveSiteConfig({
+      SITE_SUPPORT_EMAIL: "  hello@restaurantos.in ",
+      SITE_LEGAL_ENTITY: "RestaurantOS Technologies Private Limited",
+    });
+    expect(contact).toEqual({
+      supportEmail: "hello@restaurantos.in",
+      supportEmailIsPlaceholder: false,
+      legalEntity: "RestaurantOS Technologies Private Limited",
+      legalEntityIsPlaceholder: false,
+    });
+  });
+
+  it("treats blank values and template-style values as placeholders", () => {
+    const { contact } = resolveSiteConfig({ SITE_SUPPORT_EMAIL: " ", SITE_LEGAL_ENTITY: "[TBD]" });
+    expect(contact.supportEmail).toBe(PLACEHOLDER_SUPPORT_EMAIL);
+    expect(contact.supportEmailIsPlaceholder).toBe(true);
+    expect(contact.legalEntityIsPlaceholder).toBe(true);
+    expect(resolveSiteConfig({ SITE_SUPPORT_EMAIL: "ops@brand.example" }).contact).toMatchObject({
+      supportEmailIsPlaceholder: true,
+    });
+  });
+
+  it("reads them at request time through getSiteConfig", () => {
+    vi.stubEnv("SITE_SUPPORT_EMAIL", "first@restaurantos.in");
+    expect(getSiteConfig().contact.supportEmail).toBe("first@restaurantos.in");
+    vi.stubEnv("SITE_SUPPORT_EMAIL", "second@restaurantos.in");
+    expect(getSiteConfig().contact.supportEmail).toBe("second@restaurantos.in");
+    vi.unstubAllEnvs();
+  });
 });
 
 describe("getSiteConfig: warning when indexing was asked for but refused", () => {

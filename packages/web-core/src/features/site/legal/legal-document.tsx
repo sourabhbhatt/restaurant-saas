@@ -7,6 +7,7 @@ import { cn } from "@ros/ui/utils";
 import { BRAND, LEGAL_NAV } from "../brand";
 import { Breadcrumbs } from "../breadcrumbs";
 import type { SitePath } from "../seo/site-pages";
+import { LegalEntity, SupportEmailLink } from "../site-contact";
 
 export interface LegalSection {
   id: string;
@@ -86,7 +87,7 @@ export function LegalDocument({
             </div>
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
             <p className="text-sm text-muted-foreground">
-              {BRAND.name} · Operated by {BRAND.legalEntity} · Effective date: [DD Month YYYY]
+              {BRAND.name} · Operated by <LegalEntity /> · Effective date: [DD Month YYYY]
             </p>
             <div className="text-base leading-relaxed text-muted-foreground">{summary}</div>
           </header>
@@ -109,12 +110,7 @@ export function LegalDocument({
 
           <footer className="border-t pt-8 text-sm text-muted-foreground">
             Questions about this document? Email{" "}
-            <a
-              href={`mailto:${BRAND.supportEmail}`}
-              className="font-medium text-foreground underline underline-offset-4"
-            >
-              {BRAND.supportEmail}
-            </a>
+            <SupportEmailLink className="font-medium text-foreground underline underline-offset-4" />
             .
           </footer>
         </article>

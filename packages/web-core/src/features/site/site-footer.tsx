@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PrivacyChoicesLink } from "../../tracking/privacy-choices";
 import { BRAND, LEGAL_NAV, SITE_NAV } from "./brand";
 import { BrandLogo } from "./logo";
+import { SupportEmailLink } from "./site-contact";
 
 const PRODUCT_LINKS = [
   { href: "/features/qr-code-ordering", label: "QR code ordering" },
@@ -18,12 +19,7 @@ export function SiteFooter() {
         <div className="flex flex-col gap-3">
           <BrandLogo />
           <p className="max-w-xs text-sm text-muted-foreground">{BRAND.tagline}</p>
-          <a
-            href={`mailto:${BRAND.supportEmail}`}
-            className="w-fit text-sm font-medium text-foreground underline-offset-4 hover:underline"
-          >
-            {BRAND.supportEmail}
-          </a>
+          <SupportEmailLink className="w-fit text-sm font-medium text-foreground underline-offset-4 hover:underline" />
         </div>
         <FooterColumn title="Product" links={PRODUCT_LINKS} />
         <FooterColumn title="Company" links={SITE_NAV} />

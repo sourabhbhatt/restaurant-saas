@@ -137,6 +137,42 @@ describe("feature page content", () => {
     }
   });
 
+  it("never claims that guest QR pages work offline (only staff routes register the worker)", () => {
+    const repo = path.resolve(import.meta.dirname, "../../../../../..");
+    // The code fact the copy depends on: StaffOffline is mounted only by staff layouts.
+    const providers = readFileSync(
+      path.join(repo, "packages/web-core/src/app-providers.tsx"),
+      "utf8",
+    );
+    expect(providers).toMatch(/register=\{false\}/);
+    const mounts = ["apps/console/src", "apps/ops/src"]
+      .flatMap((dir) => sourceFiles(path.join(repo, dir)))
+      .filter((file) => readFileSync(file, "utf8").includes("@ros/web-core/staff-offline"))
+      .map((file) => path.relative(repo, file));
+    expect(mounts.length).toBeGreaterThan(0);
+    for (const file of mounts) {
+      expect(file).toMatch(/^apps\/(console\/src\/app\/(app|print)\/|ops\/src\/)/);
+    }
+
+    // Public copy: no offline browsing of a guest menu, no "drafts" (no screen saves drafts).
+    const siteDir = path.join(repo, "packages/web-core/src/features/site");
+    const copy = [
+      JSON.stringify(FEATURE_DETAILS),
+      JSON.stringify(ALL_FAQ_ITEMS),
+      buildLlmsTxt(PROD),
+      ...["features-page.tsx", "landing/offline.tsx", "legal/terms.tsx", "legal/privacy.tsx"].map(
+        (file) => readFileSync(path.join(siteDir, file), "utf8"),
+      ),
+    ].join("\n");
+    expect(copy).not.toMatch(/browsed offline|can still be browsed|drafts/i);
+
+    const offline = FEATURE_DETAILS.find((d) => d.path === "/features/offline-mode")!;
+    const needsConnection = offline.details.find((d) => d.title === "Needs a connection")!;
+    expect(needsConnection.points.join("\n")).toMatch(/opening or reloading a guest's QR menu/i);
+    const faq = ALL_FAQ_ITEMS.find((i) => i.id === "offline")!;
+    expect(faq.answer.join(" ")).toMatch(/guest QR pages are not saved for offline use/i);
+  });
+
   it("describes the discount reason as optional, as the billing contract does", () => {
     expect(billDiscountSchema.safeParse({ type: "FLAT", value: 5000 }).success).toBe(true);
     const billing = JSON.stringify(

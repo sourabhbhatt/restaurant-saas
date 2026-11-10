@@ -92,7 +92,7 @@ export const FEATURE_DETAILS: FeatureDetail[] = [
       },
       {
         title: "Ordering needs the guest to be online",
-        body: "A previously loaded menu can be browsed offline, but placing an order needs a connection on the guest's phone.",
+        body: "Opening the menu and placing an order need a connection on the guest's phone. If the connection drops while the menu is open, the guest keeps the cart and the menu already on screen.",
       },
     ],
     faqIds: ["no-app", "approval", "qr-security", "online-payments"],
@@ -255,14 +255,15 @@ export const FEATURE_DETAILS: FeatureDetail[] = [
         body: "Starting orders and marking items or orders ready are queued on the kitchen screen and synced in order when the connection returns.",
       },
       {
-        title: "Guests' carts survive",
-        body: "A guest's cart is kept on their phone, and a menu they already loaded can still be browsed.",
+        title: "Guests keep their cart",
+        body: "A guest's cart is kept on their phone. If the connection drops while the menu is open, the menu stays on screen; reopening it and sending the order wait for the connection.",
       },
     ],
     details: [
       {
         title: "Needs a connection",
         points: [
+          "Opening or reloading a guest's QR menu (guest pages are not saved for offline use)",
           "Guests placing QR orders",
           "Approving or rejecting guest orders",
           "Generating bills, recording payments, refunds and voids",

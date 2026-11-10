@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { BRAND } from "../brand";
 import { LegalDocument, type LegalSection } from "./legal-document";
+import { LegalEntity, SupportEmail } from "../site-contact";
 
 const n = BRAND.name;
 
@@ -11,10 +12,10 @@ const SECTIONS: LegalSection[] = [
     title: "Agreement",
     body: (
       <p>
-        These terms form an agreement between {BRAND.legalEntity} (&quot;we&quot;) and the business
-        or person that creates a {n} workspace (&quot;you&quot;). By creating an account or using
-        the service you accept these terms and our <Link href="/legal/privacy">privacy policy</Link>
-        . If you accept on behalf of a business, you confirm you are authorised to do so.
+        These terms form an agreement between <LegalEntity /> (&quot;we&quot;) and the business or
+        person that creates a {n} workspace (&quot;you&quot;). By creating an account or using the
+        service you accept these terms and our <Link href="/legal/privacy">privacy policy</Link>. If
+        you accept on behalf of a business, you confirm you are authorised to do so.
       </p>
     ),
   },
@@ -36,8 +37,10 @@ const SECTIONS: LegalSection[] = [
           <li>integrations with POS hardware.</li>
         </ul>
         <p>
-          Offline support is limited: previously loaded screens, drafts and carts work without a
-          connection, but placing orders and confirming payments require one.
+          Offline support is limited: staff screens already loaded on a device keep working, and
+          waiter orders and kitchen updates made offline are queued and sent once the device is back
+          online. Guest QR ordering, approving orders, billing and confirming payments require a
+          connection.
         </p>
       </>
     ),
@@ -196,7 +199,7 @@ const SECTIONS: LegalSection[] = [
     body: (
       <p>
         We may update these terms and will notify workspace owners of material changes by email
-        before they take effect. Contact us at {BRAND.supportEmail}.
+        before they take effect. Contact us at <SupportEmail />.
       </p>
     ),
   },
