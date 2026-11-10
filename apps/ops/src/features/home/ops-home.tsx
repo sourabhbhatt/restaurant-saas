@@ -1,5 +1,6 @@
 "use client";
 
+import { RefreshCw } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState, ErrorState, PageSkeleton } from "@ros/ui/shared/feedback";
@@ -23,7 +24,22 @@ import { BrandLogo } from "@ros/web-core/features/site/logo";
 function BranchConsoles({ branchId }: { branchId: string }) {
   const ctx = useBranchContext(branchId);
   if (ctx.isPending) return <Skeleton className="h-8 w-40" />;
-  const can = permissionChecker(ctx.data?.permissions);
+  if (ctx.isError) {
+    return (
+      <div role="alert" className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-destructive">Couldn&apos;t load this branch.</span>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={ctx.isFetching}
+          onClick={() => void ctx.refetch()}
+        >
+          <RefreshCw className="size-4" aria-hidden /> Try again
+        </Button>
+      </div>
+    );
+  }
+  const can = permissionChecker(ctx.data.permissions);
   // The ops app hosts these consoles itself: same origin, no ops URL.
   const consoles = branchConsoles(branchId).filter((c) => !c.permission || can(c.permission));
   if (consoles.length === 0) {

@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MeResponse } from "@ros/contracts/auth";
 import type { BranchContextDto, WorkspaceStructureDto } from "@ros/contracts/structure";
+import { ROLE_TEMPLATES } from "@ros/domain/access/permissions";
 import { sessionKeys } from "@ros/web-core/features/session/queries";
 
 import { OpsHome } from "./ops-home";
@@ -36,7 +38,7 @@ const structure = {
   ],
 } as unknown as WorkspaceStructureDto;
 
-function renderHome(permissions: string[]) {
+function renderHome(permissions: readonly string[]) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
@@ -66,26 +68,86 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const consoles = () =>
+  ["Waiter", "Kitchen", "Cashier"].filter((name) => screen.queryByRole("link", { name }));
+
 describe("OpsHome consoles", () => {
+  // Each link needs exactly what its page and API need: Waiter orders.view,
+  // Kitchen kitchen.view, Cashier bills.view.
   it("shows a kitchen user only the kitchen display", async () => {
-    renderHome(["kitchen.view", "kitchen.update"]);
+    renderHome(ROLE_TEMPLATES.kitchen_staff.permissions);
     expect(await screen.findByRole("link", { name: "Kitchen" })).toHaveAttribute(
       "href",
       `/kitchen/${BR}`,
     );
-    expect(screen.queryByRole("link", { name: "Waiter" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Cashier" })).not.toBeInTheDocument();
+    expect(consoles()).toEqual(["Kitchen"]);
+  });
+
+  it("shows waiters and cashiers the waiter and cashier consoles their role can open", async () => {
+    renderHome(ROLE_TEMPLATES.waiter.permissions);
+    await screen.findByRole("link", { name: "Waiter" });
+    expect(consoles()).toEqual(["Waiter", "Cashier"]);
+  });
+
+  it("shows a cashier the waiter console too (orders.view is enough to open it)", async () => {
+    renderHome(ROLE_TEMPLATES.cashier.permissions);
+    await screen.findByRole("link", { name: "Cashier" });
+    expect(consoles()).toEqual(["Waiter", "Cashier"]);
+  });
+
+  it("shows a custom runner role (orders.view only) the waiter console", async () => {
+    renderHome(["branch.view", "orders.view", "orders.serve"]);
+    await screen.findByRole("link", { name: "Waiter" });
+    expect(consoles()).toEqual(["Waiter"]);
   });
 
   it("shows a manager every console", async () => {
-    renderHome(["orders.approve", "kitchen.view", "payments.record"]);
-    for (const name of ["Waiter", "Kitchen", "Cashier"]) {
-      expect(await screen.findByRole("link", { name })).toBeInTheDocument();
-    }
+    renderHome(ROLE_TEMPLATES.restaurant_manager.permissions);
+    await screen.findByRole("link", { name: "Waiter" });
+    expect(consoles()).toEqual(["Waiter", "Kitchen", "Cashier"]);
   });
 
   it("says so when the role has no console at a branch", async () => {
-    renderHome(["orders.view"]);
+    renderHome(["branch.view"]);
     expect(await screen.findByText("No consoles for your role here")).toBeInTheDocument();
+  });
+
+  it("offers a retry instead of 'no consoles' when the branch can't be loaded", async () => {
+    // Only the branch context is fetched; the seeded account and structure stay fresh.
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    qc.setQueryData(sessionKeys.me, me);
+    qc.setQueryData(sessionKeys.structure(WS), structure);
+    let fail = true;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (String(url).includes(`/branches/${BR}/context`)) {
+          if (fail) {
+            return new Response(JSON.stringify({ error: { code: "INTERNAL", message: "boom" } }), {
+              status: 500,
+              headers: { "content-type": "application/json" },
+            });
+          }
+          return new Response(
+            JSON.stringify({ data: { branchId: BR, permissions: ["kitchen.view"] } }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response("{}", { status: 404 });
+      }),
+    );
+    render(
+      <QueryClientProvider client={qc}>
+        <OpsHome />
+      </QueryClientProvider>,
+    );
+    // The context query retries a 5xx twice (about 3 s) before it reports an error.
+    const retry = await screen.findByRole("button", { name: "Try again" }, { timeout: 6_000 });
+    expect(screen.queryByText("No consoles for your role here")).not.toBeInTheDocument();
+    fail = false;
+    await userEvent.click(retry);
+    expect(await screen.findByRole("link", { name: "Kitchen" })).toBeInTheDocument();
   });
 });
