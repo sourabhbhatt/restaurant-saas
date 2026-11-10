@@ -1,8 +1,13 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+
+import { HTML_LIMITED_BOT_UA_RE as NEXT_INTERNAL_HTML_LIMITED_BOT_UA_RE } from "next/dist/shared/lib/router/utils/html-bots";
+import { billDiscountSchema } from "@ros/contracts/billing";
 import { describe, expect, it } from "vitest";
 
 import { ALL_FAQ_ITEMS } from "../faq-data";
 import { FEATURE_DETAILS } from "../feature-details";
-import { HTML_LIMITED_BOTS } from "./crawlers";
+import { HTML_LIMITED_BOTS, NEXT_DEFAULT_HTML_LIMITED_BOTS } from "./crawlers";
 import { buildLlmsTxt } from "./llms-txt";
 import { CONSOLE_DISALLOW } from "./robots-policy";
 import { resolveSiteConfig } from "./site-config";
@@ -58,6 +63,17 @@ describe("crawlers that get metadata in the initial <head>", () => {
       ),
     ).toBe(false);
   });
+
+  it("keeps Next.js's default list without importing Next internals at build time", () => {
+    const source = readFileSync(path.join(import.meta.dirname, "crawlers.ts"), "utf8");
+    expect(source).not.toMatch(/from "next\/dist\//);
+    expect(HTML_LIMITED_BOTS.source.startsWith(`${NEXT_DEFAULT_HTML_LIMITED_BOTS}|`)).toBe(true);
+  });
+
+  it("vendored default list matches the installed Next.js (update crawlers.ts when this fails)", () => {
+    // Test-only import of the internal module behind the documented default list.
+    expect(NEXT_DEFAULT_HTML_LIMITED_BOTS).toBe(NEXT_INTERNAL_HTML_LIMITED_BOT_UA_RE.source);
+  });
 });
 
 describe("feature page content", () => {
@@ -69,4 +85,39 @@ describe("feature page content", () => {
       expect(detail.limits.length).toBeGreaterThan(0);
     }
   });
+
+  it("quotes UI labels exactly as the apps show them", () => {
+    const quoted = [...JSON.stringify(FEATURE_DETAILS).matchAll(/“([^”]+)”/g)].map((m) => m[1]!);
+    expect(quoted.length).toBeGreaterThan(0);
+    const repo = path.resolve(import.meta.dirname, "../../../../../..");
+    const uiSources = [
+      ...sourceFiles(path.join(repo, "apps/ops/src")),
+      ...sourceFiles(path.join(repo, "apps/console/src")),
+      ...sourceFiles(path.join(repo, "packages/web-core/src")).filter(
+        (file) => !file.includes(`${path.sep}features${path.sep}site${path.sep}`),
+      ),
+    ].map((file) => readFileSync(file, "utf8"));
+    for (const label of quoted) {
+      expect(
+        uiSources.some((text) => text.includes(label)),
+        `“${label}” is not a UI string`,
+      ).toBe(true);
+    }
+  });
+
+  it("describes the discount reason as optional, as the billing contract does", () => {
+    expect(billDiscountSchema.safeParse({ type: "FLAT", value: 5000 }).success).toBe(true);
+    const billing = JSON.stringify(
+      FEATURE_DETAILS.find((d) => d.path === "/features/restaurant-billing"),
+    );
+    expect(billing).toMatch(/discount/i);
+    expect(billing).not.toMatch(/discounts?[^.]*, with a reason/i);
+    expect(billing).toMatch(/optional reason/);
+  });
 });
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
+    .map((file) => path.join(dir, file));
+}

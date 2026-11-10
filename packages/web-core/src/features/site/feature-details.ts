@@ -46,7 +46,7 @@ export const FEATURE_DETAILS: FeatureDetail[] = [
       },
       {
         title: "Guests scan and browse the menu",
-        body: "The menu opens in the browser with photos, variants (sizes, portions), add-ons and veg/non-veg marks. It shows only what that branch sells, at that branch's prices, and allergens too if you switch them on.",
+        body: "The menu opens in the browser with photos, variants (sizes, portions), add-ons and veg/non-veg marks. It shows only what that branch sells, at that branch's prices, with allergens (a restaurant setting can hide them).",
       },
       {
         title: "The whole table orders together",
@@ -182,7 +182,7 @@ export const FEATURE_DETAILS: FeatureDetail[] = [
       },
       {
         title: "Apply a discount if needed",
-        body: "Percentage or flat discounts are applied at billing time, with a reason, and can never exceed the bill.",
+        body: "Percentage or flat discounts are applied at billing time, with an optional reason, and can never exceed the bill.",
       },
       {
         title: "Taxes and service charge come from the branch",
@@ -248,7 +248,7 @@ export const FEATURE_DETAILS: FeatureDetail[] = [
       },
       {
         title: "Waiters can keep taking orders",
-        body: "A waiter can add an order for a table from the last menu the device loaded. It is shown as “Not sent, will send when online” until the server accepts it, and prices always come from the server.",
+        body: "A waiter can add an order for a table from the last menu the device loaded. It is shown as “Not sent — will send when online” until the server accepts it, and prices always come from the server.",
       },
       {
         title: "The kitchen can keep cooking",
