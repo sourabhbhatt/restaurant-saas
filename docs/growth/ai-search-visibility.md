@@ -30,7 +30,7 @@ How RestaurantOS can show up, and be described correctly, in AI answers: Google 
 
 ### llms.txt
 
-**Decision: ship it, with no expectations.** `/llms.txt` follows the llmstxt.org proposal: an H1 name, a blockquote summary, then link lists [6]. It is generated from the same page list, FAQ and limitations as the site, so it costs nothing to maintain and cannot drift.
+**Decision: ship it, with no expectations.** `/llms.txt` follows the llmstxt.org proposal: an H1 name, a blockquote summary, then link lists [6]. It is generated from the same page list, FAQ, limitations and live plan data as the site, so it costs nothing to maintain and cannot drift. Its "Pricing" section lists each plan's monthly and yearly price as plain text ("Starter: ₹499/month or ₹4,990/year", excluding GST). On the pricing page those prices sit in a streamed, initially hidden segment that tools which skip `hidden` elements miss. If the API is down, the section only links to the pricing page. The `/pricing` meta description also leads with the live starting price ("Plans from ₹499 a month, excluding GST …"), which is in `<head>` for crawlers.
 
 **It is not an established ranking or visibility factor:**
 

@@ -129,6 +129,67 @@ describe("X-Robots-Tag decision", () => {
     expect(consoleRobotsHeader(PROD, { pathname: "/", host: null })).toBe(NOINDEX);
   });
 
+  it("lets the Organization logo and share image be indexed on the production host only", () => {
+    // Google: the Organization logo URL "must be crawlable and indexable".
+    for (const pathname of ["/logo.png", "/og-image.png"]) {
+      expect(consoleRobotsHeader(PROD, { pathname, ...prodHost })).toBeNull();
+      expect(consoleRobotsHeader(PROD, { pathname, host: PROD_ENV_ON_STAGING_HOST })).toBe(NOINDEX);
+      expect(consoleRobotsHeader(STAGING, { pathname, host: STAGING.host })).toBe(NOINDEX);
+      expect(consoleRobotsHeader(LOCAL, { pathname, host: LOCAL.host })).toBe(NOINDEX);
+    }
+    expect(consoleRobotsHeader(PROD, { pathname: "/logo.png.bak", ...prodHost })).toBe(NOINDEX);
+  });
+
+  it("treats site images like public pages: indexable on the production host only", () => {
+    const image = (url: string) => `?url=${encodeURIComponent(url)}&w=640&q=75`;
+    expect(consoleRobotsHeader(PROD, { pathname: "/images/hero.png", ...prodHost })).toBeNull();
+    expect(
+      consoleRobotsHeader(PROD, {
+        pathname: "/_next/image",
+        search: image("/images/hero.png"),
+        ...prodHost,
+      }),
+    ).toBeNull();
+    expect(
+      consoleRobotsHeader(PROD, {
+        pathname: "/_next/image",
+        search: image("/logo.png"),
+        ...prodHost,
+      }),
+    ).toBeNull();
+    // Optimised copies of anything else (guest menu photos, uploads, icons) stay out of search.
+    for (const url of [
+      "/api/v1/files/menu/abc.jpg",
+      "/icons/icon-192.png",
+      "/images/../api/v1/files/x.jpg",
+      "//evil.example/images/x.png",
+      "https://evil.example/images/x.png",
+      // URL parsing turns "\" into "/": these resolve to another host.
+      "/\\evil.example/images/x.png",
+      "\\\\evil.example/images/x.png",
+      "/\\/evil.example/images/x.png",
+      "//[",
+      "/\\[", // does not parse; must not throw in the proxy
+    ]) {
+      expect(
+        consoleRobotsHeader(PROD, { pathname: "/_next/image", search: image(url), ...prodHost }),
+      ).toBe(NOINDEX);
+    }
+    expect(consoleRobotsHeader(PROD, { pathname: "/_next/image", ...prodHost })).toBe(NOINDEX);
+    for (const config of [LOCAL, STAGING]) {
+      expect(consoleRobotsHeader(config, { pathname: "/images/hero.png", host: config.host })).toBe(
+        NOINDEX,
+      );
+      expect(
+        consoleRobotsHeader(config, {
+          pathname: "/_next/image",
+          search: image("/images/hero.png"),
+          host: config.host,
+        }),
+      ).toBe(NOINDEX);
+    }
+  });
+
   it("accepts the production host from X-Forwarded-Host (proxy or CDN in front)", () => {
     expect(
       isProductionHostRequest(PROD, {

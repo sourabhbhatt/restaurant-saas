@@ -1,8 +1,14 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+
+import { HTML_LIMITED_BOT_UA_RE as NEXT_INTERNAL_HTML_LIMITED_BOT_UA_RE } from "next/dist/shared/lib/router/utils/html-bots";
+import { billDiscountSchema } from "@ros/contracts/billing";
 import { describe, expect, it } from "vitest";
 
 import { ALL_FAQ_ITEMS } from "../faq-data";
 import { FEATURE_DETAILS } from "../feature-details";
-import { HTML_LIMITED_BOTS } from "./crawlers";
+import { parsePublicPlans } from "../pricing/plan-model";
+import { HTML_LIMITED_BOTS, NEXT_DEFAULT_HTML_LIMITED_BOTS } from "./crawlers";
 import { buildLlmsTxt } from "./llms-txt";
 import { CONSOLE_DISALLOW } from "./robots-policy";
 import { resolveSiteConfig } from "./site-config";
@@ -37,6 +43,37 @@ describe("llms.txt", () => {
   it("states the limits plainly", () => {
     expect(text).toMatch(/Not available yet: online payments/);
   });
+
+  it("lists live plan prices, excluding GST, from the same plan data as the site", () => {
+    const plans = parsePublicPlans([
+      {
+        key: "starter",
+        name: "Starter",
+        currency: "INR",
+        monthlyPrice: 49900,
+        annualPrice: 499000,
+      },
+      { key: "pro", name: "Pro", currency: "INR", monthlyPrice: 199900, annualPrice: null },
+      { key: "enterprise", name: "Enterprise", currency: "INR", monthlyPrice: null },
+    ]);
+    const priced = buildLlmsTxt(PROD, plans);
+    const section = priced.slice(
+      priced.indexOf("## Pricing"),
+      priced.indexOf("## Common questions"),
+    );
+    expect(section).toContain("- Starter: ₹499/month or ₹4,990/year");
+    expect(section).toContain("- Pro: ₹1,999/month");
+    expect(section).toContain("- Enterprise: custom pricing (contact us)");
+    expect(section).toContain("Prices exclude GST.");
+    expect(section).toContain("https://www.restaurantos.in/pricing");
+  });
+
+  it("points to the pricing page when the plans are unavailable", () => {
+    const section = text.slice(text.indexOf("## Pricing"), text.indexOf("## Common questions"));
+    expect(section).toContain("## Pricing");
+    expect(section).toContain("https://www.restaurantos.in/pricing");
+    expect(section).not.toContain("₹");
+  });
 });
 
 describe("crawlers that get metadata in the initial <head>", () => {
@@ -58,6 +95,17 @@ describe("crawlers that get metadata in the initial <head>", () => {
       ),
     ).toBe(false);
   });
+
+  it("keeps Next.js's default list without importing Next internals at build time", () => {
+    const source = readFileSync(path.join(import.meta.dirname, "crawlers.ts"), "utf8");
+    expect(source).not.toMatch(/from "next\/dist\//);
+    expect(HTML_LIMITED_BOTS.source.startsWith(`${NEXT_DEFAULT_HTML_LIMITED_BOTS}|`)).toBe(true);
+  });
+
+  it("vendored default list matches the installed Next.js (update crawlers.ts when this fails)", () => {
+    // Test-only import of the internal module behind the documented default list.
+    expect(NEXT_DEFAULT_HTML_LIMITED_BOTS).toBe(NEXT_INTERNAL_HTML_LIMITED_BOT_UA_RE.source);
+  });
 });
 
 describe("feature page content", () => {
@@ -69,4 +117,39 @@ describe("feature page content", () => {
       expect(detail.limits.length).toBeGreaterThan(0);
     }
   });
+
+  it("quotes UI labels exactly as the apps show them", () => {
+    const quoted = [...JSON.stringify(FEATURE_DETAILS).matchAll(/“([^”]+)”/g)].map((m) => m[1]!);
+    expect(quoted.length).toBeGreaterThan(0);
+    const repo = path.resolve(import.meta.dirname, "../../../../../..");
+    const uiSources = [
+      ...sourceFiles(path.join(repo, "apps/ops/src")),
+      ...sourceFiles(path.join(repo, "apps/console/src")),
+      ...sourceFiles(path.join(repo, "packages/web-core/src")).filter(
+        (file) => !file.includes(`${path.sep}features${path.sep}site${path.sep}`),
+      ),
+    ].map((file) => readFileSync(file, "utf8"));
+    for (const label of quoted) {
+      expect(
+        uiSources.some((text) => text.includes(label)),
+        `“${label}” is not a UI string`,
+      ).toBe(true);
+    }
+  });
+
+  it("describes the discount reason as optional, as the billing contract does", () => {
+    expect(billDiscountSchema.safeParse({ type: "FLAT", value: 5000 }).success).toBe(true);
+    const billing = JSON.stringify(
+      FEATURE_DETAILS.find((d) => d.path === "/features/restaurant-billing"),
+    );
+    expect(billing).toMatch(/discount/i);
+    expect(billing).not.toMatch(/discounts?[^.]*, with a reason/i);
+    expect(billing).toMatch(/optional reason/);
+  });
 });
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
+    .map((file) => path.join(dir, file));
+}

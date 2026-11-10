@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import { BRAND } from "../brand";
+import { formatPlanPrice, type PublicPlan, type PublicPlans } from "../pricing/plan-model";
 import { isProductionHostRequest } from "./robots-policy";
 import { absoluteUrl, getSiteConfig, type SiteConfig } from "./site-config";
 import { fullTitle, getSitePage, type SitePage, type SitePath } from "./site-pages";
@@ -62,14 +63,36 @@ export function buildPageMetadata(
  * `generateMetadata` for a public page. Canonical URLs and the robots policy
  * come from the runtime environment and the request's host, so it runs per
  * request (metadata is streamed to browsers and in the <head> for crawlers,
- * see seo/crawlers.ts).
+ * see seo/crawlers.ts). `description` may replace the page's static
+ * description with live data; null keeps the static one.
  */
-export async function publicPageMetadata(path: SitePath): Promise<Metadata> {
+export async function publicPageMetadata(
+  path: SitePath,
+  options: { description?: () => Promise<string | null> } = {},
+): Promise<Metadata> {
   const requestHeaders = await headers();
   const config = getSiteConfig();
   const indexable = isProductionHostRequest(config, {
     host: requestHeaders.get("host"),
     forwardedHost: requestHeaders.get("x-forwarded-host"),
   });
-  return buildPageMetadata(getSitePage(path), config, indexable);
+  const page = getSitePage(path);
+  const description = (await options.description?.()) ?? page.description;
+  return buildPageMetadata({ ...page, description }, config, indexable);
+}
+
+/**
+ * /pricing description led by the live starting price (lowest published
+ * monthly price above zero), so it is in the <head> for crawlers. Null when
+ * the plans are unavailable or none has a monthly price: the static
+ * description applies.
+ */
+export function pricingPageDescription(plans: PublicPlans | null): string | null {
+  const priced = (plans?.plans ?? []).filter(
+    (plan): plan is PublicPlan & { monthlyPrice: number } => (plan.monthlyPrice ?? 0) > 0,
+  );
+  if (priced.length === 0) return null;
+  const cheapest = priced.reduce((a, b) => (b.monthlyPrice < a.monthlyPrice ? b : a));
+  const from = formatPlanPrice(cheapest.monthlyPrice, cheapest.currency);
+  return `Plans from ${from} a month, excluding GST, for one outlet or a restaurant group. Free trial with no card to start. Compare branch, staff, table and menu limits.`;
 }

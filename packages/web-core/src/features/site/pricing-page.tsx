@@ -18,6 +18,8 @@ export function PricingPage() {
         description="Every plan includes QR ordering with waiter approval. Start free, then choose the plan that fits."
       />
       <Section className="py-14 md:py-20">
+        {/* Keeps the outline h1 → h2 → h3 (plan names) for screen readers and crawlers. */}
+        <h2 className="sr-only">Plans and prices</h2>
         <ServerPricingPlans variant="full" />
         <p className="mt-10 text-center text-sm text-muted-foreground">
           Subscriptions are activated by our team — we&apos;ll confirm the plan and payment details

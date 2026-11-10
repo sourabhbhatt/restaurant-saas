@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
-import { absoluteUrl, isNonProductionHost, resolveSiteConfig } from "./site-config";
+import { absoluteUrl, getSiteConfig, isNonProductionHost, resolveSiteConfig } from "./site-config";
 
 const STAGING = "https://ros-console-staging-367556472616.asia-south1.run.app";
 
@@ -45,8 +45,29 @@ describe("resolveSiteConfig", () => {
     ["localhost", { SITE_INDEXABLE: "true", PUBLIC_SITE_URL: "https://localhost:3000" }],
     ["IP address", { SITE_INDEXABLE: "true", PUBLIC_SITE_URL: "https://10.0.0.5" }],
     ["Firebase default host", { SITE_INDEXABLE: "true", PUBLIC_SITE_URL: "https://ros.web.app" }],
+    [
+      "a staging subdomain",
+      { SITE_INDEXABLE: "true", PUBLIC_SITE_URL: "https://staging.restaurantos.in" },
+    ],
+    [
+      "a preview host on Vercel",
+      { SITE_INDEXABLE: "true", PUBLIC_SITE_URL: "https://ros-git-main.vercel.app" },
+    ],
   ])("is never indexable with %s", (_label, env) => {
     expect(resolveSiteConfig(env).indexable).toBe(false);
+  });
+
+  it("indexes a .co.in production domain and refuses its staging subdomain", () => {
+    const prod = { SITE_INDEXABLE: "true", PUBLIC_SITE_URL: "https://www.restaurantos.co.in" };
+    const staging = {
+      SITE_INDEXABLE: "true",
+      PUBLIC_SITE_URL: "https://staging.restaurantos.co.in",
+    };
+    expect(resolveSiteConfig(prod).indexable).toBe(true);
+    expect(resolveSiteConfig(staging)).toMatchObject({
+      indexable: false,
+      reason: expect.stringContaining("staging.restaurantos.co.in"),
+    });
   });
 
   it("explains why a site is not indexable", () => {
@@ -66,12 +87,110 @@ describe("isNonProductionHost", () => {
     "ros-console-x.a.run.app",
     "printer.local",
     "svc.internal",
+    // Environment subdomains of a real domain
+    "staging.restaurantos.in",
+    "stage.restaurantos.in",
+    "STAGING.restaurantos.in",
+    "staging2.restaurantos.in",
+    "dev.restaurantos.in",
+    "preview.restaurantos.in",
+    "test.restaurantos.in",
+    "qa.restaurantos.in",
+    "uat.restaurantos.in",
+    "sandbox.restaurantos.in",
+    "www.staging.restaurantos.in",
+    "console-staging.restaurantos.in",
+    "staging-console.restaurantos.in",
+    // Platform-default and tunnel hosts
+    "ros.appspot.com",
+    "ros-git-main.vercel.app",
+    "ros.netlify.app",
+    "ros.pages.dev",
+    "abc123.ngrok.io",
+    "abc123.ngrok-free.app",
+    "abc123.ngrok.app",
+    "quiet-river.trycloudflare.com",
+    "sourabh.github.io",
+    "ros.herokuapp.com",
+    "ros.azurewebsites.net",
+    "ros.onrender.com",
+    "ros.fly.dev",
+    "ros.up.railway.app",
+    "ros.workers.dev",
+    "main.d1abc.amplifyapp.com",
+    "d111111abcdef8.cloudfront.net",
   ])("flags %s", (host) => expect(isNonProductionHost(host)).toBe(true));
 
-  it.each(["restaurantos.in", "www.restaurantos.in", "app.restaurantos.co.in"])(
-    "accepts %s",
-    (host) => expect(isNonProductionHost(host)).toBe(false),
+  it.each([
+    "restaurantos.in",
+    "www.restaurantos.in",
+    "app.restaurantos.co.in",
+    // The words only count as subdomain labels, not inside the registrable name.
+    "devrestaurant.in",
+    "teststudio.in",
+    "staging.in",
+    "contest.restaurantos.in",
+    "www.restaurantos.test",
+    // Two-level public suffixes: the brand label is part of the registrable name.
+    "restaurantos.co.in",
+    "www.restaurantos.co.in",
+    "www.test-kitchen.co.in",
+    "qa-foods.co.in",
+    "www.dev-cafe.org.in",
+    "stage-door.co.uk",
+    "www.preview-bistro.com.au",
+  ])("accepts %s", (host) => expect(isNonProductionHost(host)).toBe(false));
+
+  it.each([
+    "staging.restaurantos.co.in",
+    "www.staging.restaurantos.co.in",
+    "dev.restaurantos.org.in",
+    "qa.brand.net.in",
+    "uat.brand.firm.in",
+    "preview.brand.co.uk",
+    "staging.brand.com.au",
+  ])("flags the environment subdomain %s under a two-level suffix", (host) =>
+    expect(isNonProductionHost(host)).toBe(true),
   );
+});
+
+describe("getSiteConfig: warning when indexing was asked for but refused", () => {
+  const WARNED = Symbol.for("ros.site-config.not-indexable-warned");
+  let stderr: MockInstance<typeof console.error>;
+
+  beforeEach(() => {
+    delete (globalThis as Record<symbol, unknown>)[WARNED];
+    stderr = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    stderr.mockRestore();
+    vi.unstubAllEnvs();
+  });
+
+  it("logs one JSON warning with the reason, however many requests follow", () => {
+    vi.stubEnv("SITE_INDEXABLE", "true");
+    vi.stubEnv("PUBLIC_SITE_URL", "https://staging.restaurantos.co.in");
+    for (let i = 0; i < 3; i++) expect(getSiteConfig().indexable).toBe(false);
+    expect(stderr).toHaveBeenCalledTimes(1);
+    const line = JSON.parse(String(stderr.mock.calls[0]?.[0])) as Record<string, unknown>;
+    expect(line).toMatchObject({
+      level: "warn",
+      msg: "site_not_indexable",
+      publicSiteUrl: "https://staging.restaurantos.co.in",
+      reason: expect.stringContaining("staging"),
+    });
+  });
+
+  it("stays quiet when the flag is unset or the site is indexable", () => {
+    vi.stubEnv("SITE_INDEXABLE", "");
+    vi.stubEnv("PUBLIC_SITE_URL", "https://staging.restaurantos.co.in");
+    getSiteConfig();
+    vi.stubEnv("SITE_INDEXABLE", "true");
+    vi.stubEnv("PUBLIC_SITE_URL", "https://www.restaurantos.co.in");
+    expect(getSiteConfig().indexable).toBe(true);
+    expect(stderr).not.toHaveBeenCalled();
+  });
 });
 
 describe("absoluteUrl", () => {

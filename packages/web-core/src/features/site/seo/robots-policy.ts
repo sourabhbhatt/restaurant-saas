@@ -60,8 +60,43 @@ function normaliseHost(value: string | null | undefined): string | null {
 
 export interface RobotsRequest {
   pathname: string;
+  /** Query string (`?url=…` decides for `/_next/image`). */
+  search?: string | null;
   host?: string | null;
   forwardedHost?: string | null;
+}
+
+/**
+ * Images that may appear in search on the production site, like the public
+ * pages: the Organization logo (Google requires it to be indexable), the share
+ * image, and anything in `public/images/`. App icons, guest menu photos and
+ * uploads are not on this list.
+ */
+const INDEXABLE_IMAGE_PATHS = new Set(["/logo.png", "/og-image.png"]);
+const isIndexableImagePath = (pathname: string) =>
+  INDEXABLE_IMAGE_PATHS.has(pathname) || pathname.startsWith("/images/");
+
+/** Stands in for the request's own origin when resolving `url=`. */
+const OWN_ORIGIN = "http://own.invalid";
+
+/** An optimised image (`/_next/image?url=…`) is indexable only if its source is. */
+function isIndexableOptimisedImage(search: string | null | undefined): boolean {
+  const source = new URLSearchParams(search ?? "").get("url");
+  if (!source?.startsWith("/")) return false;
+  // Only same-site images: "//host/…", "/\host/…" and absolute URLs resolve to
+  // another origin.
+  let resolved: URL;
+  try {
+    resolved = new URL(source, OWN_ORIGIN);
+  } catch {
+    return false; // "//[" and similar do not parse
+  }
+  return resolved.origin === OWN_ORIGIN && isIndexableImagePath(resolved.pathname);
+}
+
+function isIndexablePath(request: Pick<RobotsRequest, "pathname" | "search">): boolean {
+  if (request.pathname === "/_next/image") return isIndexableOptimisedImage(request.search);
+  return isPublicSitePath(request.pathname) || isIndexableImagePath(request.pathname);
 }
 
 /** True when the request reached the production site on its own host (not *.run.app, staging …). */
@@ -75,12 +110,12 @@ export function isProductionHostRequest(
 }
 
 /**
- * X-Robots-Tag for a console response, or null when the page may be indexed.
- * A page is indexable only on the production site, on its own host (so the
+ * X-Robots-Tag for a console response, or null when it may be indexed.
+ * A response is indexable only on the production site, on its own host (so the
  * same configuration served from a *.run.app URL or a staging host is still
- * noindex) and only when it is one of the public pages.
+ * noindex) and only when it is a public page or a site image.
  */
 export function consoleRobotsHeader(config: SiteConfig, request: RobotsRequest): string | null {
   if (!isProductionHostRequest(config, request)) return NOINDEX;
-  return isPublicSitePath(request.pathname) ? null : NOINDEX;
+  return isIndexablePath(request) ? null : NOINDEX;
 }

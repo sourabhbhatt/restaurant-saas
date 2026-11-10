@@ -12,24 +12,39 @@ export interface ServerPlans {
 const TIMEOUT_MS = 3_000;
 
 /**
- * Public plans fetched from the API on the server and cached for a minute, so
- * pricing is part of the HTML (search engines and AI crawlers that do not run
- * JavaScript see real prices) and the structured data matches what is shown.
- * Errors are not cached: the caller falls back to the client-side fetch.
+ * GET /api/v1/public/plans on the internal API. Throws on an error status, a
+ * body that is not the plans contract, a network failure or a timeout.
  */
-async function fetchPublicPlans(apiBase: string): Promise<ServerPlans> {
-  "use cache";
-  cacheLife("minutes");
-  const res = await fetch(`${apiBase.replace(/\/$/, "")}/api/v1/public/plans`, {
+export async function requestPublicPlans(
+  apiBase: string,
+  options: { fetch?: typeof fetch; timeoutMs?: number } = {},
+): Promise<ServerPlans> {
+  const fetchImpl = options.fetch ?? fetch;
+  const res = await fetchImpl(`${apiBase.replace(/\/$/, "")}/api/v1/public/plans`, {
     headers: { accept: "application/json" },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`GET /public/plans answered ${res.status}`);
   const body = (await res.json()) as { data?: unknown };
   return { data: parsePublicPlans(body.data), fetchedAt: Date.now() };
 }
 
-/** Call at request time only (after `connection()`); null when the API is unavailable. */
+/**
+ * Public plans fetched from the API on the server and cached for a minute, so
+ * pricing is part of the HTML (search engines and AI crawlers that do not run
+ * JavaScript see real prices) and the structured data matches what is shown.
+ * Errors are thrown, so they are not cached.
+ */
+async function fetchPublicPlans(apiBase: string): Promise<ServerPlans> {
+  "use cache";
+  cacheLife("minutes");
+  return requestPublicPlans(apiBase);
+}
+
+/**
+ * Call at request time only (after `connection()`). Null when the API is
+ * unavailable: the page still renders and the plans load in the browser.
+ */
 export async function loadPublicPlans(): Promise<ServerPlans | null> {
   try {
     return await fetchPublicPlans(process.env.API_INTERNAL_URL || DEFAULT_API_INTERNAL_URL);

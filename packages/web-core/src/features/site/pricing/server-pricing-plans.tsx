@@ -4,7 +4,8 @@ import { Suspense } from "react";
 import { PlansSkeleton, PricingPlans } from "./pricing-plans";
 import { loadPublicPlans } from "./server-plans";
 
-async function PlansFromServer({ variant }: { variant: "full" | "teaser" }) {
+/** Exported for tests. */
+export async function PlansFromServer({ variant }: { variant: "full" | "teaser" }) {
   await connection();
   const initial = await loadPublicPlans();
   // Without server data the client component fetches the plans itself.
