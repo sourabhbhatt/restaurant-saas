@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lt, type SQL } from "drizzle-orm";
 
 import type { PaymentOrderRow, PaymentRepository } from "@ros/application/modules/payments/ports";
 
@@ -28,6 +28,7 @@ function toOrderRow({ order, planKey }: OrderJoin): PaymentOrderRow {
     status: order.status,
     providerPaymentId: order.providerPaymentId,
     createdBy: order.createdBy,
+    analyticsClientId: order.analyticsClientId,
     createdAt: order.createdAt,
     paidAt: order.paidAt,
   };
@@ -104,7 +105,21 @@ export function paymentRepository(db: Executor): PaymentRepository {
       const set: Partial<typeof paymentOrders.$inferInsert> = { status: patch.status };
       if (patch.providerPaymentId !== undefined) set.providerPaymentId = patch.providerPaymentId;
       if (patch.paidAt !== undefined) set.paidAt = patch.paidAt;
+      if (patch.analyticsClientId !== undefined) set.analyticsClientId = patch.analyticsClientId;
       await db.update(paymentOrders).set(set).where(eq(paymentOrders.id, id));
+    },
+    async forgetAnalyticsIds(createdBefore) {
+      const rows = await db
+        .update(paymentOrders)
+        .set({ analyticsClientId: null })
+        .where(
+          and(
+            isNotNull(paymentOrders.analyticsClientId),
+            lt(paymentOrders.createdAt, createdBefore),
+          ),
+        )
+        .returning({ id: paymentOrders.id });
+      return rows.length;
     },
     async insertEvent(input) {
       const rows = await db

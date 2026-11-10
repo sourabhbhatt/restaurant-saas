@@ -8,6 +8,7 @@ import { Toaster } from "@ros/ui/ui/sonner";
 import { BRAND, LEGAL_NAV } from "../site/brand";
 import { BrandLogo } from "../site/logo";
 import { appHref, useAppLinks } from "../../app-links";
+import { PrivacyChoicesLink } from "../../tracking/privacy-choices";
 
 const POINTS = [
   { icon: QrCodeIcon, text: "Guests order by QR — no app, no account" },
@@ -77,6 +78,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
               {l.label}
             </Link>
           ))}
+          <PrivacyChoicesLink className="hover:text-foreground" />
         </footer>
       </div>
       <Toaster position="top-center" />

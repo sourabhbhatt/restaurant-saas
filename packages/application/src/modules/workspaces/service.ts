@@ -136,7 +136,7 @@ export function createWorkspaceService({
       );
       return { ws, planKey: plan.key };
     });
-    // Committed: one trial per person, so this fires once per trial.
+    // Committed: one trial per person, so this fires once per trial; only if they opted in.
     trackSafely(
       tracking,
       logger,
@@ -144,7 +144,7 @@ export function createWorkspaceService({
         name: "trial_started",
         params: { plan_key: created.planKey, trial_days: settings.trialDays },
       },
-      { analytics: meta.analytics },
+      meta.analytics,
     );
     return created.ws;
   }

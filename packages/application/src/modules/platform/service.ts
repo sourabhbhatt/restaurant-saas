@@ -56,8 +56,6 @@ import { recordAudit } from "../../audit/audit-service";
 import type { WorkspaceScope } from "../../authz/access-service";
 import { auditActorFor, type AuditActor, type RequestMeta, type UserActor } from "../../context";
 import type { Clock, Logger } from "../../ports/observability";
-import { noServerTracking, trackSafely, type ServerTracking } from "../../ports/server-tracking";
-import { trackingBillingCycle } from "@ros/contracts/tracking-events";
 import type { EntitlementService } from "../../subscriptions/entitlement-service";
 import type {
   AuditFilter,
@@ -76,8 +74,6 @@ export interface PlatformServiceDeps {
   logger?: Logger;
   /** Whether an online payment gateway is wired (shows the Pay button). Default false. */
   paymentsEnabled?: boolean;
-  /** Growth events for manual activations and cancellations. Default: none. */
-  tracking?: ServerTracking;
 }
 
 interface Mail {
@@ -190,20 +186,7 @@ function auditFilter(q: {
 
 export function createPlatformService(deps: PlatformServiceDeps) {
   const { tx, clock, entitlements, mailer, appUrl, logger, paymentsEnabled = false } = deps;
-  const tracking = deps.tracking ?? noServerTracking;
   const base = appUrl.replace(/\/$/, "");
-
-  /** After commit. Anonymous on purpose: the actor is the Super Admin, not the customer. */
-  function trackManualActivation(input: { planKey: string; billingCycle: "MONTHLY" | "ANNUAL" }) {
-    trackSafely(tracking, logger, {
-      name: "subscription_activated",
-      params: {
-        plan_key: input.planKey,
-        billing_cycle: trackingBillingCycle(input.billingCycle),
-        activation_source: "manual",
-      },
-    });
-  }
 
   async function settings(): Promise<PlatformSettings> {
     return entitlements.getPlatformSettings();
@@ -893,7 +876,6 @@ export function createPlatformService(deps: PlatformServiceDeps) {
       await tx.run(async (r) => {
         await activateInTx(r, admin, meta, workspaceId, input, now, periodEnd, outbox);
       });
-      trackManualActivation(input);
       await deliver(outbox);
     },
 
@@ -1114,7 +1096,6 @@ export function createPlatformService(deps: PlatformServiceDeps) {
         );
         return toUpgradeDto((await r.platform.findUpgradeRequest(requestId))!);
       });
-      trackManualActivation({ planKey: dto.requestedPlan.key, billingCycle: input.billingCycle });
       await deliver(outbox);
       return dto;
     },
@@ -1278,7 +1259,7 @@ export function createPlatformService(deps: PlatformServiceDeps) {
       assertAdmin(admin);
       const now = clock.now();
       const outbox: Mail[] = [];
-      const cancelled = await tx.run(async (r) => {
+      await tx.run(async (r) => {
         const ws = await requireWorkspace(r, workspaceId);
         const sub = await requireSubscription(r, workspaceId);
         if (sub.status !== "ACTIVE" && sub.status !== "TRIALING") {
@@ -1323,15 +1304,6 @@ export function createPlatformService(deps: PlatformServiceDeps) {
           },
           outbox,
         );
-        return { planKey: sub.planKey, from: sub.status };
-      });
-      // After commit; a repeat is refused above (already CANCELLED), so this fires once.
-      trackSafely(tracking, logger, {
-        name: "subscription_cancelled",
-        params: {
-          plan_key: cancelled.planKey,
-          previous_status: cancelled.from === "ACTIVE" ? "active" : "trialing",
-        },
       });
       await deliver(outbox);
     },

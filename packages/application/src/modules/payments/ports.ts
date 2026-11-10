@@ -17,6 +17,8 @@ export interface PaymentOrderRow {
   status: PaymentOrderStatus;
   providerPaymentId: string | null;
   createdBy: string | null;
+  /** The buyer's GA4 client id, only if they had opted in to analytics at checkout. */
+  analyticsClientId: string | null;
   createdAt: Date;
   paidAt: Date | null;
 }
@@ -42,14 +44,22 @@ export interface PaymentRepository {
     amountMinor: number;
     currency: string;
     createdBy: string;
+    analyticsClientId: string | null;
   }): Promise<PaymentOrderRow>;
   findOrder(provider: string, providerOrderId: string): Promise<PaymentOrderRow | null>;
   /** `SELECT ... FOR UPDATE`: serialises the webhook and the verify endpoint on one order. */
   lockOrder(provider: string, providerOrderId: string): Promise<PaymentOrderRow | null>;
   markOrder(
     id: string,
-    patch: { status: PaymentOrderStatus; providerPaymentId?: string | null; paidAt?: Date | null },
+    patch: {
+      status: PaymentOrderStatus;
+      providerPaymentId?: string | null;
+      paidAt?: Date | null;
+      analyticsClientId?: null;
+    },
   ): Promise<void>;
+  /** Clears the stored GA4 client id of orders created before `createdBefore`; returns how many. */
+  forgetAnalyticsIds(createdBefore: Date): Promise<number>;
   /** False when the provider already delivered this event (unique on provider + event id). */
   insertEvent(input: {
     provider: string;

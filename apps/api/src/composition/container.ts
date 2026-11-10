@@ -179,6 +179,7 @@ export async function buildContainer(options: BuildOptions = {}): Promise<Contai
     }
     const db = handle.db;
     if (tenantRole(env) === null) logger.warn("tenant_role_disabled");
+    if (env.GA_MEASUREMENT_ID_MALFORMED) logger.warn("ga_measurement_id_ignored");
     if (!appOriginAllowed(env))
       logger.warn("allowed_origins_excludes_app_url", {
         appUrl: env.APP_URL,

@@ -6,12 +6,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { API_EVENT_RULES, handleApiSuccess } from "./api-events";
 import { useTrackingStore } from "./consent";
 import { configureGtag } from "./gtag";
-import { TEST_ID, events, resetTracking, setPath } from "./test-helpers";
+import { TEST_ID, events, resetTracking, setConsentCookie, setPath } from "./test-helpers";
 
 const ID = "0b3c6c2e-5d0e-4f43-9d55-0a4c3f0e5c11";
 
 beforeEach(() => {
   resetTracking();
+  setConsentCookie("granted");
   useTrackingStore.setState({ measurementId: TEST_ID, consent: "granted" });
   configureGtag(TEST_ID, { debug: false });
   setPath("/app/onboarding");

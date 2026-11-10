@@ -57,6 +57,13 @@
       "when": 1794116383559,
       "tag": "0007_runtime_reads_migration_journal",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794300279361,
+      "tag": "0008_payment_order_analytics_opt_in",
+      "breakpoints": true
     }
   ]
 }

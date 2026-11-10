@@ -17,6 +17,7 @@ import { Skeleton } from "@ros/ui/ui/skeleton";
 import { useIdentity, useSignOut } from "../session/queries";
 import { useSwitchWorkspace } from "../workspaces/use-switch-workspace";
 import { appHref, useAppLinks } from "../../app-links";
+import { PrivacyChoicesMenuItem, keepFocusOnPrivacyChoices } from "../../tracking/privacy-choices";
 
 export interface ProfileContext {
   /** Workspace being worked in (omit on platform/account pages). */
@@ -66,7 +67,11 @@ export function ProfileMenu({
           </span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72">
+      <DropdownMenuContent
+        align="end"
+        className="w-72"
+        onCloseAutoFocus={keepFocusOnPrivacyChoices}
+      >
         <DropdownMenuLabel className="flex flex-col gap-0.5 font-normal">
           <span className="truncate text-sm font-semibold">{user.name}</span>
           <span className="truncate text-xs text-muted-foreground">{user.email}</span>
@@ -112,6 +117,7 @@ export function ProfileMenu({
             <Settings className="size-4" aria-hidden /> Account settings
           </Link>
         </DropdownMenuItem>
+        <PrivacyChoicesMenuItem />
         {area === "app" && "isPlatformAdmin" in user && user.isPlatformAdmin ? (
           <DropdownMenuItem asChild>
             <Link href={appHref(links.admin, "/admin")}>

@@ -22,7 +22,11 @@ export function createMemoryServerTracking(): MemoryServerTracking {
     provider: "memory",
     events,
     rejected,
-    track(event, context = {}) {
+    track(event, context) {
+      if (!context?.analytics?.clientId) {
+        rejected.push({ name: event.name, reason: "no_consent" });
+        return;
+      }
       const checked = validateTrackingEvent("server", event.name, event.params);
       if (checked.ok) events.push({ event, context });
       else rejected.push({ name: event.name, reason: checked.reason });

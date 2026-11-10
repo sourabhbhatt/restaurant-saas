@@ -63,7 +63,8 @@ export const planLimitsSchema = z.object(
   Object.fromEntries(LIMIT_KEYS.map((k) => [k, limitValue])) as Record<LimitKey, typeof limitValue>,
 );
 
-const planKeySchema = z
+/** Plan keys: slugs the Super Admin chooses (also the shape analytics accepts, tracking-events.ts). */
+export const planKeySchema = z
   .string()
   .trim()
   .min(2, "Use at least 2 characters")

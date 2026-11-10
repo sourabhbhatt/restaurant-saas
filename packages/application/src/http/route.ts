@@ -220,7 +220,11 @@ export function route<
           onRejected: (reason) => c.logger.warn("client_ip_signature_rejected", { reason }),
         }),
         userAgent: req.headers.get("user-agent"),
-        analytics: consentedAnalyticsIds(req.headers.get("cookie"), c.env.GA_MEASUREMENT_ID),
+        // Read (and, for a checkout, stored) only while server tracking is on.
+        analytics:
+          c.tracking.provider === "none"
+            ? null
+            : consentedAnalyticsIds(req.headers.get("cookie"), c.env.GA_MEASUREMENT_ID),
       };
       if (MUTATING.has(req.method) && !config.skipOriginCheck)
         assertSameOrigin(req, c.env.ALLOWED_ORIGINS);

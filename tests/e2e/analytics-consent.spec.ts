@@ -5,8 +5,9 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
  * configured AND the visitor opted in (docs/growth/analytics-events.md).
  *
  * The default run has no GA_MEASUREMENT_ID: the first block proves the app is
- * inert. To cover the consent flow, run this file against a console started
- * with a test stream id (requests to Google are stubbed, nothing leaves):
+ * inert. The consent flow runs against a console started with a fake stream id
+ * (every request to Google is answered locally, nothing leaves the machine);
+ * CI runs it after the main suite, reusing the builds:
  *   GA_MEASUREMENT_ID=G-E2ETEST01 pnpm test:e2e tests/e2e/analytics-consent.spec.ts
  */
 const MEASUREMENT_ID = process.env.GA_MEASUREMENT_ID;
@@ -188,5 +189,42 @@ test.describe("with a Measurement ID", () => {
       MEASUREMENT_ID,
     );
     expect(disabled).toBe(true);
+  });
+
+  test("a withdrawal in one tab stops the others at once", async ({ page, context }) => {
+    await watchGoogle(context);
+    await page.goto("/");
+    await banner(page).getByRole("button", { name: "Allow analytics" }).click();
+    await expect.poll(async () => (await pageViews(page)).length).toBe(1);
+
+    const other = await context.newPage();
+    await other.goto("/pricing");
+    await expect(banner(other)).toHaveCount(0);
+    await other.getByRole("contentinfo").getByRole("button", { name: "Cookie settings" }).click();
+    await banner(other).getByRole("button", { name: "Decline" }).click();
+
+    // The first tab hears about it without a reload or a focus change.
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (id) => (window as unknown as Record<string, unknown>)[`ga-disable-${id}`],
+          MEASUREMENT_ID,
+        ),
+      )
+      .toBe(true);
+    await page.getByRole("contentinfo").getByRole("link", { name: "Pricing" }).click();
+    await expect(page).toHaveURL(/\/pricing$/);
+    await page.waitForLoadState("networkidle");
+    expect(await pageViews(page)).toHaveLength(1);
+    expect((await context.cookies()).some((c) => c.name.startsWith("_ga"))).toBe(false);
+  });
+
+  test("the auth pages offer Cookie settings too", async ({ page, context }) => {
+    await watchGoogle(context);
+    await page.goto("/sign-in");
+    await banner(page).getByRole("button", { name: "Allow analytics" }).click();
+    await expect(banner(page)).toHaveCount(0);
+    await page.getByRole("contentinfo").getByRole("button", { name: "Cookie settings" }).click();
+    await expect(banner(page)).toContainText("Current choice: allowed");
   });
 });

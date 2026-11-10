@@ -6,7 +6,13 @@ import { useEffect } from "react";
 
 import { startApiTracking } from "./api-events";
 import { ConsentBanner } from "./consent-banner";
-import { clearAnalyticsCookies, readConsentCookie, useTrackingStore } from "./consent";
+import {
+  CONSENT_CHANNEL,
+  clearAnalyticsCookies,
+  readConsentCookie,
+  syncConsentFromCookie,
+  useTrackingStore,
+} from "./consent";
 import { configureGtag, disableGtag, gtagScriptSrc } from "./gtag";
 import { trackPageView } from "./page-views";
 import { contentGroupFor } from "./sanitize";
@@ -49,6 +55,22 @@ export function TrackingClient({
     if (granted) trackPageView(pathname);
   }, [granted, pathname]);
 
+  // A choice made in another tab: told at once (BroadcastChannel), re-checked when shown.
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel(CONSENT_CHANNEL);
+      channel.onmessage = syncConsentFromCookie;
+    } catch {
+      channel = null;
+    }
+    document.addEventListener("visibilitychange", syncConsentFromCookie);
+    return () => {
+      channel?.close();
+      document.removeEventListener("visibilitychange", syncConsentFromCookie);
+    };
+  }, []);
+
   useEffect(() => startApiTracking(), []);
 
   return (
@@ -57,7 +79,7 @@ export function TrackingClient({
         <Script id="ga4-gtag" src={gtagScriptSrc(measurementId)} strategy="afterInteractive" />
       ) : null}
       {ready && measured && (consent === null || settingsOpen) ? (
-        <ConsentBanner current={consent} />
+        <ConsentBanner current={consent} takeFocus={settingsOpen} />
       ) : null}
     </>
   );

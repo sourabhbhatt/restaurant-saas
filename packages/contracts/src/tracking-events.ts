@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { planKeySchema } from "./platform";
+
 /**
  * Growth-measurement event catalog (Google Analytics 4): the single allowlist
  * of event names and parameter schemas shared by the browser tracker
@@ -15,8 +17,11 @@ import { z } from "zod";
 /** Where an event is produced. `database` events are never sent to GA4; they are derived from SQL. */
 export type TrackingSource = "client" | "server" | "database";
 
-/** Plan keys are slugs chosen by the Super Admin (starter, pro, ...), never tenant data. */
-const planKey = z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/);
+/**
+ * Plan keys are slugs chosen by the Super Admin (starter, pro, ...), never
+ * tenant data: exactly the platform's own rule, so no valid plan is dropped.
+ */
+const planKey = planKeySchema;
 const billingCycle = z.enum(["monthly", "annual"]);
 const currency = z.string().regex(/^[A-Z]{3}$/);
 /** The plan's list price in major units (rupees). */
@@ -69,6 +74,12 @@ export const TRACKING_EVENTS = {
   order_submitted: { source: "database", keyEvent: false, params: null },
   order_accepted: { source: "database", keyEvent: false, params: null },
   order_completed: { source: "database", keyEvent: false, params: null },
+  /**
+   * Cancellations (and manual activations) are Super Admin actions: no
+   * consented browser of the customer is behind them, so they stay in the
+   * database (`subscription_events`) and are never sent.
+   */
+  subscription_cancelled: { source: "database", keyEvent: false, params: null },
   trial_started: {
     source: "server",
     keyEvent: true,
@@ -87,24 +98,20 @@ export const TRACKING_EVENTS = {
   payment_succeeded: {
     source: "server",
     keyEvent: true,
-    params: z.strictObject({ plan_key: planKey, billing_cycle: billingCycle, value, currency }),
-  },
-  subscription_activated: {
-    source: "server",
-    keyEvent: true,
     params: z.strictObject({
       plan_key: planKey,
       billing_cycle: billingCycle,
-      activation_source: z.enum(["online_payment", "manual"]),
+      value,
+      currency,
+      /** The workspace was already on an active paid plan (a renewal or a plan change). */
+      renewal: z.boolean(),
     }),
   },
-  subscription_cancelled: {
+  /** A workspace became ACTIVE from trial, expiry or cancellation; never sent for a renewal. */
+  subscription_activated: {
     source: "server",
-    keyEvent: false,
-    params: z.strictObject({
-      plan_key: planKey,
-      previous_status: z.enum(["active", "trialing"]),
-    }),
+    keyEvent: true,
+    params: z.strictObject({ plan_key: planKey, billing_cycle: billingCycle }),
   },
 } as const satisfies Record<string, SentEvent | DerivedEvent>;
 
@@ -130,21 +137,43 @@ export type ServerTrackingEvent = {
 /** Values a sent parameter may take after validation. */
 export type TrackingParamValue = string | number | boolean;
 
+/** A 24+ character run is a token only if it mixes in digits or capitals; long lowercase words are prose. */
+function looksLikeToken(text: string): boolean {
+  return (text.match(/[A-Za-z0-9_-]{24,}/g) ?? []).some((run) => /[A-Z0-9]/.test(run));
+}
+
 /**
- * Patterns that never belong in an analytics payload. A second line of
+ * Shapes that never belong in an analytics payload. A second line of
  * defence behind the strict schemas (which already admit no free text).
+ * Plan keys are slugs the platform already validated, so the length-based
+ * checks are looser there (`slug`): long words and short dates are fine, a
+ * 10-digit run (a mobile number) is not; `false` skips the check.
  */
-const PII_PATTERNS: readonly [string, RegExp][] = [
-  ["email", /[^\s@]+@[^\s@]+\.[^\s@]+/],
-  ["phone", /(?:\+?\d[\s().-]?){8,}/],
-  ["uuid", /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i],
-  ["jwt", /eyJ[\w-]+\.[\w-]+/],
-  ["token", /[A-Za-z0-9_-]{24,}/],
+type PiiTest = (text: string) => boolean;
+const PII_CHECKS: readonly { kind: string; test: PiiTest; slug?: PiiTest | false }[] = [
+  { kind: "email", test: (t) => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(t) },
+  {
+    kind: "phone",
+    test: (t) => /(?:\+?\d[\s().-]?){8,}/.test(t),
+    slug: (t) => /(?:\d[-_]?){10,}/.test(t),
+  },
+  {
+    kind: "uuid",
+    test: (t) => /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(t),
+  },
+  { kind: "jwt", test: (t) => /eyJ[\w-]+\.[\w-]+/.test(t) },
+  { kind: "token", test: looksLikeToken, slug: false },
 ];
 
-/** The name of the first PII pattern `text` matches, or null. */
-export function piiKind(text: string): string | null {
-  for (const [kind, pattern] of PII_PATTERNS) if (pattern.test(text)) return kind;
+/** Parameters whose schema already admits only a slug (`planKeySchema`). */
+const SLUG_PARAMS = new Set(["plan_key"]);
+
+/** The name of the first PII check `text` fails, or null. */
+export function piiKind(text: string, options: { slug?: boolean } = {}): string | null {
+  for (const check of PII_CHECKS) {
+    const test = options.slug && check.slug !== undefined ? check.slug : check.test;
+    if (test && test(text)) return check.kind;
+  }
   return null;
 }
 
@@ -179,7 +208,7 @@ export function validateTrackingEvent(
     if (v === undefined) continue;
     if (typeof v === "string") {
       if (v.length > GA4_LIMITS.paramValueLength) return { ok: false, reason: "value_too_long" };
-      if (piiKind(v)) return { ok: false, reason: "pii" };
+      if (piiKind(v, { slug: SLUG_PARAMS.has(key) })) return { ok: false, reason: "pii" };
     }
     out[key] = v as TrackingParamValue;
   }
@@ -237,6 +266,17 @@ export interface AnalyticsIds {
   clientId: string;
   /** Current GA4 session id from the `_ga_<container>` cookie, when it can be read. */
   sessionId: string | null;
+}
+
+const CLIENT_ID = /^\d{1,12}\.\d{9,11}$/;
+
+/**
+ * The ids for a server event whose browser is not in the request (a payment
+ * webhook): the client id recorded with the checkout, which is stored only
+ * when the buyer had opted in. No session: the checkout's session is over.
+ */
+export function storedAnalyticsIds(clientId: string | null | undefined): AnalyticsIds | null {
+  return clientId && CLIENT_ID.test(clientId) ? { clientId, sessionId: null } : null;
 }
 
 /**

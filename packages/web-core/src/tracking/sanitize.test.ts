@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   PRODUCT_SEGMENTS,
+  PUBLIC_SEGMENTS,
   contentGroupFor,
   sanitizePath,
   sanitizeReferrer,
@@ -49,10 +50,13 @@ describe("sanitizeUrl strips secrets and identifiers", () => {
     ).toBe(`${ORIGIN}/?utm_term=menu`);
   });
 
-  it("redacts unexpected public path segments that look like ids or tokens", () => {
-    expect(sanitizePath(`/blog/${TOKEN}`)).toBe("/blog/:redacted");
-    expect(sanitizePath("/blog/order-123456")).toBe("/blog/:redacted");
-    expect(sanitizePath("/blog/qr-menu-for-cafes")).toBe("/blog/qr-menu-for-cafes");
+  it("keeps only known public route words; anything else (a tenant slug, a token) is redacted", () => {
+    expect(sanitizePath("/legal/privacy")).toBe("/legal/privacy");
+    expect(sanitizePath("/features")).toBe("/features");
+    expect(sanitizePath("/sign-up")).toBe("/sign-up");
+    expect(sanitizePath("/r/spice-garden")).toBe("/:redacted/:redacted");
+    expect(sanitizePath(`/blog/${TOKEN}`)).toBe("/:redacted/:redacted");
+    expect(sanitizePath("/restaurant-billing-software-india")).toBe("/:redacted");
   });
 });
 
@@ -93,19 +97,33 @@ describe("contentGroupFor separates marketing from product", () => {
   });
 });
 
+const APP_DIR = path.resolve(import.meta.dirname, "../../../../apps/console/src/app");
+
+/** Static route segments under `dirs` (dynamic `[x]` and group `(x)` folders are skipped). */
+function staticSegments(...dirs: string[]): Set<string> {
+  const found = new Set<string>();
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      const full = path.join(dir, entry);
+      if (!statSync(full).isDirectory()) continue;
+      if (!entry.startsWith("[") && !entry.startsWith("(")) found.add(entry);
+      walk(full);
+    }
+  };
+  for (const dir of dirs) walk(path.join(APP_DIR, dir));
+  return found;
+}
+
 describe("PRODUCT_SEGMENTS", () => {
   it("lists every static segment of the console's /app route tree (add new ones here)", () => {
-    const root = path.resolve(import.meta.dirname, "../../../../apps/console/src/app/app");
-    const found = new Set<string>(["app"]);
-    const walk = (dir: string) => {
-      for (const entry of readdirSync(dir)) {
-        const full = path.join(dir, entry);
-        if (!statSync(full).isDirectory()) continue;
-        if (!entry.startsWith("[") && !entry.startsWith("(")) found.add(entry);
-        walk(full);
-      }
-    };
-    walk(root);
+    const found = staticSegments("app");
+    found.add("app");
     expect([...found].sort()).toEqual([...PRODUCT_SEGMENTS].sort());
+  });
+});
+
+describe("PUBLIC_SEGMENTS", () => {
+  it("lists every static segment of the public site and auth pages (add new ones here)", () => {
+    expect([...staticSegments("(public)", "(auth)")].sort()).toEqual([...PUBLIC_SEGMENTS].sort());
   });
 });

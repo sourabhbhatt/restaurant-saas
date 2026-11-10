@@ -1,10 +1,11 @@
 import { StrictMode } from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ANALYTICS_CONSENT_COOKIE } from "@ros/contracts/tracking-events";
 
+import { CONSENT_CHANNEL, useTrackingStore } from "./consent";
 import { PrivacyChoicesLink } from "./privacy-choices";
 import { track } from "./track";
 import { TrackingClient } from "./tracking-client";
@@ -128,6 +129,8 @@ describe("page views", () => {
   it("sends exactly one page_view per route change, never for re-renders or Strict Mode", () => {
     setConsentCookie("granted");
     go("/pricing?utm_source=newsletter&email=asha%40example.com");
+    // A title left over from the previous route (e.g. a restaurant's name) never reaches GA.
+    document.title = "Spice Garden · Menu";
     const { rerender } = render(<StrictMode>{ui()}</StrictMode>);
     rerender(<StrictMode>{ui()}</StrictMode>);
     expect(events("page_view")).toHaveLength(1);
@@ -146,8 +149,13 @@ describe("page views", () => {
     ]);
     expect(views.map((v) => v.content_group)).toEqual(["marketing", "marketing", "product"]);
     expect(views[1]!.page_referrer).toBe("http://localhost:3000/pricing?utm_source=newsletter");
-    // App titles can name a restaurant; they are replaced by the sanitized path.
-    expect(views[2]!.page_title).toBe("/app/w/:id/subscription");
+    // Titles can name a restaurant (and can lag a navigation); every title is the sanitized path.
+    expect(views.map((v) => v.page_title)).toEqual([
+      "/pricing",
+      "/features",
+      "/app/w/:id/subscription",
+    ]);
+    expect(JSON.stringify(commands())).not.toContain("Spice Garden");
     expect(JSON.stringify(commands())).not.toContain(UUID);
     expect(JSON.stringify(commands())).not.toContain("asha");
   });
@@ -197,6 +205,74 @@ describe("changing the choice later", () => {
     const before = commands().length;
     act(() => track("upgrade_clicked", {}));
     expect(commands()).toHaveLength(before);
+  });
+});
+
+describe("a choice made in another tab", () => {
+  /** What another tab does on Decline/Allow: write the shared cookie, then announce it. */
+  function otherTabChooses(choice: "granted" | "denied") {
+    setConsentCookie(choice);
+    const channel = new BroadcastChannel(CONSENT_CHANNEL);
+    channel.postMessage("changed");
+    channel.close();
+  }
+
+  it("a withdrawal stops this tab at once and removes the GA cookies its tag wrote", async () => {
+    setConsentCookie("granted");
+    render(ui());
+    expect(events("page_view")).toHaveLength(1);
+    document.cookie = "_ga=GA1.1.123.1700000000; Path=/";
+
+    otherTabChooses("denied");
+
+    await waitFor(() => expect(window[`ga-disable-${TEST_ID}`]).toBe(true));
+    expect(commands().at(-1)).toEqual(["consent", "update", { analytics_storage: "denied" }]);
+    expect(document.cookie).not.toContain("_ga=");
+    const before = commands().length;
+    act(() => track("upgrade_clicked", {}));
+    go("/features");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    expect(commands()).toHaveLength(before);
+  });
+
+  it("is picked up when this tab is shown again, without a message", () => {
+    setConsentCookie("granted");
+    render(ui());
+    setConsentCookie("denied");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    expect(window[`ga-disable-${TEST_ID}`]).toBe(true);
+    expect(useTrackingStore.getState().consent).toBe("denied");
+  });
+
+  it("stops this tab's own events even before it hears about the withdrawal", () => {
+    setConsentCookie("granted");
+    render(ui());
+    setConsentCookie("denied");
+    const before = commands().length;
+    track("upgrade_clicked", {});
+    expect(commands()).toHaveLength(before);
+  });
+
+  it("an opt-in elsewhere closes this tab's banner and starts the tag", async () => {
+    render(ui());
+    expect(screen.getByTestId("analytics-consent")).toBeInTheDocument();
+    otherTabChooses("granted");
+    await waitFor(() => expect(screen.queryByTestId("analytics-consent")).toBeNull());
+    expect(screen.getByTestId("gtag-script")).toBeInTheDocument();
+    expect(events("page_view")).toHaveLength(1);
+  });
+
+  it("announces this tab's choice to the others", async () => {
+    const heard: unknown[] = [];
+    const listener = new BroadcastChannel(CONSENT_CHANNEL);
+    listener.onmessage = (e) => heard.push(e.data);
+    try {
+      render(ui());
+      await userEvent.click(screen.getByRole("button", { name: "Decline" }));
+      await waitFor(() => expect(heard).toEqual(["changed"]));
+    } finally {
+      listener.close();
+    }
   });
 });
 

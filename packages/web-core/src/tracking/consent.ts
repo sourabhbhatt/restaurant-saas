@@ -61,14 +61,40 @@ export function clearAnalyticsCookies(): void {
       document.cookie = `${name}=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${domain}`;
 }
 
+/** Other open tabs of this site hear about a new choice on this channel (tracking-client.tsx). */
+export const CONSENT_CHANNEL = "ros-analytics-consent";
+
+/** Tells the other tabs to re-read the cookie. Without BroadcastChannel they re-read when shown. */
+function announceChoice(): void {
+  try {
+    const channel = new BroadcastChannel(CONSENT_CHANNEL);
+    channel.postMessage("changed");
+    channel.close();
+  } catch {
+    // Older browser: the visibilitychange re-read covers it.
+  }
+}
+
 /** The visitor's choice from the banner. Stored for 180 days; asked again after that. */
 export function chooseAnalytics(choice: ConsentChoice): void {
   writeConsentCookie(choice);
   if (choice === "denied") clearAnalyticsCookies();
   useTrackingStore.setState({ consent: choice, settingsOpen: false });
+  announceChoice();
 }
 
-/** "Cookie settings" in the footer: show the banner again with the current choice. */
+/**
+ * Re-reads the shared cookie, the single source of truth across tabs. A
+ * change made in another tab then flows through the normal effects: a
+ * withdrawal disables the loaded tag and deletes the GA cookies here too.
+ */
+export function syncConsentFromCookie(): void {
+  const consent = readConsentCookie();
+  if (useTrackingStore.getState().consent !== consent)
+    useTrackingStore.setState({ consent, settingsOpen: false });
+}
+
+/** "Cookie settings" (footers, account menu): show the banner again with the current choice. */
 export function openPrivacyChoices(): void {
   useTrackingStore.setState({ settingsOpen: true });
 }

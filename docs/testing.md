@@ -32,7 +32,7 @@ Local Postgres for them: `docker run -d --name ros-pg -e POSTGRES_PASSWORD=dev -
 
 ## Browser tests
 
-`pnpm exec playwright install chromium && pnpm test:e2e`. Without `E2E_BASE_URL`, Playwright builds and starts the API on :4100 (`ALLOWED_ORIGINS` = the console origin, `TRUSTED_PROXY_HOPS=1`) and the console on :3100 (`API_INTERNAL_URL` pointing at it). With `E2E_BASE_URL` it tests an existing deployment (for example the compose stack on `http://localhost:3000`). Specs: `site.spec.ts` (public site), `app-shell.spec.ts` (home page and web app manifest), `offline.spec.ts` (service worker and offline page).
+`pnpm exec playwright install chromium && pnpm test:e2e`. Without `E2E_BASE_URL`, Playwright builds and starts the API on :4100 (`ALLOWED_ORIGINS` = the console origin, `TRUSTED_PROXY_HOPS=1`) and the console on :3100 (`API_INTERNAL_URL` pointing at it). With `E2E_BASE_URL` it tests an existing deployment (for example the compose stack on `http://localhost:3000`). `E2E_SKIP_BUILD=1` starts the existing production builds instead of building again (CI uses it for the analytics consent run with `GA_MEASUREMENT_ID=G-E2ETEST01`, see [growth analytics](growth/analytics-events.md#tests)). Specs: `site.spec.ts` (public site), `app-shell.spec.ts` (home page and web app manifest), `offline.spec.ts` (service worker and offline page).
 
 ## Smoke run
 

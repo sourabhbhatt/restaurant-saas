@@ -3,9 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useTrackingStore } from "./consent";
 import { configureGtag } from "./gtag";
 import { track, trackOnce } from "./track";
-import { TEST_ID, events, resetTracking, setPath } from "./test-helpers";
+import { TEST_ID, events, resetTracking, setConsentCookie, setPath } from "./test-helpers";
 
 function optIn() {
+  setConsentCookie("granted");
   useTrackingStore.setState({ measurementId: TEST_ID, consent: "granted" });
   configureGtag(TEST_ID, { debug: false });
 }
