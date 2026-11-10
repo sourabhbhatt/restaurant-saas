@@ -34,6 +34,13 @@ export const BRANCH_EVENT_TYPES = [
 export const POLL_WHEN_LIVE_MS = 10_000;
 export const POLL_WHEN_OFFLINE_MS = 4_000;
 
+/**
+ * Events that arrive within this window refetch the branch queries once. A busy
+ * service emits bursts (accept, start, ready on several orders); without this,
+ * every event cancels the in-flight refetch and starts another on every screen.
+ */
+export const INVALIDATE_COALESCE_MS = 250;
+
 const MIN_BACKOFF_MS = 1_000;
 const MAX_BACKOFF_MS = 30_000;
 
@@ -70,7 +77,16 @@ export function useBranchEvents(
     let source: EventSource | null = null;
     let attempt = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let invalidateTimer: ReturnType<typeof setTimeout> | null = null;
     let disposed = false;
+
+    const invalidate = () => {
+      if (invalidateTimer) return;
+      invalidateTimer = setTimeout(() => {
+        invalidateTimer = null;
+        void qc.invalidateQueries({ queryKey: staffOpsKeys.branch(branchId) });
+      }, INVALIDATE_COALESCE_MS);
+    };
 
     const handle = (type: string) => (e: MessageEvent<string>) => {
       setLastEventAt(Date.now());
@@ -81,7 +97,7 @@ export function useBranchEvents(
       } catch {
         // malformed payload: still treat as a refetch hint
       }
-      void qc.invalidateQueries({ queryKey: staffOpsKeys.branch(branchId) });
+      invalidate();
       onEventRef.current?.(type, data);
     };
 
@@ -121,6 +137,7 @@ export function useBranchEvents(
       disposed = true;
       window.removeEventListener("online", onOnline);
       if (timer) clearTimeout(timer);
+      if (invalidateTimer) clearTimeout(invalidateTimer);
       source?.close();
     };
   }, [branchId, qc]);
