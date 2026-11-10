@@ -14,16 +14,18 @@ import { ORIGINS, log, percentile, round } from "./lib.mjs";
 const API = `${ORIGINS.api}/api/v1`;
 
 /**
- * fetch with one retry on a network error: undici may reuse a keep-alive socket
- * the server has just closed (EPIPE/ECONNRESET). Every request here is safe to
- * repeat (reads, or writes carrying an idempotency key).
+ * fetch, retried on network errors: undici may reuse keep-alive sockets the
+ * server closed while this process was blocked (Lighthouse runs synchronously),
+ * which fail with EPIPE/ECONNRESET one stale socket at a time. Every request
+ * here is safe to repeat (reads, or writes carrying an idempotency key).
  */
 async function http(url, init) {
-  try {
-    return await fetch(url, init);
-  } catch (error) {
-    if (!(error instanceof TypeError)) throw error;
-    return fetch(url, init);
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fetch(url, init);
+    } catch (error) {
+      if (!(error instanceof TypeError) || attempt >= 6) throw error;
+    }
   }
 }
 

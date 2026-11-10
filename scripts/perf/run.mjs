@@ -16,7 +16,8 @@
  *
  * Output: --out <dir> (default .data/perf-results/<label>) with summary.json,
  * summary.md and raw files. Nothing leaves the machine; no cloud calls.
- * Options: --skip-build, --runs N (Lighthouse runs, default 3), --compare <summary.json>.
+ * Options: --skip-build, --runs N (Lighthouse runs, default 3), --compare <summary.json>,
+ * --keep-raw (keep every Lighthouse JSON report), --keep-next-cache (keep .next/cache after build).
  * Ports (env): PERF_API_PORT 4150, PERF_CONSOLE_PORT 3150, PERF_OPS_PORT 3151,
  * PERF_ADMIN_PORT 3152, PERF_PG_PORT 55150, PERF_COLDSTART_PORT 4159.
  */
@@ -30,6 +31,7 @@ import { coldStartSuite } from "./coldstart.mjs";
 import { compareMarkdown } from "./compare.mjs";
 import {
   apiEnv,
+  assertPerfDatabase,
   frontendEnv,
   log,
   ORIGINS,
@@ -37,6 +39,7 @@ import {
   ROOT,
   run,
   start,
+  stop,
   stopAll,
   waitFor,
 } from "./lib.mjs";
@@ -50,6 +53,8 @@ const { values: args } = parseArgs({
     phases: { type: "string", default: "build,bundles,data,coldstart,lighthouse,api,pg" },
     runs: { type: "string", default: "3" },
     "skip-build": { type: "boolean", default: false },
+    "keep-raw": { type: "boolean", default: false },
+    "keep-next-cache": { type: "boolean", default: false },
     compare: { type: "string" },
   },
 });
@@ -73,6 +78,7 @@ function gitRev() {
 }
 
 function seed(dbEnv, extra = {}) {
+  assertPerfDatabase({ ...dbEnv, ...extra });
   run("pnpm", ["db:seed"], { env: { ...dbEnv, ...extra }, capture: true });
   const res = run(tsx, ["scripts/perf/seed-large.ts"], { env: extra, capture: true });
   return JSON.parse(res.stdout.trim().split("\n").pop());
@@ -122,6 +128,29 @@ async function startFrontends() {
 
 let lighthouseCookies;
 
+/**
+ * Connection churn under polling: one kitchen-feed request every 11 s (screens
+ * poll every 10 s, plus jitter), counting the database sessions the API opens.
+ * A pool whose idle timeout is shorter than the gap reconnects on every poll.
+ */
+async function measurePoolChurn(ctx, cookies, requests = 6, gapMs = 11_000) {
+  const url = `${ORIGINS.api}/api/v1/branches/${ctx.branches[0].id}/kitchen`;
+  const get = async () =>
+    (await fetch(url, { headers: { cookie: cookies.kitchen } })).arrayBuffer();
+  await get();
+  const before = pg.sessionsOpened();
+  for (let i = 0; i < requests; i++) {
+    await new Promise((r) => setTimeout(r, gapMs));
+    await get();
+  }
+  // Minus one: the psql session that reads the counter the second time.
+  const opened = pg.sessionsOpened() - before - 1;
+  log(
+    `  [pg] pool churn: ${opened} new connections for ${requests} requests ${gapMs / 1000} s apart`,
+  );
+  return { requests, gapMs, connectionsOpened: opened };
+}
+
 async function main() {
   summary.label = args.label;
   summary.git = gitRev();
@@ -134,6 +163,10 @@ async function main() {
     const t0 = performance.now();
     run("pnpm", ["build", "--concurrency=2"], { env: { NEXT_TELEMETRY_DISABLED: "1" } });
     summary.buildSeconds = Math.round((performance.now() - t0) / 1000);
+    // Disk: the Turbopack cache (~100 MB per app) only speeds up the next build.
+    if (!args["keep-next-cache"])
+      for (const app of ["api", "console", "ops", "admin"])
+        rmSync(path.join(ROOT, "apps", app, ".next", "cache"), { recursive: true, force: true });
     save();
   }
 
@@ -163,16 +196,27 @@ async function main() {
 
     if (phases.has("lighthouse") || phases.has("api")) {
       log("servers: next start (api on PGlite, console, ops, admin)");
-      await startApi(pgliteEnv);
+      let api = await startApi(pgliteEnv);
       if (phases.has("lighthouse")) {
         await startFrontends();
         lighthouseCookies = await signInAll();
         const cookies = lighthouseCookies;
         log(`lighthouse: ${LIGHTHOUSE}, ${args.runs} runs per page, chrome ${chromePath()}`);
-        summary.lighthouse = lighthouseSuite(ctx, cookies, OUT, Number(args.runs));
+        summary.lighthouse = lighthouseSuite(
+          ctx,
+          cookies,
+          OUT,
+          Number(args.runs),
+          args["keep-raw"],
+        );
         save();
       }
       if (phases.has("api")) {
+        // A fresh API process: latency is not measured on a heap warmed (or worn) by Lighthouse.
+        if (api.exitCode !== null)
+          log(`  api exited during lighthouse:\n${api.output.slice(-3000)}`);
+        await stop(api);
+        api = await startApi(pgliteEnv);
         log("api: latency on PGlite (single embedded connection; not a production number)");
         summary.apiPglite = await apiSuite(ctx, { cookies: lighthouseCookies });
         save();
@@ -220,7 +264,9 @@ async function main() {
           await stopAll();
           await startApi(runtime);
           const result = await apiSuite(pctx, { counter: pg.countStatements, cookies });
+          const poolChurn = await measurePoolChurn(pctx, cookies);
           summary.pg = {
+            poolChurn,
             version,
             backend,
             dataset,

@@ -32,9 +32,34 @@ export function readEnvFile(file) {
   return out;
 }
 
+/**
+ * Refuse any database other than the harness's own: PGlite under this repo's
+ * .data/ or the throwaway Postgres on 127.0.0.1:PERF_PG_PORT. Never a system
+ * Postgres (localhost:5432) or a remote one.
+ */
+export function assertPerfDatabase(env) {
+  const provider = env.DATABASE_PROVIDER;
+  if (provider === "pglite") {
+    const dir = path.resolve(env.PGLITE_DATA_DIR ?? "");
+    if (!env.PGLITE_DATA_DIR || !dir.startsWith(path.join(ROOT, ".data") + path.sep))
+      throw new Error(`perf: PGLITE_DATA_DIR must be under ${path.join(ROOT, ".data")}`);
+    return;
+  }
+  if (provider === "postgres") {
+    const url = new URL(env.DATABASE_URL ?? "");
+    if (url.hostname !== "127.0.0.1" || Number(url.port) !== PORTS.pg)
+      throw new Error(`perf: DATABASE_URL must point at 127.0.0.1:${PORTS.pg}, got ${url.host}`);
+    return;
+  }
+  throw new Error("perf: DATABASE_PROVIDER must be set explicitly (pglite or postgres)");
+}
+
 /** API environment: .env.local plus the perf database and our ports (later keys win). */
 export function apiEnv(db) {
   const base = readEnvFile(path.join(ROOT, ".env.local"));
+  // Drop any database settings from .env.local: only the explicit perf database is used.
+  for (const key of ["DATABASE_PROVIDER", "DATABASE_URL", "PGLITE_DATA_DIR"]) delete base[key];
+  assertPerfDatabase(db);
   return {
     ...base,
     NODE_ENV: "production",

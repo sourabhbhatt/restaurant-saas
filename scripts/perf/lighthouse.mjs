@@ -97,14 +97,44 @@ const METRICS = {
   requests: (r) => (r.audits["network-requests"]?.details?.items ?? []).length,
 };
 
-/** Runs every target `runs` times; raw JSON reports go to `outDir/lighthouse`. */
-export function lighthouseSuite(ctx, cookies, outDir, runs = 3) {
+/** LCP element and the requests on the page (first run only), so raw reports can be dropped. */
+function diagnostics(r) {
+  const lcp = r.audits["lcp-breakdown-insight"]?.details?.items?.find((i) => i.type === "node");
+  const reqs = (r.audits["network-requests"]?.details?.items ?? []).map((i) => ({
+    path: i.url
+      .replace(/^https?:\/\/[^/]+/, "")
+      .replace(/\/(t|public\/qr)\/[^/?]+/, "/$1/<token>")
+      .slice(0, 90),
+    type: i.resourceType ?? null,
+    kb: round((i.transferSize ?? 0) / 1024, 1),
+    startMs: round(i.networkRequestTime, 0),
+    endMs: round(i.networkEndTime, 0),
+    priority: i.priority ?? null,
+  }));
+  const shifts = (r.audits["layout-shifts"]?.details?.items ?? []).slice(0, 3).map((i) => ({
+    score: round(i.score, 3),
+    selector: i.node?.selector ?? null,
+    label: i.node?.nodeLabel?.slice(0, 80) ?? null,
+  }));
+  return {
+    lcpElement: lcp ? { label: lcp.nodeLabel, selector: lcp.selector } : null,
+    layoutShifts: shifts,
+    requests: reqs,
+  };
+}
+
+/**
+ * Runs every target `runs` times. Raw JSON reports are written to
+ * `outDir/lighthouse` and deleted after parsing unless `keepRaw`.
+ */
+export function lighthouseSuite(ctx, cookies, outDir, runs = 3, keepRaw = false) {
   const dir = path.join(outDir, "lighthouse");
   mkdirSync(dir, { recursive: true });
   const env = { CHROME_PATH: chromePath() };
   const results = {};
   for (const t of targets(ctx, cookies)) {
     const per = [];
+    let diag = null;
     const slug = t.name
       .replace(/[^a-z0-9]+/gi, "-")
       .replace(/^-|-$/g, "")
@@ -134,6 +164,8 @@ export function lighthouseSuite(ctx, cookies, outDir, runs = 3) {
         continue;
       }
       const report = JSON.parse(readFileSync(file, "utf8"));
+      if (!keepRaw) rmSync(file, { force: true });
+      if (!diag) diag = diagnostics(report);
       const m = {};
       for (const [k, f] of Object.entries(METRICS)) m[k] = f(report);
       m.finalUrl = report.finalDisplayedUrl ?? report.finalUrl;
@@ -156,6 +188,7 @@ export function lighthouseSuite(ctx, cookies, outDir, runs = 3) {
       finalUrl: ok[0]?.finalUrl?.replace(/\/t\/[^/?]+/, "/t/<token>") ?? null,
       warnings: [...new Set(ok.flatMap((p) => p.warnings))].slice(0, 3),
       errors: per.filter((p) => p.error).map((p) => p.error),
+      diagnostics: diag,
     };
     log(
       `  ${t.name}: perf ${med.performance} LCP ${med.lcpMs} CLS ${med.cls} TBT ${med.tbtMs} FCP ${med.fcpMs} TTFB ${med.ttfbMs} JS ${med.scriptKB} KB (${ok.length}/${per.length} ok)`,

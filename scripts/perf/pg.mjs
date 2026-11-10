@@ -212,16 +212,12 @@ export function preparePostgres() {
   psql(`grant connect on database ${DB} to ros_runtime`);
   psql("create extension if not exists pg_stat_statements");
   psql("analyze");
-  // /api/v1/health/ready reads drizzle.__drizzle_migrations; the migrations grant ros_runtime
-  // nothing on schema `drizzle`, so record whether the runtime role can read it, then grant
-  // it here so the harness can use the readiness probe (finding reported separately).
+  // Migration 0007 lets the runtime role read the journal (readiness probe); record it.
   const probe = psql("select to_regclass('drizzle.__drizzle_migrations') is not null", {
     user: "ros_runtime",
     allowFail: true,
   });
-  psql("grant usage on schema drizzle to ros_runtime");
-  psql("grant select on drizzle.__drizzle_migrations to ros_runtime");
-  return { runtimeCanReadMigrationJournal: probe.ok, probeOutput: probe.out.slice(0, 200) };
+  return { runtimeCanReadMigrationJournal: probe.ok && probe.out === "t" };
 }
 
 /** Statements ros_runtime ran during `fn` (one request). */
@@ -330,6 +326,11 @@ export function collectPlans() {
     };
   }
   return { summary, sections };
+}
+
+/** Sessions (connections) ever opened to the perf database (pg_stat_database, PG 14+). */
+export function sessionsOpened() {
+  return Number(psql(`select sessions from pg_stat_database where datname = '${DB}'`));
 }
 
 export function pgVersion() {
