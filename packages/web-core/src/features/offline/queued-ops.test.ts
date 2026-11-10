@@ -18,6 +18,7 @@ import {
   STAFF_ORDER_MAX_AGE_MS,
   staffOrderHoldReason,
   staffOrderMutation,
+  withConfirmedKitchenChanges,
 } from "./queued-ops";
 import { canRetryWithLatest, SyncEngine } from "./sync-engine";
 
@@ -28,7 +29,7 @@ interface Call {
   body: Record<string, unknown> | undefined;
 }
 
-type Responder = (call: Call) => Response | "network-error";
+type Responder = (call: Call) => Response | Promise<Response> | "network-error";
 
 const json = (status: number, payload: unknown) =>
   new Response(JSON.stringify(payload), {
@@ -65,7 +66,7 @@ function makeEngine(target: OfflineDatabase = db) {
         body: init.body ? JSON.parse(String(init.body)) : undefined,
       };
       calls.push(call);
-      const res = responder(call);
+      const res = await responder(call);
       if (res === "network-error") throw new TypeError("Failed to fetch");
       return res;
     },
@@ -217,6 +218,133 @@ describe("queued kitchen operations", () => {
     await engine.syncNow();
     expect(canRetryWithLatest((await db.outbox.get(menu.id))!)).toBe(true);
     expect(canRetryWithLatest((await db.outbox.get(chained.id))!)).toBe(true);
+  });
+
+  it("a second tap made while the first is in flight is sent after it, on the version it returned", async () => {
+    const tap = (status: "PREPARING" | "READY") =>
+      kitchenItemStatusMutation({ branchId: BRANCH, order: ORDER, item: ITEM, status });
+    await engine.enqueue(tap("PREPARING"));
+    let inFlight = 0;
+    let maxInFlight = 0;
+    responder = async (call) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      try {
+        if (calls.length === 1) {
+          // The cook taps again before the first answer arrives (same screen: version 4).
+          await engine.enqueue(tap("READY"));
+          void engine.syncNow();
+          return orderResponse(5);
+        }
+        return orderResponse(6, "READY");
+      } finally {
+        inFlight -= 1;
+      }
+    };
+    await engine.syncNow();
+    expect(calls.map((c) => [c.body?.status, c.body?.expectedVersion])).toEqual([
+      ["PREPARING", 4],
+      ["READY", 5],
+    ]);
+    expect(maxInFlight).toBe(1);
+    expect((await db.outbox.toArray()).map((i) => i.status)).toEqual(["synced", "synced"]);
+  });
+
+  it("a 409 on a later tap stays a conflict: never shown as done, later taps wait behind it", async () => {
+    await engine.enqueue(
+      kitchenItemStatusMutation({
+        branchId: BRANCH,
+        order: ORDER,
+        item: ITEM,
+        status: "PREPARING",
+      }),
+    );
+    const second = await engine.enqueue(
+      kitchenItemStatusMutation({ branchId: BRANCH, order: ORDER, item: ITEM, status: "READY" }),
+    );
+    // Another device changed the order in between.
+    responder = (call) =>
+      call.body?.status === "PREPARING"
+        ? orderResponse(5)
+        : apiError(409, "STALE_VERSION", { status: "PREPARING", version: 9 });
+    await engine.syncNow();
+    await engine.enqueue(
+      kitchenItemStatusMutation({
+        branchId: BRANCH,
+        order: { ...ORDER, version: 5 },
+        item: ITEM_2,
+        status: "PREPARING",
+      }),
+    );
+    await engine.syncNow();
+    expect(calls).toHaveLength(2); // the third waits behind the refused one (FIFO per order)
+    expect((await db.outbox.get(second.id))!.status).toBe("conflict");
+    const state = queuedKitchenState(await db.outbox.toArray(), ORDER.id);
+    expect(state.needsAttention).toBe(true);
+    expect(state.itemStatus[ITEM.id]).toBeUndefined(); // the line keeps the server's status
+
+    // Retry with latest resends it on the version the server reported.
+    responder = () => orderResponse(10, "READY");
+    expect(await engine.retryWithLatest(second.id)).toBe(true);
+    await engine.syncNow();
+    expect(calls[2]!.body).toMatchObject({ status: "READY", expectedVersion: 9 });
+  });
+
+  it("the ticket shows what the server confirmed until the feed catches up; new taps build on it", async () => {
+    await engine.enqueue(
+      kitchenItemStatusMutation({
+        branchId: BRANCH,
+        order: ORDER,
+        item: ITEM,
+        status: "PREPARING",
+      }),
+    );
+    responder = () =>
+      json(200, {
+        data: {
+          id: ORDER.id,
+          version: 5,
+          status: "PREPARING",
+          items: [
+            { id: ITEM.id, status: "PREPARING" },
+            { id: ITEM_2.id, status: "PENDING" },
+          ],
+        },
+      });
+    await engine.syncNow();
+    const outbox = await db.outbox.toArray();
+    const feed = {
+      ...ORDER,
+      status: "ACCEPTED",
+      items: [
+        { ...ITEM, status: "PENDING" },
+        { ...ITEM_2, status: "PENDING" },
+      ],
+    };
+    // The feed has not been refetched yet: the server's answer wins.
+    const shown = withConfirmedKitchenChanges(outbox, feed);
+    expect(shown).toMatchObject({ version: 5, status: "PREPARING", orderNumber: 12 });
+    expect(shown.items.map((i) => [i.itemName, i.status])).toEqual([
+      ["Masala Chai", "PREPARING"],
+      ["Butter Naan", "PENDING"],
+    ]);
+    const next = kitchenItemStatusMutation({
+      branchId: BRANCH,
+      order: shown,
+      item: ITEM,
+      status: "READY",
+    });
+    expect(next.expectedVersion).toBe(5);
+    // Once the feed has caught up (same or newer version), the feed wins.
+    const refreshed = { ...feed, version: 6, status: "PREPARING" };
+    expect(withConfirmedKitchenChanges(outbox, refreshed)).toBe(refreshed);
+    // Queued (unconfirmed) changes never count as confirmed.
+    await engine.enqueue(
+      kitchenItemStatusMutation({ branchId: BRANCH, order: shown, item: ITEM, status: "READY" }),
+    );
+    expect(withConfirmedKitchenChanges(await db.outbox.toArray(), feed).items[0]!.status).toBe(
+      "PREPARING",
+    );
   });
 
   it("derives the queued item and order state for the ticket", async () => {

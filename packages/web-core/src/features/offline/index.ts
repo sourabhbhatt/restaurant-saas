@@ -23,6 +23,7 @@ export {
   scopeHasUnsynced,
   staffOrderMutation,
   tableScope,
+  withConfirmedKitchenChanges,
   type KitchenAction,
   type KitchenItemTarget,
   type QueuedKitchenState,
