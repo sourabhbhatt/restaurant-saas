@@ -51,8 +51,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
         id: "offline",
         question: "Does it work when the internet goes down?",
         answer: [
-          `Partly, and we want to be clear about which part. ${n} is an installable web app (PWA). Menus and screens that were already loaded keep working offline, drafts and carts are saved on the device, and changes sync automatically when the connection comes back.`,
-          "Placing an order and confirming a payment need a live connection, so those actions wait until you're back online.",
+          `Partly, and we want to be clear about which part. ${n} is an installable web app (PWA). Screens and menus a staff device has already loaded keep working offline, waiters can keep adding orders for a table and the kitchen can keep updating tickets. Those changes are queued on the device and sent, in order, when the connection comes back.`,
+          "Guest QR orders, approving guest orders, generating bills and recording payments need a live connection, so those buttons wait until you're back online.",
         ],
       },
       {

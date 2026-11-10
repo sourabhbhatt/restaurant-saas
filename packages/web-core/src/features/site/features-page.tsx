@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  ArrowRightIcon,
   BarChart3Icon,
   BookOpenIcon,
   Building2Icon,
@@ -20,6 +21,7 @@ import { Button } from "@ros/ui/ui/button";
 import { FinalCta } from "./landing/final-cta";
 import { NOT_YET } from "./not-yet";
 import { PageIntro, Section } from "./section";
+import { getSitePage, type SitePath } from "./seo/site-pages";
 
 interface FeatureBlock {
   id: string;
@@ -29,6 +31,8 @@ interface FeatureBlock {
   body: string;
   points: string[];
   note?: string;
+  /** Dedicated page with the full explanation. */
+  learnMore?: SitePath;
 }
 
 const BLOCKS: FeatureBlock[] = [
@@ -43,6 +47,7 @@ const BLOCKS: FeatureBlock[] = [
       "Variants and add-ons, dietary information and allergens",
       "Guests can follow the status of their orders and ask for the bill",
     ],
+    learnMore: "/features/qr-code-ordering",
   },
   {
     id: "waiter",
@@ -67,6 +72,7 @@ const BLOCKS: FeatureBlock[] = [
       "Delayed orders highlighted when they run past their prep time",
       "Priority flags for rush orders",
     ],
+    learnMore: "/features/kitchen-display-system",
   },
   {
     id: "billing",
@@ -80,6 +86,7 @@ const BLOCKS: FeatureBlock[] = [
       "Refunds and voids with a reason, kept in the audit log",
     ],
     note: "There is no online payment gateway yet — payments are taken on your existing methods and recorded here.",
+    learnMore: "/features/restaurant-billing",
   },
   {
     id: "menu",
@@ -135,13 +142,14 @@ const BLOCKS: FeatureBlock[] = [
     icon: WifiOffIcon,
     eyebrow: "Reliability",
     title: "Offline-ready staff devices",
-    body: "Install the app on any device. Screens and menus you've loaded keep working offline, drafts and carts are saved locally, and changes sync when you reconnect.",
+    body: "Install the app on any device. Screens and menus you've loaded keep working offline, waiters can keep taking orders and the kitchen can keep updating tickets — those changes sync when you reconnect.",
     points: [
       "Installable web app (PWA) — no app store needed",
-      "Carts and drafts survive a dropped connection",
-      "Automatic sync when you're back online",
+      "Waiter orders and kitchen updates are queued, then sent in order",
+      "Nothing queued is shown as confirmed until the server accepts it",
     ],
-    note: "Placing orders and confirming payments require a connection, so they wait until you're back online.",
+    note: "Guest QR orders, order approval, bills and payments need a connection, so those buttons wait until you're back online.",
+    learnMore: "/features/offline-mode",
   },
   {
     id: "analytics",
@@ -171,6 +179,7 @@ export function FeaturesPage() {
   return (
     <>
       <PageIntro
+        breadcrumbs="/features"
         eyebrow="Features"
         title="Everything a dine-in restaurant needs to run service"
         description="From the guest's first scan to the final bill — with your staff in control at every step."
@@ -221,6 +230,18 @@ export function FeaturesPage() {
                     <ClockIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-info" />
                     {b.note}
                   </p>
+                )}
+                {b.learnMore && (
+                  <Link
+                    href={b.learnMore}
+                    className="group inline-flex w-fit items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    {getSitePage(b.learnMore).label} in detail
+                    <ArrowRightIcon
+                      aria-hidden="true"
+                      className="size-4 motion-safe:transition-transform motion-safe:group-hover:translate-x-0.5"
+                    />
+                  </Link>
                 )}
               </div>
               <ul className="flex flex-col gap-3 self-center">

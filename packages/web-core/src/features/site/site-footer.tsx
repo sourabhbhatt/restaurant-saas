@@ -4,10 +4,10 @@ import { BRAND, LEGAL_NAV, SITE_NAV } from "./brand";
 import { BrandLogo } from "./logo";
 
 const PRODUCT_LINKS = [
-  { href: "/features#qr-ordering", label: "QR table ordering" },
-  { href: "/features#kitchen", label: "Kitchen display" },
-  { href: "/features#billing", label: "Counter billing" },
-  { href: "/features#offline", label: "Offline-ready devices" },
+  { href: "/features/qr-code-ordering", label: "QR code ordering" },
+  { href: "/features/kitchen-display-system", label: "Kitchen display system" },
+  { href: "/features/restaurant-billing", label: "Restaurant billing" },
+  { href: "/features/offline-mode", label: "Offline mode" },
 ];
 
 export function SiteFooter() {
